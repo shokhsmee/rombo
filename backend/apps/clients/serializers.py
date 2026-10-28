@@ -3,22 +3,27 @@ from rest_framework import serializers
 from apps.clients.models import Client
 from apps.core.serializers import RefSerializer
 from apps.employees.models import Employee
+from apps.references.models import RefItem, RefKind
+from apps.references.serializers import RefShortSerializer
 
 
 class ClientListSerializer(serializers.ModelSerializer):
     manager = RefSerializer(read_only=True)
+    segment = RefShortSerializer(read_only=True)
 
     class Meta:
         model = Client
         fields = ["id", "code", "kind", "name", "tin", "contact_person", "phone", "region", "is_active",
-                  "manager"]
+                  "manager", "segment"]
 
 
 class ClientSerializer(ClientListSerializer):
     manager_id = serializers.PrimaryKeyRelatedField(source="manager", queryset=Employee.objects.all(),
                                                     allow_null=True, required=False)
+    segment_id = serializers.PrimaryKeyRelatedField(source="segment", queryset=RefItem.objects.filter(kind=RefKind.CLIENT_SEGMENT),
+                                                    allow_null=True, required=False)
     projects_count = serializers.IntegerField(read_only=True)
 
     class Meta(ClientListSerializer.Meta):
         fields = [*ClientListSerializer.Meta.fields, "phone_extra", "email", "address", "source", "notes",
-                  "manager_id", "projects_count", "created_at", "updated_at"]
+                  "manager_id", "segment_id", "projects_count", "created_at", "updated_at"]

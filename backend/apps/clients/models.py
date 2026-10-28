@@ -7,7 +7,7 @@ from apps.core.models import AuditModel, SoftDeleteModel
 class ClientKind(models.TextChoices):
     INDIVIDUAL = "individual", "Jismoniy shaxs"
     COMPANY = "company", "Yuridik shaxs"
-    DEALER = "dealer", "Diler"
+    DEALER = "dealer", "Diler / hamkor"
 
 
 tin_validator = RegexValidator(r"^\d{9,14}$", "STIR 9–14 ta raqamdan iborat bo'lishi kerak")
@@ -16,7 +16,7 @@ tin_validator = RegexValidator(r"^\d{9,14}$", "STIR 9–14 ta raqamdan iborat bo
 class Client(AuditModel, SoftDeleteModel):
     TRACK = {
         "name": "Nomi", "kind": "Turi", "tin": "STIR", "phone": "Telefon", "contact_person": "Aloqa shaxsi",
-        "region": "Hudud", "manager": "Menejer", "is_active": "Faol",
+        "region": "Hudud", "manager": "Menejer", "is_active": "Faol", "segment": "Segment",
     }
     CHATTER_NAME = "Mijoz"
 
@@ -38,6 +38,8 @@ class Client(AuditModel, SoftDeleteModel):
 
     manager = models.ForeignKey("employees.Employee", null=True, blank=True, on_delete=models.SET_NULL,
                                 related_name="clients")
+    segment = models.ForeignKey("references.RefItem", null=True, blank=True, on_delete=models.PROTECT,
+                                related_name="+", limit_choices_to={"kind": "client_segment"})
 
     class Meta:
         ordering = ["-created_at"]

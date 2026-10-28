@@ -11,7 +11,7 @@ class ClientViewSet(ServiceModelViewSet):
     page_key = Pages.CLIENTS
     serializer_class = ClientSerializer
     list_serializer_class = ClientListSerializer
-    filterset_fields = ["kind", "region", "is_active", "manager"]
+    filterset_fields = ["kind", "region", "is_active", "manager", "segment"]
     search_fields = ["code", "name", "tin", "contact_person", "phone", "phone_extra", "region"]
     ordering_fields = ["code", "name", "region", "created_at"]
     ordering = ["-created_at"]
@@ -21,7 +21,7 @@ class ClientViewSet(ServiceModelViewSet):
     service_delete = services.client_delete
 
     def get_queryset(self):
-        qs = Client.objects.select_related("manager")
+        qs = Client.objects.select_related("manager", "segment")
         if self.action != "list":
             qs = qs.annotate(projects_count=Count("projects", filter=Q(projects__deleted_at__isnull=True)))
         return qs

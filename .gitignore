@@ -8,6 +8,7 @@ backend/.env
 backend/*.db
 backend/db.sqlite3
 backend/staticfiles/
+backend/media/
 
 # Node
 node_modules/

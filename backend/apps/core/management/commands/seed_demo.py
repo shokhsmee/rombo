@@ -8,6 +8,7 @@ from apps.clients.models import Client, ClientKind
 from apps.clients.services import client_create
 from apps.employees.services import employee_create
 from apps.projects.services import project_change_status, project_create
+from apps.references.models import RefItem
 from apps.users.models import User
 
 
@@ -59,10 +60,23 @@ class Command(BaseCommand):
             ("Kottej, alyumin vitraj", 1, ["confirmed", "production", "ready", "delivered"], -5, "72000000"),
             ("Maktab binosi derazalari", 4, ["confirmed", "procurement"], -3, "148000000"),
         ]
-        for name, ci, steps, days, amount in plan:
+        ref = {(r.kind, r.name): r for r in RefItem.objects.all()}
+        types = [ref[("product_type", n)] for n in ("Termo", "PVX", "Novation", "Aldoks")]
+        channels = [ref[("sales_channel", n)] for n in ("Salon / do'kon", "Diler", "Tavsiya", "Instagram / Telegram")]
+        for i, (name, ci, steps, days, amount) in enumerate(plan):
             c = clients[ci]
-            p = project_create(actor=actor, name=name, client=c, manager=c.manager, region=c.region,
-                               deadline=today + timedelta(days=days), amount=Decimal(amount))
+            total = Decimal(amount)
+            p = project_create(
+                actor=actor, name=name, client=c, manager=c.manager, region=c.region, phone=c.phone,
+                deadline=today + timedelta(days=days), sale_date=today - timedelta(days=30 - i * 4),
+                amount=total, service_amount=(total * Decimal("0.08")).quantize(Decimal("1000")),
+                advance_amount=(total * Decimal("0.4")).quantize(Decimal("1000")),
+                sales_channel=channels[i % len(channels)], brand=ref[("brand", "Akfa")],
+                product_name="Akfa Termo 70 / PVX Classic", mosquito_net=i % 2 == 0, dismantling=i % 3 == 0,
+                partner=clients[2] if ci != 2 else None,
+                items=[{"product_type": types[i % 4], "area_m2": Decimal(18 + i * 7), "quantity": 4 + i},
+                       {"product_type": types[(i + 1) % 4], "area_m2": Decimal("6.5"), "quantity": 2}],
+            )
             for s in steps:
                 p = project_change_status(p, actor=actor, status=s)
         self.stdout.write(self.style.SUCCESS("demo data created"))

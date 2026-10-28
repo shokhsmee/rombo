@@ -13,7 +13,7 @@ VIEW = dict(can_view=True)
 DEFAULT_ROLES = {
     "Administrator": ("Barcha sahifalarga to'liq ruxsat", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: FULL, Pages.CLIENTS: FULL, Pages.EMPLOYEES: FULL,
-        Pages.USERS: FULL, Pages.ROLES: FULL, Pages.PROCUREMENT: FULL, Pages.MRP: FULL,
+        Pages.USERS: FULL, Pages.ROLES: FULL, Pages.REFERENCES: FULL, Pages.PROCUREMENT: FULL, Pages.MRP: FULL,
     }),
     "Savdo menejeri": ("Loyiha va mijozlar bilan ishlaydi", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: EDIT, Pages.CLIENTS: EDIT, Pages.EMPLOYEES: VIEW,

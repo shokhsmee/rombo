@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.access",
     "apps.chatter",
+    "apps.references",
     "apps.users",
     "apps.employees",
     "apps.clients",
@@ -78,6 +79,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Uploaded files (drawings). Served only through authenticated API endpoints, never as public media.
+MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(BASE_DIR / "media")))
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = 30 * 1024 * 1024
 
 # --- API -------------------------------------------------------------------
 REST_FRAMEWORK = {
