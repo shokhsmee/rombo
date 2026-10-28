@@ -5,11 +5,15 @@ ERP for **Rombo**, an Akfa-profile window/door/facade manufacturer. The system f
 order (**Loyiha**) from contract through procurement, material planning (MRP), production and
 delivery. Every operational document links back to a Loyiha.
 
-## Roadmap
-1. ✅ Foundation — auth, users, roles × page permissions, employees, clients, Loyihalar
-2. ⏳ Procurement — `openspec/changes/add-procurement`
-3. ⏳ MRP — `openspec/changes/add-mrp`
-4. Later — production jobs, warehouse, delivery/installation, payments, reports
+## Roadmap — follows the company process map (`docs/process-map.md`)
+1. ✅ Sotuv — Loyihalar, Mijozlar, order card, hisob-kitob (price lists), shartnoma, chertezh
+2. ⏳ CRM — leads, telephony, client map (in progress on separate branches)
+3. Kassa — payments: advance, remainder, signed act closes the order
+4. Zakup — purchase requests from hisob-kitob lines (`openspec/changes/add-procurement`)
+5. Sklad — receipts, material issue slips
+6. Ishlab chiqarish — MRP / production jobs, assembler drawings (`openspec/changes/add-mrp`)
+7. O'rnatish — installation, acceptance act, installer drawings
+8. Marketing — leads plan, client video/photo reviews
 
 ## Tech stack
 | Layer | Choice |

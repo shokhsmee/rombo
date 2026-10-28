@@ -1,5 +1,6 @@
 // App frame in uzbridge's layout: a 236px sidebar (sticky), a translucent top bar, the page.
 import {
+  Building,
   Building2,
   ChevronDown,
   Factory,
@@ -10,6 +11,7 @@ import {
   Moon,
   Plus,
   ListChecks,
+  Tags,
   ShieldCheck,
   ShoppingCart,
   Sun,
@@ -18,7 +20,8 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth, type PageKey } from "@/auth/AuthProvider";
 import { useTheme, type Theme } from "@/lib/theme";
@@ -51,6 +54,8 @@ const NAV: NavGroup[] = [
       { page: "users", label: "Foydalanuvchilar", to: "/settings/users", icon: Users },
       { page: "roles", label: "Rollar va ruxsatlar", to: "/settings/roles", icon: ShieldCheck },
       { page: "references", label: "Ma'lumotnomalar", to: "/settings/references", icon: ListChecks },
+      { page: "pricing", label: "Narxlar", to: "/settings/pricing", icon: Tags },
+      { page: "company", label: "Kompaniya", to: "/settings/company", icon: Building },
     ],
   },
 ];
@@ -143,6 +148,11 @@ function TopBar() {
 
 export function Shell() {
   const { can } = useAuth();
+  const { pathname } = useLocation();
+  // a new page starts at the top (block body: newer browsers return a Promise from scrollTo)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => can(i.page)) })).filter((g) => g.items.length);
 
   return (

@@ -18,12 +18,12 @@ import { clientsApi, KIND_LABEL, REGIONS, type Client, type ClientKind } from ".
 type Values = {
   kind: ClientKind; name: string; tin: string; contact_person: string; phone: string; phone_extra: string;
   email: string; region: string; address: string; source: string; notes: string; is_active: boolean;
-  manager_id: number | null; segment_id: number | null;
+  manager_id: number | null; segment_id: number | null; passport: string;
 };
 
 const EMPTY: Values = {
   kind: "individual", name: "", tin: "", contact_person: "", phone: "", phone_extra: "", email: "",
-  region: "", address: "", source: "", notes: "", is_active: true, manager_id: null, segment_id: null,
+  region: "", address: "", source: "", notes: "", is_active: true, manager_id: null, segment_id: null, passport: "",
 };
 
 export function ClientFormPage() {
@@ -45,6 +45,7 @@ export function ClientFormPage() {
       kind: r.kind, name: r.name, tin: r.tin, contact_person: r.contact_person, phone: r.phone,
       phone_extra: r.phone_extra, email: r.email, region: r.region, address: r.address, source: r.source,
       notes: r.notes, is_active: r.is_active, manager_id: r.manager_id, segment_id: r.segment_id,
+      passport: r.passport,
     }),
     validate: {
       name: (v) => (v.trim().length >= 2 ? null : "Kamida 2 ta belgi"),
@@ -122,6 +123,7 @@ export function ClientFormPage() {
                 </Select>
               </Row>
               <Row label="Manzil"><Input {...form.text("address")} /></Row>
+              {!company && <Row label="Pasport"><Input placeholder="AA 1234567" className="font-mono" {...form.text("passport")} /></Row>}
               <Row label="Izoh" wide><Textarea {...form.text("notes")} /></Row>
               <Row label="Holat"><Toggle label="Faol mijoz" checked={v.is_active} disabled={!editable} onChange={(x) => form.set("is_active", x)} /></Row>
             </FieldGrid>

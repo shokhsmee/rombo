@@ -31,6 +31,7 @@ export type Client = ClientListItem & {
   notes: string;
   manager_id: number | null;
   segment_id: number | null;
+  passport: string;
   projects_count: number;
   created_at: string;
   updated_at: string;

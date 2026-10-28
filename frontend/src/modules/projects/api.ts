@@ -52,6 +52,17 @@ export type Project = ProjectListItem & {
   items: ProjectItem[];
   total_quantity: number;
   files: ProjectFile[];
+  calcs: CalcSummary[];
+  usd_rate: string | null;
+  advance_date: string | null;
+  profile_color: string;
+  door_accessory: string;
+  window_accessory: string;
+  windowsill: string;
+  glass: string;
+  shotlandka: string;
+  client_address: string;
+  client_passport: string;
   object_address: string;
   contract_number: string;
   contract_date: string | null;
@@ -60,7 +71,19 @@ export type Project = ProjectListItem & {
   updated_at: string;
 };
 
+export type CalcSummary = { id: number; title: string; currency: Currency; calc_date: string; total: string };
+export type CalcLine = { id: number; item_id: number | null; name: string; unit: string; price: string; qty: string; line_sum: string };
+export type Calc = CalcSummary & { price_list_id: number | null; bar_length_m: string | null; notes: string; lines: CalcLine[]; updated_at: string };
+
 export type ProjectInput = Partial<{
+  usd_rate: string | null;
+  advance_date: string | null;
+  profile_color: string;
+  door_accessory: string;
+  window_accessory: string;
+  windowsill: string;
+  glass: string;
+  shotlandka: string;
   partner_id: number | null;
   sales_channel_id: number | null;
   brand_id: number | null;
@@ -140,4 +163,45 @@ export async function downloadProjectFile(projectId: number, f: ProjectFile) {
   a.download = f.name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---- hisob-kitob
+
+const calcKey = (projectId: number, calcId?: number) => ["projects", "calc", projectId, calcId ?? "all"];
+
+export function useCalc(projectId: number, calcId: number) {
+  return useQuery({
+    queryKey: calcKey(projectId, calcId),
+    queryFn: async () => (await api.get<Calc>(`/projects/${projectId}/calcs/${calcId}/`)).data,
+  });
+}
+
+/** Create / save / refresh / delete a calculation; every change refreshes the card (its amount) and history. */
+export function useCalcActions(projectId: number) {
+  const qc = useQueryClient();
+  const done = (c?: Calc) => {
+    if (c) qc.setQueryData(calcKey(projectId, c.id), c);
+    qc.invalidateQueries({ queryKey: projectsApi.keys.all });
+    qc.invalidateQueries({ queryKey: ["chatter", "projects.project", projectId] });
+  };
+  return {
+    create: useMutation({
+      mutationFn: async (priceListId: number) =>
+        (await api.post<Calc>(`/projects/${projectId}/calcs/`, { price_list_id: priceListId })).data,
+      onSuccess: done,
+    }),
+    save: useMutation({
+      mutationFn: async ({ id, ...body }: { id: number; lines?: { id: number; qty: string; price: string }[]; notes?: string; calc_date?: string }) =>
+        (await api.patch<Calc>(`/projects/${projectId}/calcs/${id}/`, body)).data,
+      onSuccess: done,
+    }),
+    refresh: useMutation({
+      mutationFn: async (id: number) => (await api.post<Calc>(`/projects/${projectId}/calcs/${id}/refresh-prices/`)).data,
+      onSuccess: done,
+    }),
+    remove: useMutation({
+      mutationFn: async (id: number) => api.delete(`/projects/${projectId}/calcs/${id}/`),
+      onSuccess: () => done(),
+    }),
+  };
 }

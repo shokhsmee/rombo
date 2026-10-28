@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { Building2, ChevronDown, ExternalLink, Lock, Ruler, Wallet } from "lucide-react";
+import { Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Ruler, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -10,9 +10,10 @@ import { Button, Dialog, Input, Menu, Pill, Select, Smart, Textarea, Toggle } fr
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtArea, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
+import { pricingApi } from "@/modules/pricing/api";
 import { RefSelect } from "@/modules/references/RefSelect";
 
-import { projectsApi, useChangeStatus, type Currency, type Project, type ProjectStatus } from "./api";
+import { projectsApi, useCalcActions, useChangeStatus, type Currency, type Project, type ProjectStatus } from "./api";
 import { Drawings } from "./Drawings";
 import { emptyRow, ItemsEditor, itemsError, type ItemRow } from "./ItemsEditor";
 import { ACTION_LABEL, PIPELINE, STATUS } from "./statuses";
@@ -41,6 +42,14 @@ type Values = {
   contract_number: string;
   contract_date: string;
   notes: string;
+  usd_rate: string;
+  advance_date: string;
+  profile_color: string;
+  door_accessory: string;
+  window_accessory: string;
+  windowsill: string;
+  glass: string;
+  shotlandka: string;
 };
 
 const today = () => dayjs().format("YYYY-MM-DD"); // local date, not UTC
@@ -49,11 +58,12 @@ const EMPTY: Values = {
   name: "", client_id: null, phone: "", object_address: "", location: "", region: "", sale_date: today(), deadline: "",
   manager_id: null, partner_id: null, sales_channel_id: null, brand_id: null, product_name: "", items: [emptyRow()],
   mosquito_net: false, dismantling: false, amount: "0", service_amount: "0", advance_amount: "0", currency: "UZS",
-  contract_number: "", contract_date: "", notes: "",
+  contract_number: "", contract_date: "", notes: "", usd_rate: "", advance_date: "", profile_color: "",
+  door_accessory: "", window_accessory: "", windowsill: "", glass: "", shotlandka: "",
 };
 
 const EDITABLE: ProjectStatus[] = ["draft", "confirmed"];
-const money = (v: string) => (/^\d+([.,]\d{1,2})?$/.test(v.replace(/[\s ]/g, "")) ? null : "Summa noto'g'ri");
+const money = (v: string) => (/^\d+([.,]\d{1,2})?$/.test(v.replace(/[\s\u00a0]/g, "")) ? null : "Summa noto'g'ri");
 const apiMoney = (v: string) => String(toNum(v || "0"));
 const asLink = (loc: string) =>
   /^https?:\/\//.test(loc) ? loc
@@ -84,11 +94,15 @@ export function ProjectFormPage() {
       mosquito_net: r.mosquito_net, dismantling: r.dismantling, amount: String(Number(r.amount)),
       service_amount: String(Number(r.service_amount)), advance_amount: String(Number(r.advance_amount)), currency: r.currency,
       contract_number: r.contract_number, contract_date: r.contract_date ?? "", notes: r.notes,
+      usd_rate: r.usd_rate ? String(Number(r.usd_rate)) : "", advance_date: r.advance_date ?? "",
+      profile_color: r.profile_color, door_accessory: r.door_accessory, window_accessory: r.window_accessory,
+      windowsill: r.windowsill, glass: r.glass, shotlandka: r.shotlandka,
     }),
     validate: {
       name: (v) => (v.trim().length >= 2 ? null : "Kamida 2 ta belgi"),
       client_id: (v) => (v ? null : "Mijozni tanlang"),
       amount: money, service_amount: money, advance_amount: money,
+      usd_rate: (x) => (!x || toNum(x) >= 1 ? null : "Kurs noto'g'ri"),
       items: (rows) => itemsError(rows),
     },
   });
@@ -102,6 +116,7 @@ export function ProjectFormPage() {
       ...v,
       amount: apiMoney(v.amount), service_amount: apiMoney(v.service_amount), advance_amount: apiMoney(v.advance_amount),
       sale_date: v.sale_date || null, deadline: v.deadline || null, contract_date: v.contract_date || null,
+      advance_date: v.advance_date || null, usd_rate: v.usd_rate ? String(toNum(v.usd_rate)) : null,
       items: v.items.map((r) => ({ product_type_id: r.product_type_id!, area_m2: String(toNum(r.area_m2)), quantity: toNum(r.quantity) })),
     };
     save.mutate({ id, data }, {
@@ -125,6 +140,16 @@ export function ProjectFormPage() {
           off={p.status === "cancelled" ? STATUS.cancelled.label : undefined} />}>
           {canEdit && <SaveButtons dirty={form.dirty} saving={save.isPending} isNew={isNew} onReset={form.reset} />}
           {p && !form.dirty && <StatusActions project={p} canUpdate={can.update} />}
+          {p && !form.dirty && (
+            <Menu
+              trigger={() => <Button variant="ghost"><Printer className="size-4" strokeWidth={1.75} /> Hujjatlar <ChevronDown className="size-3.5" /></Button>}
+              items={[
+                { label: "Shartnoma", icon: <FileSignature className="size-4 text-muted" />, onClick: () => window.open(`/print/projects/${p.id}/contract`, "_blank") },
+                ...p.calcs.map((c) => ({ label: `Hisob-kitob · ${c.title}`, icon: <Calculator className="size-4 text-muted" />,
+                  onClick: () => window.open(`/print/projects/${p.id}/calcs/${c.id}`, "_blank") })),
+              ]}
+            />
+          )}
           {p?.status === "draft" && can.delete && !form.dirty && (
             <DeleteButton busy={remove.isPending}
               onConfirm={() => remove.mutate(p.id, { onSuccess: () => navigate("/projects"), onError: notifyError })} />
@@ -213,6 +238,12 @@ export function ProjectFormPage() {
                 <ItemsEditor rows={v.items} disabled={!canEdit || prodLocked} error={form.errors.items}
                   onChange={(rows) => form.set("items", rows)} />
               </Row>
+              <Row label="Profil rangi"><Input placeholder="306 G + Aluksantracit" disabled={prodLocked} {...form.text("profile_color")} /></Row>
+              <Row label="Oyna turi va rangi"><Input placeholder="Pepelniy steklopaket" disabled={prodLocked} {...form.text("glass")} /></Row>
+              <Row label="Rom aksessuari"><Input placeholder="Dvoynoy — otkidnoy" disabled={prodLocked} {...form.text("window_accessory")} /></Row>
+              <Row label="Eshik aksessuari"><Input disabled={prodLocked} {...form.text("door_accessory")} /></Row>
+              <Row label="Podokonnik"><Input placeholder="Rangi va o'lchami, masalan 25 sm" disabled={prodLocked} {...form.text("windowsill")} /></Row>
+              <Row label="Shotlandka"><Input disabled={prodLocked} {...form.text("shotlandka")} /></Row>
               <Row label="Qo'shimcha">
                 <div className="flex flex-wrap gap-x-6 gap-y-2 pt-2">
                   <Toggle label="Maskitka" checked={v.mosquito_net} disabled={!canEdit || prodLocked} onChange={(x) => form.set("mosquito_net", x)} />
@@ -224,7 +255,7 @@ export function ProjectFormPage() {
             <FieldGrid title="Moliya">
               <Row label="Buyurtma summasi" error={form.errors.amount}>
                 <div className="flex gap-2">
-                  <Input inputMode="decimal" className="tabular" {...form.text("amount")} />
+                  <Input inputMode="decimal" className="tabular" disabled={!!p?.calcs.length} {...form.text("amount")} />
                   <Select className="w-24" value={v.currency} onChange={(e) => form.set("currency", e.target.value as Currency)}>
                     <option value="UZS">so'm</option>
                     <option value="USD">USD</option>
@@ -236,14 +267,29 @@ export function ProjectFormPage() {
               </Row>
               <Row label="Avans" error={form.errors.advance_amount}><Input inputMode="decimal" className="tabular" {...form.text("advance_amount")} /></Row>
               <Row label="Qarz">
-                <div className={`flex h-9 items-center rounded-lg px-3 text-sm font-semibold tabular ${debt > 0 ? "bg-bad-soft text-bad" : "bg-ok-soft text-ok"}`}>
-                  {fmtMoney(debt, v.currency)}
+                <div className={`flex h-9 items-center rounded-lg px-3 text-sm font-semibold tabular ${
+                  debt > 0 ? "bg-bad-soft text-bad" : debt < 0 ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok"}`}>
+                  {debt < 0 ? `Ortiqcha to'lov: ${fmtMoney(-debt, v.currency)}` : fmtMoney(debt, v.currency)}
                 </div>
                 <span className="text-xs text-muted">= buyurtma + xizmat − avans</span>
               </Row>
               <Row label="Shartnoma №"><Input {...form.text("contract_number")} /></Row>
               <Row label="Shartnoma sanasi"><Input type="date" {...form.text("contract_date")} /></Row>
+              <Row label="USD kursi" error={form.errors.usd_rate}><Input inputMode="decimal" className="tabular" placeholder="12 000" {...form.text("usd_rate")} /></Row>
+              <Row label="Avans sanasi"><Input type="date" {...form.text("advance_date")} /></Row>
+              {!!p?.calcs.length && (
+                <p className="text-xs text-muted lg:col-span-2">
+                  Buyurtma summasi hisob-kitobdan olinadi{p.currency === "UZS" && p.calcs.some((c) => c.currency === "USD") ? " (USD × kurs)" : ""}.
+                  {p.currency === "UZS" && p.calcs.some((c) => c.currency === "USD") && !p.usd_rate && <b className="text-warn"> USD kursini kiriting — aks holda summa hisoblanmaydi.</b>}
+                </p>
+              )}
             </FieldGrid>
+
+            {p && (
+              <FieldGrid title="Hisob-kitob">
+                <Row label="Varaqalar" wide><Calcs project={p} canEdit={can.update && !prodLocked} /></Row>
+              </FieldGrid>
+            )}
 
             <FieldGrid title="Izoh">
               <Row label="Izoh" wide><Textarea {...form.text("notes")} placeholder="Masalan: 2-qavat, lift yo'q" /></Row>
@@ -303,5 +349,54 @@ function StatusActions({ project, canUpdate }: { project: Project; canUpdate: bo
         <Textarea autoFocus rows={3} placeholder="Sabab…" value={comment} onChange={(e) => setComment(e.target.value)} />
       </Dialog>
     </>
+  );
+}
+
+/** Hisob-kitob sheets of the order: open, print, or start a new one from a price list. */
+function Calcs({ project, canEdit }: { project: Project; canEdit: boolean }) {
+  const navigate = useNavigate();
+  const lists = pricingApi.useList({ is_active: "true", size: 100, sort: "name" });
+  const { create } = useCalcActions(project.id);
+  const [open, setOpen] = useState(false);
+  const [pick, setPick] = useState("");
+  const start = () => create.mutate(Number(pick), {
+    onSuccess: (c) => { setOpen(false); navigate(`/projects/${project.id}/calcs/${c.id}`); },
+    onError: notifyError,
+  });
+  return (
+    <div className="grid gap-2">
+      {project.calcs.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-line">
+          {project.calcs.map((c) => (
+            <div key={c.id} className="flex items-center gap-3 border-b border-line px-3 py-2 last:border-0">
+              <Calculator className="size-4 text-accent-ink" />
+              <Link to={`/projects/${project.id}/calcs/${c.id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-accent-ink hover:underline">
+                {c.title}
+              </Link>
+              <span className="hidden text-xs text-muted sm:inline">{c.calc_date.split("-").reverse().join(".")}</span>
+              <span className="text-sm font-semibold tabular">{Number(c.total).toLocaleString("ru-RU")} {c.currency}</span>
+              <button type="button" title="Chop etish" onClick={() => window.open(`/print/projects/${project.id}/calcs/${c.id}`, "_blank")}
+                className="grid size-8 place-items-center rounded-lg text-muted hover:bg-sunk hover:text-ink"><Printer className="size-4" /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {project.calcs.length === 0 && <p className="text-sm text-muted">Hali hisob-kitob yo'q. Summa qo'lda kiritiladi.</p>}
+      {canEdit && (
+        <Button variant="soft" className="justify-self-start" onClick={() => { setPick(String(lists.data?.items[0]?.id ?? "")); setOpen(true); }}>
+          <Plus className="size-4" /> Hisob-kitob qo'shish
+        </Button>
+      )}
+      <Dialog open={open} onClose={() => setOpen(false)} title="Yangi hisob-kitob"
+        footer={<>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Bekor qilish</Button>
+          <Button disabled={!pick} busy={create.isPending} onClick={start}>Yaratish</Button>
+        </>}>
+        <p className="text-sm text-muted">Narx ro'yxatini tanlang — uning barcha qatorlari bugungi narxda ko'chiriladi, siz faqat sonini kiritasiz.</p>
+        <Select value={pick} onChange={(e) => setPick(e.target.value)}>
+          {(lists.data?.items ?? []).map((l) => <option key={l.id} value={l.id}>{l.name} · {l.currency}</option>)}
+        </Select>
+      </Dialog>
+    </div>
   );
 }

@@ -15,6 +15,9 @@ Auto code `MJ-NNNNN`; kind `individual | company | dealer`; name (≥ 2 chars); 
 ### Requirement: List and search
 `GET /clients/` searches code, name, TIN, contact, phones, region; filters `kind`, `region`, `is_active`, `manager`. Detail includes `projects_count`.
 
+### Requirement: Passport
+Individual clients MAY have a passport number; it is printed on the contract.
+
 ### Requirement: Segment
 A client MAY have a segment from the `client_segment` list; it is shown on the client's orders.
 The `dealer` kind is labelled "Diler / hamkor" and is the pool for a project's partner.

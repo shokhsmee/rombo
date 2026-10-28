@@ -3,6 +3,11 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-29
+- `add-calculation-and-contract` — Hisob-kitob on the Loyiha from price lists (Narxlar; Termo 306J seeded):
+  snapshot prices, half-up line rounding (sample = 1 080), order amount derived from it with the USD rate.
+  Printable hisob-kitob (sales sheet layout) and shartnoma (company sample text) to PDF. Company requisites,
+  contract spec fields, client passport. Process map in docs/process-map.md.
+  Why: the client's price comes from this sheet; one source for price, contract, and later the material list.
 - `add-loyiha-card-fields` — Loyiha card has every field of the sales order card: service/advance amounts
   with computed debt, sale date, phone, partner, sales channel, brand/product, location, mosquito net,
   dismantling, order lines (type · m² · count) with totals, drawings. Lock now covers only production fields.
