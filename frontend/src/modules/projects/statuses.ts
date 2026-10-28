@@ -1,20 +1,20 @@
+import type { StatusMap } from "@/components/Status";
+
 import type { ProjectStatus } from "./api";
 
-export const STATUS: Record<ProjectStatus, { label: string; color: string }> = {
-  draft: { label: "Qoralama", color: "#adb5bd" },
-  confirmed: { label: "Tasdiqlangan", color: "#346596" },
-  procurement: { label: "Xaridda", color: "#c88a12" },
-  production: { label: "Ishlab chiqarishda", color: "#d9661f" },
-  ready: { label: "Tayyor", color: "#1c8a7a" },
-  delivered: { label: "Yetkazildi", color: "#2f9e44" },
-  closed: { label: "Yopildi", color: "#495057" },
-  cancelled: { label: "Bekor qilindi", color: "#c92a2a" },
+export const STATUS: StatusMap<ProjectStatus> = {
+  draft: { label: "Qoralama", tone: "neutral" },
+  confirmed: { label: "Tasdiqlangan", tone: "accent" },
+  procurement: { label: "Xaridda", tone: "warn" },
+  production: { label: "Ishlab chiqarishda", tone: "info" },
+  ready: { label: "Tayyor", tone: "done" },
+  delivered: { label: "Yetkazildi", tone: "ok" },
+  closed: { label: "Yopildi", tone: "neutral" },
+  cancelled: { label: "Bekor qilindi", tone: "bad" },
 };
 
-/** Main path shown in the pipeline bar (cancelled is shown separately). */
-export const PIPELINE: ProjectStatus[] = [
-  "draft", "confirmed", "procurement", "production", "ready", "delivered", "closed",
-];
+/** Main path shown in the status track (cancelled is shown on its own). */
+export const PIPELINE: ProjectStatus[] = ["draft", "confirmed", "procurement", "production", "ready", "delivered", "closed"];
 
 export const FINISHED: ProjectStatus[] = ["delivered", "closed", "cancelled"];
 

@@ -16,7 +16,7 @@ delivery. Every operational document links back to a Loyiha.
 |---|---|
 | API | Python 3.12, Django 5, Django REST Framework, SimpleJWT, django-filter, drf-spectacular |
 | DB | SQLite (dev), PostgreSQL (prod) via `DATABASE_URL` |
-| Frontend | React 18 + TypeScript + Vite, Mantine 7, TanStack Query, React Router |
+| Frontend | React 18 + TypeScript + Vite, Tailwind v4 (uzbridge tokens), lucide-react, TanStack Query, React Router |
 | Tooling | uv, npm, pytest-django, ruff |
 
 ## API conventions

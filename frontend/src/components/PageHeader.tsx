@@ -1,34 +1,13 @@
-import { Group, Title } from "@mantine/core";
-import { Fragment, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 
-type Crumb = { label: string; to?: string };
-
-export function PageHeader({ title, crumbs = [], actions, extra }: {
-  title: ReactNode;
-  crumbs?: Crumb[];
-  actions?: ReactNode;
-  extra?: ReactNode;
-}) {
+export function PageHeader({ title, lede, action }: { title: ReactNode; lede?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="page-header">
+    <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
       <div>
-        {crumbs.length > 0 && (
-          <div className="crumbs">
-            {crumbs.map((c, i) => (
-              <Fragment key={i}>
-                {i > 0 && " / "}
-                {c.to ? <Link to={c.to}>{c.label}</Link> : c.label}
-              </Fragment>
-            ))}
-          </div>
-        )}
-        <Group gap="sm" align="center">
-          <Title order={1}>{title}</Title>
-          {extra}
-        </Group>
+        <h1 className="t-title">{title}</h1>
+        {lede && <p className="mt-1 max-w-2xl text-muted">{lede}</p>}
       </div>
-      {actions && <Group gap="xs">{actions}</Group>}
-    </div>
+      {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
+    </header>
   );
 }

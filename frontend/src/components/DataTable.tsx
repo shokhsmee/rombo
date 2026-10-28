@@ -1,29 +1,31 @@
-import { Group, Loader, Pagination, Select, Text } from "@mantine/core";
-import { IconArrowDown, IconArrowUp, IconSelector } from "@tabler/icons-react";
-import type { ReactNode } from "react";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
 
 import type { ListParams } from "@/hooks/useListParams";
 import type { Page } from "@/lib/api";
+import { rememberIds } from "@/lib/recordNav";
+
+import { Spinner } from "./ui";
 
 export type Column<T> = {
   key: string;
   title: ReactNode;
   render: (row: T) => ReactNode;
   sort?: string; // API sort field; omit = not sortable
-  width?: number | string;
-  align?: "left" | "right" | "center";
+  align?: "left" | "right";
+  className?: string;
 };
 
-type Props<T> = {
+type Props<T extends { id: number }> = {
   columns: Column<T>[];
   data: Page<T> | undefined;
   loading: boolean;
   params: ListParams;
-  onParams: (p: Partial<{ page: number; size: number; sort: string }>) => void;
+  onParams: (p: Partial<{ page: number; sort: string }>) => void;
   onRowClick?: (row: T) => void;
-  toolbar?: ReactNode;
+  /** Remember the visible ids so the record page can step ‹ › through them. */
+  navKey?: string;
   empty?: ReactNode;
-  rowKey?: (row: T) => string | number;
 };
 
 function nextSort(current: string, field: string) {
@@ -32,48 +34,49 @@ function nextSort(current: string, field: string) {
   return field;
 }
 
-export function DataTable<T>({ columns, data, loading, params, onParams, onRowClick, toolbar, empty, rowKey }: Props<T>) {
+/** Table + "1–25 / 128 ‹ ›" pager, uzbridge style. */
+export function DataTable<T extends { id: number }>({ columns, data, loading, params, onParams, onRowClick, navKey, empty }: Props<T>) {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const from = total ? (params.page - 1) * params.size + 1 : 0;
   const to = Math.min(params.page * params.size, total);
-  const pages = Math.max(1, Math.ceil(total / params.size));
+  const last = Math.max(1, Math.ceil(total / params.size));
+
+  useEffect(() => {
+    if (navKey && data) rememberIds(navKey, data.items.map((r) => r.id));
+  }, [navKey, data]);
+
+  const btn = "grid size-7 place-items-center rounded-md border border-line bg-surface text-muted hover:text-ink disabled:opacity-40 disabled:hover:text-muted";
 
   return (
-    <div className="dt-wrap">
-      {toolbar && <div className="dt-toolbar">{toolbar}</div>}
-      <div style={{ overflowX: "auto" }}>
-        <table className="dt">
+    <div className="grid gap-2">
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-[var(--shadow-card)]">
+        <table className="w-full text-sm">
           <thead>
-            <tr>
+            <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-muted">
               {columns.map((c) => {
-                const active = c.sort && params.sort.replace("-", "") === c.sort;
-                const Icon = !active ? IconSelector : params.sort.startsWith("-") ? IconArrowDown : IconArrowUp;
+                const active = !!c.sort && params.sort.replace("-", "") === c.sort;
+                const Arrow = params.sort.startsWith("-") ? ArrowDown : ArrowUp;
                 return (
-                  <th
-                    key={c.key}
-                    style={{ width: c.width, textAlign: c.align }}
-                    data-sortable={!!c.sort}
-                    onClick={c.sort ? () => onParams({ sort: nextSort(params.sort, c.sort!) }) : undefined}
-                  >
-                    <Group gap={4} wrap="nowrap" justify={c.align === "right" ? "flex-end" : "flex-start"}>
-                      {c.title}
-                      {c.sort && <Icon size={12} stroke={1.6} opacity={active ? 1 : 0.4} />}
-                    </Group>
+                  <th key={c.key} className={`whitespace-nowrap px-4 py-3 font-medium ${c.align === "right" ? "text-right" : ""}`}>
+                    {c.sort ? (
+                      <button type="button" onClick={() => onParams({ sort: nextSort(params.sort, c.sort!) })}
+                        className={`inline-flex items-center gap-1 uppercase tracking-wider hover:text-ink ${active ? "text-ink" : ""}`}>
+                        {c.title}
+                        {active && <Arrow className="size-3" strokeWidth={2.25} />}
+                      </button>
+                    ) : c.title}
                   </th>
                 );
               })}
             </tr>
           </thead>
-          <tbody>
-            {items.map((row, i) => (
-              <tr
-                key={rowKey ? rowKey(row) : i}
-                data-clickable={!!onRowClick}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-              >
+          <tbody className={loading && items.length ? "opacity-60 transition-opacity" : ""}>
+            {items.map((row) => (
+              <tr key={row.id} onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={`border-b border-line last:border-0 ${onRowClick ? "cursor-pointer hover:bg-ground" : ""}`}>
                 {columns.map((c) => (
-                  <td key={c.key} style={{ textAlign: c.align }}>
+                  <td key={c.key} className={`px-4 py-3 ${c.align === "right" ? "whitespace-nowrap text-right tabular" : ""} ${c.className ?? ""}`}>
                     {c.render(row)}
                   </td>
                 ))}
@@ -82,33 +85,33 @@ export function DataTable<T>({ columns, data, loading, params, onParams, onRowCl
           </tbody>
         </table>
         {!loading && items.length === 0 && (
-          <div className="dt-empty">{empty ?? (params.q ? `"${params.q}" bo'yicha hech narsa topilmadi` : "Hozircha yozuv yo'q")}</div>
+          <p className="px-4 py-12 text-center text-sm text-muted">
+            {empty ?? (params.q ? `«${params.q}» bo'yicha hech narsa topilmadi` : "Hozircha yozuv yo'q")}
+          </p>
         )}
-        {loading && items.length === 0 && (
-          <div className="dt-empty">
-            <Loader size="xs" />
-          </div>
-        )}
+        {loading && items.length === 0 && <div className="grid place-items-center py-12 text-muted"><Spinner className="size-5" /></div>}
       </div>
-      <div className="dt-footer">
-        <Group gap="xs">
-          <Text size="xs" c="dimmed">
-            {from}–{to} / {total}
-          </Text>
-          {loading && items.length > 0 && <Loader size={12} />}
-        </Group>
-        <Group gap="sm">
-          <Select
-            size="xs"
-            w={76}
-            data={["25", "50", "100"]}
-            value={String(params.size)}
-            onChange={(v) => onParams({ size: Number(v), page: 1 })}
-            aria-label="Sahifadagi qatorlar"
-          />
-          <Pagination size="sm" total={pages} value={params.page} onChange={(page) => onParams({ page })} withEdges={pages > 7} />
-        </Group>
-      </div>
+      {total > 0 && (
+        <div className="flex items-center justify-end gap-2 text-xs">
+          <span className="tabular text-muted"><b className="font-medium text-ink">{from}–{to}</b> / {total}</span>
+          <button type="button" className={btn} disabled={params.page <= 1} onClick={() => onParams({ page: params.page - 1 })} aria-label="Oldingi sahifa">
+            <ChevronLeft className="size-4" />
+          </button>
+          <button type="button" className={btn} disabled={params.page >= last} onClick={() => onParams({ page: params.page + 1 })} aria-label="Keyingi sahifa">
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The row above a table: search, filters, then actions on the right. */
+export function Toolbar({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      {children}
+      {action && <div className="ml-auto flex items-center gap-2">{action}</div>}
     </div>
   );
 }

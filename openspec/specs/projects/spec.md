@@ -31,7 +31,12 @@ Auto code `LY-YY-NNNNN`; name; client (required); manager; object address; regio
 - THEN 400 on field `comment`
 
 ### Requirement: History
-Every status change, including creation, appends to `ProjectStatusLog` (from, to, comment, user, time). Never edited.
+Status and header changes SHALL be written to the record's chatter (see `chatter`). A status change is one
+`track` message carrying the status change and, if given, the comment as its body.
+
+#### Scenario: Cancel with reason
+- WHEN a project is cancelled with comment "Mijoz rad etdi"
+- THEN chatter has one message: body "Mijoz rad etdi", change Holat: <old> → Bekor qilindi
 
 ### Requirement: Header lock
 Header is editable only in `draft` / `confirmed`; otherwise 409, because procurement and MRP plans derive from it.

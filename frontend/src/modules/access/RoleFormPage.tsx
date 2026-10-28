@@ -1,10 +1,9 @@
-import { Anchor, Text, Textarea, TextInput } from "@mantine/core";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Users } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
-import { FormBar } from "@/components/FormBar";
-import { FormSection, FormSheet } from "@/components/FormSection";
-import { PageHeader } from "@/components/PageHeader";
+import { ActionBar, DeleteButton, FieldGrid, RecordNav, RecordPage, Row, SaveButtons, Sheet, SheetTitle } from "@/components/Record";
+import { Input, Pill, Smart, Textarea } from "@/components/ui";
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { notifyError, notifyOk } from "@/lib/notify";
 
@@ -28,70 +27,60 @@ export function RoleFormPage() {
   const form = useServerForm<Values, Role>({
     initial: { name: "", description: "", permissions: [] },
     record: r,
-    toForm: (x) => ({ name: x.name, description: x.description, permissions: x.permissions }),
+    // sort so the "dirty" check doesn't flip on row order
+    toForm: (x) => ({ name: x.name, description: x.description, permissions: [...x.permissions].sort((a, b) => a.page_key.localeCompare(b.page_key)) }),
     validate: { name: (v) => (v.trim().length >= 2 ? null : "Kamida 2 ta belgi") },
   });
 
-  const submit = form.onSubmit((v) =>
-    save.mutate(
-      { id, data: v },
-      {
-        onSuccess: (saved) => {
-          notifyOk("Rol saqlandi");
-          form.resetDirty();
-          if (isNew) navigate(`/settings/roles/${saved.id}`, { replace: true });
-        },
-        onError: (e) => applyServerErrors(form, e),
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.check()) return;
+    save.mutate({ id, data: form.values }, {
+      onSuccess: (saved) => {
+        notifyOk("Rol saqlandi");
+        form.commit();
+        if (isNew) navigate(`/settings/roles/${saved.id}`, { replace: true });
       },
-    ),
-  );
+      onError: (err) => applyServerErrors(form, err),
+    });
+  };
 
-  if (!isNew && detail.isLoading) return null;
+  if (!isNew && !r) return null;
+
+  const setPerms = (v: Permission[]) => form.set("permissions", [...v].sort((a, b) => a.page_key.localeCompare(b.page_key)));
 
   return (
     <form onSubmit={submit}>
-      <PageHeader
-        title={isNew ? "Yangi rol" : r?.name}
-        crumbs={[{ label: "Sozlamalar" }, { label: "Rollar", to: "/settings/roles" }]}
-      />
-      <FormBar
-        dirty={form.isDirty()}
-        saving={save.isPending}
-        canSave={editable}
-        onReset={() => form.reset()}
-        onDelete={r && !r.is_system && can.delete
-          ? () => remove.mutate(r.id, { onSuccess: () => navigate("/settings/roles"), onError: notifyError })
-          : undefined}
-        deleteLabel={r?.users_count ? `Bu rol ${r.users_count} ta foydalanuvchida bor. Ulardan ham olib tashlanadi.` : undefined}
-      />
-      <div style={{ maxWidth: 920 }}>
-        <FormSheet>
-          <fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0 }}>
-            <FormSection title="Rol">
-              <TextInput label="Nomi" required {...form.getInputProps("name")} />
-              <Textarea label="Tavsif" minRows={1} {...form.getInputProps("description")} />
-            </FormSection>
+      <RecordPage chatter={r ? { model: "access.role", id: r.id } : null}>
+        <RecordNav listTo="/settings/roles" listLabel="Rollar" crumb={r?.name ?? "Yangi"} navKey="roles" id={r?.id} />
+        <ActionBar right={r?.is_system && <Pill>tizim roli</Pill>}>
+          {editable && <SaveButtons dirty={form.dirty} saving={save.isPending} isNew={isNew} onReset={form.reset} />}
+          {r && !r.is_system && can.delete && !form.dirty && (
+            <DeleteButton busy={remove.isPending}
+              text={r.users_count ? `Bu rol ${r.users_count} ta foydalanuvchida bor — ulardan ham olib tashlanadi.` : undefined}
+              onConfirm={() => remove.mutate(r.id, { onSuccess: () => navigate("/settings/roles"), onError: notifyError })} />
+          )}
+        </ActionBar>
+        <Sheet>
+          <SheetTitle eyebrow="Rol" title={isNew ? "Yangi rol" : r!.name}
+            smart={r && <Smart icon={<Users className="size-4" />} value={r.users_count} label="Foydalanuvchi"
+              onClick={() => navigate(`/settings/users?role=${r.id}`)} />} />
+          <fieldset disabled={!editable} className="grid gap-6">
+            <FieldGrid>
+              <Row label="Nomi" required error={form.errors.name}><Input {...form.text("name")} /></Row>
+              <Row label="Tavsif"><Textarea rows={1} {...form.text("description")} /></Row>
+            </FieldGrid>
           </fieldset>
-          <div className="form-section">
-            <div className="form-section-title">Sahifalarga ruxsat</div>
-            <Text size="xs" c="dimmed" mb="sm">
-              Yaratish, tahrirlash yoki o'chirish belgilansa, ko'rish avtomatik yoqiladi.
-              {r && r.users_count > 0 && (
-                <> O'zgarishlar <Anchor component={Link} to={`/settings/users?role=${r.id}`} size="xs">{r.users_count} ta foydalanuvchiga</Anchor> darhol ta'sir qiladi.</>
-              )}
-            </Text>
-            {pages.data && (
-              <div style={{ border: "1px solid var(--r-border)", borderRadius: 6, overflow: "hidden" }}>
-                <PermissionMatrix
-                  pages={pages.data}
-                  value={form.values.permissions}
-                  onChange={editable ? (v) => form.setFieldValue("permissions", v) : undefined}
-                />
-              </div>
-            )}
+          <div className="grid gap-2">
+            <p className="t-label border-b border-line pb-2">Sahifalarga ruxsat</p>
+            <p className="text-xs text-muted">
+              Yaratish, tahrirlash yoki o'chirish belgilansa, ko'rish o'zi yoqiladi.
+              {r && r.users_count > 0 && ` O'zgarish ${r.users_count} ta foydalanuvchiga darhol ta'sir qiladi.`}
+            </p>
+            {pages.data && <PermissionMatrix pages={pages.data} value={form.values.permissions} onChange={editable ? setPerms : undefined} />}
           </div>
-        </FormSheet>
-      </div>
+        </Sheet>
+      </RecordPage>
     </form>
   );
 }

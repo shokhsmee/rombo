@@ -44,6 +44,7 @@ export function crudResource<TList, TDetail, TInput = Partial<TDetail>>(path: st
             : (await api.post<TDetail>(base, data)).data,
         onSuccess: (saved) => {
           qc.invalidateQueries({ queryKey: keys.all });
+          qc.invalidateQueries({ queryKey: ["chatter"] }); // tracked changes appear in the history right away
           const id = (saved as { id?: number }).id;
           if (id) qc.setQueryData(keys.detail(id), saved);
         },

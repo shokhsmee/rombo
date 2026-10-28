@@ -1,8 +1,8 @@
-import { Badge, Checkbox, Text } from "@mantine/core";
-import { IconCheck, IconMinus } from "@tabler/icons-react";
+import { Check, Minus } from "lucide-react";
 import { Fragment } from "react";
 
 import type { PageKey, PermAction } from "@/auth/AuthProvider";
+import { Checkbox } from "@/components/ui";
 
 import { ACTIONS, groupPages, type PageDef, type Permission } from "./api";
 
@@ -16,7 +16,7 @@ const empty = (page_key: PageKey): Permission => ({
   page_key, can_view: false, can_create: false, can_update: false, can_delete: false,
 });
 
-/** Pages × CRUD checkbox grid. Ticking a write action also ticks view; unticking view clears the row. */
+/** Pages × CRUD grid. Ticking a write action also ticks view; unticking view clears the row. */
 export function PermissionMatrix({ pages, value, onChange }: Props) {
   const byKey = new Map(value.map((p) => [p.page_key, p]));
   const get = (k: PageKey) => byKey.get(k) ?? empty(k);
@@ -34,74 +34,61 @@ export function PermissionMatrix({ pages, value, onChange }: Props) {
     onChange?.([...value.filter((p) => p.page_key !== page.key), row]);
   };
 
-  const rowState = (page: PageDef) => {
-    const on = page.actions.filter((a) => get(page.key)[`can_${a}`]).length;
-    return { all: on === page.actions.length, some: on > 0 && on < page.actions.length };
-  };
-
   return (
-    <table className="dt matrix">
-      <thead>
-        <tr>
-          <th style={{ width: "40%" }}>Sahifa</th>
-          {ACTIONS.map((a) => <th key={a.key}>{a.label}</th>)}
-          {onChange && <th style={{ width: 70 }}>Hammasi</th>}
-        </tr>
-      </thead>
-      <tbody>
-        {groupPages(pages).map(([group, items]) => (
-          <Fragment key={group}>
-            <tr className="group-row"><td colSpan={onChange ? 6 : 5}>{group}</td></tr>
-            {items.map((page) => {
-              const row = get(page.key);
-              const rs = rowState(page);
-              return (
-                <tr key={page.key}>
-                  <td>
-                    <Text size="sm" span>{page.label}</Text>
-                    {page.planned && <Badge ml={8} size="xs" color="gray" variant="outline">tez orada</Badge>}
-                  </td>
-                  {ACTIONS.map((a) => {
-                    const supported = page.actions.includes(a.key);
-                    const checked = row[`can_${a.key}`];
-                    return (
-                      <td key={a.key}>
-                        {!supported ? (
-                          <Text c="dimmed" size="xs">—</Text>
-                        ) : onChange ? (
-                          <Checkbox
-                            size="xs"
-                            style={{ display: "inline-block" }}
-                            checked={checked}
-                            onChange={(e) => setCell(page, a.key, e.currentTarget.checked)}
-                            aria-label={`${page.label}: ${a.label}`}
-                          />
-                        ) : checked ? (
-                          <IconCheck size={15} color="var(--mantine-color-teal-7)" />
-                        ) : (
-                          <IconMinus size={13} color="var(--r-text-faint)" />
-                        )}
-                      </td>
-                    );
-                  })}
-                  {onChange && (
-                    <td>
-                      <Checkbox
-                        size="xs"
-                        style={{ display: "inline-block" }}
-                        checked={rs.all}
-                        indeterminate={rs.some}
-                        onChange={(e) => setRow(page, e.currentTarget.checked)}
-                        aria-label={`${page.label}: hammasi`}
-                      />
+    <div className="overflow-x-auto rounded-xl border border-line">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-line text-xs uppercase tracking-wider text-muted">
+            <th className="px-4 py-3 text-left font-medium">Sahifa</th>
+            {ACTIONS.map((a) => <th key={a.key} className="w-24 px-2 py-3 text-center font-medium">{a.label}</th>)}
+            {onChange && <th className="w-20 px-2 py-3 text-center font-medium">Hammasi</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {groupPages(pages).map(([group, items]) => (
+            <Fragment key={group}>
+              <tr className="border-b border-line bg-ground/60">
+                <td colSpan={onChange ? 6 : 5} className="t-label px-4 py-1.5">{group}</td>
+              </tr>
+              {items.map((page) => {
+                const row = get(page.key);
+                const on = page.actions.filter((a) => row[`can_${a}`]).length;
+                return (
+                  <tr key={page.key} className="border-b border-line last:border-0 hover:bg-ground/50">
+                    <td className="px-4 py-2.5">
+                      {page.label}
+                      {page.planned && <span className="ml-2 rounded-full bg-sunk px-1.5 py-px text-2xs font-medium text-muted">tez orada</span>}
                     </td>
-                  )}
-                </tr>
-              );
-            })}
-          </Fragment>
-        ))}
-      </tbody>
-    </table>
+                    {ACTIONS.map((a) => {
+                      const supported = page.actions.includes(a.key);
+                      const checked = row[`can_${a.key}`];
+                      return (
+                        <td key={a.key} className="px-2 py-2.5 text-center">
+                          {!supported ? (
+                            <span className="text-faint">·</span>
+                          ) : onChange ? (
+                            <Checkbox label={`${page.label}: ${a.label}`} checked={checked} onChange={(x) => setCell(page, a.key, x)} />
+                          ) : checked ? (
+                            <Check className="mx-auto size-4 text-ok" strokeWidth={2.25} />
+                          ) : (
+                            <Minus className="mx-auto size-3.5 text-faint" />
+                          )}
+                        </td>
+                      );
+                    })}
+                    {onChange && (
+                      <td className="px-2 py-2.5 text-center">
+                        <Checkbox label={`${page.label}: hammasi`} checked={on === page.actions.length}
+                          indeterminate={on > 0 && on < page.actions.length} onChange={(x) => setRow(page, x)} />
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

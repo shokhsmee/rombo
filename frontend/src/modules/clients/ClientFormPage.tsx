@@ -1,12 +1,11 @@
-import { Anchor, Grid, Paper, SegmentedControl, Select, Stack, Switch, Text, Textarea, TextInput, Title } from "@mantine/core";
+import { FileText } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { EntitySelect } from "@/components/EntitySelect";
-import { FormBar } from "@/components/FormBar";
-import { FormSection, FormSheet } from "@/components/FormSection";
-import { PageHeader } from "@/components/PageHeader";
-import { ActiveDot, StatusDot } from "@/components/StatusBadge";
+import { ActionBar, DeleteButton, FieldGrid, RecordNav, RecordPage, Row, SaveButtons, Sheet, SheetTitle } from "@/components/Record";
+import { ActivePill } from "@/components/Status";
+import { Input, Pill, Segmented, Select, Smart, Textarea, Toggle } from "@/components/ui";
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDate, fmtMoney } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
@@ -31,6 +30,7 @@ export function ClientFormPage() {
   const isNew = id === "new";
   const navigate = useNavigate();
   const can = useCan("clients");
+  const canProjects = useCan("projects");
   const detail = clientsApi.useDetail(isNew ? undefined : id);
   const save = clientsApi.useSave();
   const remove = clientsApi.useRemove();
@@ -50,94 +50,105 @@ export function ClientFormPage() {
       tin: (v) => (!v || /^\d{9,14}$/.test(v) ? null : "9–14 ta raqam"),
     },
   });
+  const v = form.values;
+  const company = v.kind !== "individual";
 
-  const submit = form.onSubmit((v) =>
-    save.mutate(
-      { id, data: v },
-      {
-        onSuccess: (saved) => {
-          notifyOk("Saqlandi");
-          form.resetDirty();
-          if (isNew) navigate(`/clients/${saved.id}`, { replace: true });
-        },
-        onError: (e) => applyServerErrors(form, e),
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.check()) return;
+    save.mutate({ id, data: v }, {
+      onSuccess: (saved) => {
+        notifyOk("Saqlandi");
+        form.commit();
+        if (isNew) navigate(`/clients/${saved.id}`, { replace: true });
       },
-    ),
-  );
+      onError: (err) => applyServerErrors(form, err),
+    });
+  };
 
-  if (!isNew && detail.isLoading) return null;
-  const company = form.values.kind !== "individual";
+  if (!isNew && !c) return null;
 
   return (
     <form onSubmit={submit}>
-      <PageHeader
-        title={isNew ? "Yangi mijoz" : c?.name}
-        crumbs={[{ label: "Mijozlar", to: "/clients" }, { label: isNew ? "Yangi" : c?.code ?? "" }]}
-        extra={c && <ActiveDot active={c.is_active} />}
-      />
-      <FormBar
-        dirty={form.isDirty()}
-        saving={save.isPending}
-        canSave={editable}
-        onReset={() => form.reset()}
-        onDelete={c && can.delete ? () => remove.mutate(c.id, { onSuccess: () => navigate("/clients"), onError: notifyError }) : undefined}
-      />
-      <Grid gutter="md">
-        <Grid.Col span={{ base: 12, lg: 8 }}>
-          <FormSheet>
-            <fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0 }}>
-              <FormSection title="Mijoz" aside={<SegmentedControl size="xs" disabled={!editable}
-                data={Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))} {...form.getInputProps("kind")} />}>
-                <TextInput label={company ? "Tashkilot nomi" : "F.I.O."} required {...form.getInputProps("name")} />
-                <TextInput label="STIR" placeholder={company ? "9 ta raqam" : "ixtiyoriy"} {...form.getInputProps("tin")} />
-                {company && <TextInput label="Aloqa shaxsi" {...form.getInputProps("contact_person")} />}
-                <EntitySelect label="Mas'ul menejer" endpoint="employees" current={c?.manager} disabled={!editable}
-                  extraParams={{ status: "active" }} {...form.getInputProps("manager_id")} />
-              </FormSection>
-              <FormSection title="Aloqa">
-                <TextInput label="Telefon" placeholder="+998 __ ___ __ __" {...form.getInputProps("phone")} />
-                <TextInput label="Qo'shimcha telefon" {...form.getInputProps("phone_extra")} />
-                <TextInput label="Email" type="email" {...form.getInputProps("email")} />
-                <TextInput label="Qayerdan kelgan" placeholder="Tavsiya, Instagram, ko'rgazma…" {...form.getInputProps("source")} />
-              </FormSection>
-              <FormSection title="Manzil">
-                <Select label="Hudud" data={REGIONS} searchable clearable allowDeselect
-                  value={form.values.region || null} onChange={(v) => form.setFieldValue("region", v ?? "")} />
-                <TextInput label="Manzil" {...form.getInputProps("address")} />
-                <Textarea label="Izoh" {...form.getInputProps("notes")} style={{ gridColumn: "1 / -1" }} />
-                <Switch label="Faol mijoz" {...form.getInputProps("is_active", { type: "checkbox" })} />
-              </FormSection>
-            </fieldset>
-          </FormSheet>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, lg: 4 }}>
-          {c && <ClientProjects clientId={c.id} total={c.projects_count} />}
-        </Grid.Col>
-      </Grid>
+      <RecordPage chatter={c ? { model: "clients.client", id: c.id } : null}>
+        <RecordNav listTo="/clients" listLabel="Mijozlar" crumb={c?.code ?? "Yangi"} navKey="clients" id={c?.id} />
+        <ActionBar right={c && <ActivePill active={c.is_active} />}>
+          {editable && <SaveButtons dirty={form.dirty} saving={save.isPending} isNew={isNew} onReset={form.reset} />}
+          {c && can.delete && !form.dirty && (
+            <DeleteButton busy={remove.isPending}
+              text={c.projects_count ? "Mijozda loyihalar bor — o'chirib bo'lmaydi. Uni nofaol qiling." : undefined}
+              onConfirm={() => remove.mutate(c.id, { onSuccess: () => navigate("/clients"), onError: notifyError })} />
+          )}
+        </ActionBar>
+
+        <Sheet>
+          <SheetTitle
+            eyebrow={c ? `${KIND_LABEL[c.kind]} · ${c.code}` : "Mijoz"}
+            title={isNew ? "Yangi mijoz" : c!.name}
+            smart={c && canProjects.view && (
+              <Smart icon={<FileText className="size-4" />} value={c.projects_count} label="Loyihalar"
+                onClick={() => navigate(`/projects?client=${c.id}`)} />
+            )}
+          />
+          <fieldset disabled={!editable} className="grid gap-6">
+            <FieldGrid>
+              <Row label="Turi" wide>
+                <Segmented value={v.kind} onChange={(k) => form.set("kind", k)}
+                  options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value: value as ClientKind, label }))} />
+              </Row>
+              <Row label={company ? "Tashkilot nomi" : "F.I.O."} required error={form.errors.name}><Input {...form.text("name")} /></Row>
+              <Row label="STIR" error={form.errors.tin}><Input inputMode="numeric" placeholder={company ? "9 ta raqam" : "ixtiyoriy"} {...form.text("tin")} /></Row>
+              {company && <Row label="Aloqa shaxsi"><Input {...form.text("contact_person")} /></Row>}
+              <Row label="Mas'ul menejer">
+                <EntitySelect endpoint="employees" current={c?.manager} disabled={!editable} extraParams={{ status: "active" }}
+                  value={v.manager_id} onChange={(mid) => form.set("manager_id", mid)} />
+              </Row>
+            </FieldGrid>
+            <FieldGrid title="Aloqa">
+              <Row label="Telefon" error={form.errors.phone}><Input placeholder="+998 __ ___ __ __" {...form.text("phone")} /></Row>
+              <Row label="Qo'sh. telefon"><Input {...form.text("phone_extra")} /></Row>
+              <Row label="Email" error={form.errors.email}><Input type="email" {...form.text("email")} /></Row>
+              <Row label="Qayerdan kelgan"><Input placeholder="Tavsiya, Instagram, ko'rgazma…" {...form.text("source")} /></Row>
+            </FieldGrid>
+            <FieldGrid title="Manzil">
+              <Row label="Hudud">
+                <Select {...form.text("region")}>
+                  <option value="">—</option>
+                  {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </Select>
+              </Row>
+              <Row label="Manzil"><Input {...form.text("address")} /></Row>
+              <Row label="Izoh" wide><Textarea {...form.text("notes")} /></Row>
+              <Row label="Holat"><Toggle label="Faol mijoz" checked={v.is_active} disabled={!editable} onChange={(x) => form.set("is_active", x)} /></Row>
+            </FieldGrid>
+          </fieldset>
+        </Sheet>
+
+        {c && canProjects.view && c.projects_count > 0 && <ClientProjects clientId={c.id} total={c.projects_count} />}
+      </RecordPage>
     </form>
   );
 }
 
 function ClientProjects({ clientId, total }: { clientId: number; total: number }) {
-  const list = projectsApi.useList({ client: clientId, size: 8, sort: "-created_at" });
+  const list = projectsApi.useList({ client: clientId, size: 6, sort: "-created_at" });
   return (
-    <Paper p="md">
-      <Title order={2} mb="sm">Loyihalar <Text span c="dimmed" size="sm">{total}</Text></Title>
-      <Stack gap={10}>
+    <section className="grid gap-2">
+      <div className="flex items-baseline justify-between">
+        <h2 className="t-h2">Loyihalar <span className="text-sm font-normal text-muted">{total}</span></h2>
+        {total > 6 && <Link to={`/projects?client=${clientId}`} className="text-sm text-accent-ink hover:underline">Barchasi →</Link>}
+      </div>
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
         {list.data?.items.map((p) => (
-          <div key={p.id}>
-            <Anchor component={Link} to={`/projects/${p.id}`} size="sm" fw={500}>{p.name}</Anchor>
-            <Text size="xs" c="dimmed">
-              <span className="mono">{p.code}</span> · {fmtDate(p.deadline)} · {fmtMoney(p.amount, p.currency)}
-            </Text>
-            <StatusDot color={STATUS[p.status].color} label={STATUS[p.status].label} />
-          </div>
+          <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center gap-3 border-b border-line px-4 py-3 last:border-0 hover:bg-ground">
+            <span className="font-mono text-xs text-muted">{p.code}</span>
+            <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+            <span className="text-xs text-muted">{fmtDate(p.deadline)}</span>
+            <span className="tabular text-sm">{fmtMoney(p.amount, p.currency)}</span>
+            <Pill tone={STATUS[p.status].tone}>{STATUS[p.status].label}</Pill>
+          </Link>
         ))}
-        {total === 0 && <Text size="sm" c="dimmed">Hali loyiha yo'q</Text>}
-        {total > 8 && (
-          <Anchor component={Link} to={`/projects?client=${clientId}`} size="sm">Barchasini ko'rish →</Anchor>
-        )}
-      </Stack>
-    </Paper>
+      </div>
+    </section>
   );
 }

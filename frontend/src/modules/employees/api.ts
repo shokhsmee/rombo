@@ -1,14 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 
+import type { StatusMap } from "@/components/Status";
 import { api } from "@/lib/api";
 import { crudResource } from "@/lib/crud";
 
 export type EmployeeStatus = "active" | "on_leave" | "dismissed";
 
-export const EMP_STATUS: Record<EmployeeStatus, { label: string; color: string }> = {
-  active: { label: "Ishlamoqda", color: "#2f9e44" },
-  on_leave: { label: "Ta'tilda", color: "#c88a12" },
-  dismissed: { label: "Bo'shagan", color: "#adb5bd" },
+export const EMP_STATUS: StatusMap<EmployeeStatus> = {
+  active: { label: "Ishlamoqda", tone: "ok" },
+  on_leave: { label: "Ta'tilda", tone: "warn" },
+  dismissed: { label: "Bo'shagan", tone: "neutral" },
 };
 
 export type EmployeeListItem = {

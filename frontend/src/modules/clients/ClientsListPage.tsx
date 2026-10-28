@@ -1,26 +1,36 @@
-import { Button, SegmentedControl, Select, Text } from "@mantine/core";
-import { IconPlus } from "@tabler/icons-react";
+import { Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
-import { DataTable, type Column } from "@/components/DataTable";
+import { DataTable, Toolbar, type Column } from "@/components/DataTable";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
-import { ActiveDot } from "@/components/StatusBadge";
+import { ActivePill } from "@/components/Status";
+import { Segmented, Select } from "@/components/ui";
 import { useListParams } from "@/hooks/useListParams";
 
 import { clientsApi, KIND_LABEL, REGIONS, type ClientListItem } from "./api";
 
 const columns: Column<ClientListItem>[] = [
-  { key: "code", title: "Kod", sort: "code", width: 110, render: (r) => <span className="mono">{r.code}</span> },
-  { key: "name", title: "Nomi / F.I.O.", sort: "name", render: (r) => <Text size="sm" fw={500} truncate>{r.name}</Text> },
-  { key: "kind", title: "Turi", width: 140, render: (r) => KIND_LABEL[r.kind] },
-  { key: "phone", title: "Telefon", width: 170, render: (r) => r.phone || <span className="muted">—</span> },
-  { key: "contact", title: "Aloqa shaxsi", render: (r) => r.contact_person || <span className="muted">—</span> },
-  { key: "region", title: "Hudud", sort: "region", width: 140, render: (r) => r.region || <span className="muted">—</span> },
-  { key: "manager", title: "Menejer", render: (r) => r.manager?.name ?? <span className="muted">—</span> },
-  { key: "active", title: "Holat", width: 100, render: (r) => <ActiveDot active={r.is_active} /> },
+  { key: "code", title: "Kod", sort: "code", className: "whitespace-nowrap font-mono text-xs", render: (r) => r.code },
+  { key: "name", title: "Mijoz", sort: "name",
+    render: (r) => (
+      <div className="min-w-48">
+        <div className="font-medium">{r.name}</div>
+        <div className="text-xs text-muted">{KIND_LABEL[r.kind]}{r.tin && <> · STIR <span className="tabular">{r.tin}</span></>}</div>
+      </div>
+    ) },
+  { key: "phone", title: "Aloqa",
+    render: (r) => (
+      <div className="whitespace-nowrap">
+        <div className="tabular">{r.phone || <span className="text-muted">—</span>}</div>
+        {r.contact_person && <div className="text-xs text-muted">{r.contact_person}</div>}
+      </div>
+    ) },
+  { key: "region", title: "Hudud", sort: "region", className: "whitespace-nowrap text-xs", render: (r) => r.region || <span className="text-muted">—</span> },
+  { key: "manager", title: "Menejer", className: "whitespace-nowrap text-xs", render: (r) => r.manager?.name ?? <span className="text-muted">—</span> },
+  { key: "active", title: "Holat", render: (r) => <ActivePill active={r.is_active} /> },
 ];
 
 export function ClientsListPage() {
@@ -32,59 +42,31 @@ export function ClientsListPage() {
 
   return (
     <>
-      <PageHeader
-        title="Mijozlar"
-        crumbs={[{ label: "Savdo" }]}
-        actions={can.create && (
-          <Button component={Link} to="/clients/new" leftSection={<IconPlus size={16} />}>Yangi mijoz</Button>
-        )}
-      />
-      <DataTable
-        columns={columns}
-        data={list.data}
-        loading={list.isFetching}
-        params={params}
-        onParams={update}
-        rowKey={(r) => r.id}
-        onRowClick={(r) => navigate(`/clients/${r.id}`)}
-        toolbar={
-          <>
-            <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Nom, STIR, telefon…" />
-            <SegmentedControl
-              size="xs"
-              value={(f.kind as string) || "all"}
-              onChange={(v) => update({ filters: { kind: v === "all" ? null : v } })}
-              data={[{ value: "all", label: "Barchasi" }, ...Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))]}
-            />
-            <Select
-              placeholder="Hudud"
-              w={170}
-              clearable
-              searchable
-              allowDeselect
-              data={REGIONS}
-              value={(f.region as string) || null}
-              onChange={(v) => update({ filters: { region: v } })}
-            />
-            <EntitySelect
-              endpoint="employees"
-              placeholder="Menejer"
-              w={190}
-              value={f.manager ? Number(f.manager) : null}
-              onChange={(id) => update({ filters: { manager: id ? String(id) : null } })}
-            />
-            <Select
-              w={130}
-              data={[{ value: "true", label: "Faol" }, { value: "false", label: "Nofaol" }]}
-              placeholder="Holat"
-              clearable
-              allowDeselect
-              value={(f.is_active as string) || null}
-              onChange={(v) => update({ filters: { is_active: v } })}
-            />
-          </>
-        }
-      />
+      <PageHeader title="Mijozlar" lede="Jismoniy, yuridik shaxslar va dilerlar."
+        action={can.create && (
+          <Link to="/clients/new" className="press inline-flex h-9 items-center gap-2 rounded-lg bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-ink">
+            <Plus className="size-4" /> Yangi mijoz
+          </Link>
+        )} />
+      <Toolbar>
+        <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Nom, STIR, telefon…" />
+        <Segmented value={(f.kind as string) || ""} onChange={(k) => update({ filters: { kind: k || null } })}
+          options={[{ value: "", label: "Barchasi" }, ...Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))]} />
+        <Select className="w-44" value={(f.region as string) || ""} onChange={(e) => update({ filters: { region: e.target.value || null } })}>
+          <option value="">Hudud: barchasi</option>
+          {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+        </Select>
+        <EntitySelect endpoint="employees" placeholder="Menejer" className="w-52"
+          value={f.manager ? Number(f.manager) : null}
+          onChange={(id) => update({ filters: { manager: id ? String(id) : null } })} />
+        <Select className="w-36" value={(f.is_active as string) || ""} onChange={(e) => update({ filters: { is_active: e.target.value || null } })}>
+          <option value="">Holat: barchasi</option>
+          <option value="true">Faol</option>
+          <option value="false">Nofaol</option>
+        </Select>
+      </Toolbar>
+      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+        navKey="clients" onRowClick={(r) => navigate(`/clients/${r.id}`)} />
     </>
   );
 }

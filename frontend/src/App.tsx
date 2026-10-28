@@ -1,8 +1,7 @@
-import { Center, Text, Title } from "@mantine/core";
 import { Route, Routes } from "react-router-dom";
 
 import { RequireAuth, RequirePage } from "@/auth/Guards";
-import { Layout } from "@/components/Layout";
+import { Shell } from "@/components/Shell";
 import { RoleFormPage } from "@/modules/access/RoleFormPage";
 import { RolesListPage } from "@/modules/access/RolesListPage";
 import { LoginPage } from "@/modules/auth/LoginPage";
@@ -20,11 +19,11 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route element={<RequireAuth><Layout /></RequireAuth>}>
+      <Route element={<RequireAuth><Shell /></RequireAuth>}>
         <Route index element={<DashboardPage />} />
 
         <Route path="projects" element={<RequirePage page="projects"><ProjectsListPage /></RequirePage>} />
-        <Route path="projects/:id" element={<RequirePage page="projects"><ProjectFormPage key="p" /></RequirePage>} />
+        <Route path="projects/:id" element={<RequirePage page="projects"><ProjectFormPage /></RequirePage>} />
 
         <Route path="clients" element={<RequirePage page="clients"><ClientsListPage /></RequirePage>} />
         <Route path="clients/:id" element={<RequirePage page="clients"><ClientFormPage /></RequirePage>} />
@@ -45,9 +44,11 @@ export function App() {
 
 function NotFound() {
   return (
-    <Center h="60vh" style={{ flexDirection: "column" }}>
-      <Title order={2}>Sahifa topilmadi</Title>
-      <Text c="dimmed" size="sm">Manzilni tekshiring yoki chap menyudan tanlang.</Text>
-    </Center>
+    <div className="grid min-h-[60vh] place-items-center text-center">
+      <div>
+        <h2 className="t-h2">Sahifa topilmadi</h2>
+        <p className="mt-1 text-sm text-muted">Manzilni tekshiring yoki chap menyudan tanlang.</p>
+      </div>
+    </div>
   );
 }

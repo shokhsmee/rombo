@@ -21,15 +21,6 @@ export type ProjectListItem = {
   created_at: string;
 };
 
-export type StatusLog = {
-  id: number;
-  from_status: string;
-  to_status: ProjectStatus;
-  comment: string;
-  created_at: string;
-  user: { id: number; full_name: string } | null;
-};
-
 export type Project = ProjectListItem & {
   client_id: number;
   manager_id: number | null;
@@ -38,7 +29,6 @@ export type Project = ProjectListItem & {
   contract_date: string | null;
   notes: string;
   allowed_statuses: ProjectStatus[];
-  history: StatusLog[];
   updated_at: string;
 };
 
@@ -66,6 +56,7 @@ export function useChangeStatus(id: number) {
     onSuccess: (p) => {
       qc.setQueryData(projectsApi.keys.detail(p.id), p);
       qc.invalidateQueries({ queryKey: projectsApi.keys.all });
+      qc.invalidateQueries({ queryKey: ["chatter", "projects.project", p.id] });
     },
   });
 }

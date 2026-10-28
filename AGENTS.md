@@ -50,11 +50,17 @@ Each business app in `apps/<name>/` has the same files:
 - Human codes come from the PK after the first save: `MJ-00001`, `XD-0001`, `LY-26-00001`.
 - After model changes: `uv run python manage.py makemigrations <app> -n <what>` and read the file.
 
-## 3. Frontend rules (frontend/)
+## 3. Frontend rules (frontend/) — house style = uzbridge (ADR 0006)
 
-- Pages in `src/modules/<name>/`: `api.ts`, `types.ts`, `<Name>ListPage.tsx`, `<Name>FormPage.tsx`.
-- Reuse `src/components/` (`DataTable`, `PageHeader`, `FormSection`, `StatusBadge`, `EntitySelect`)
-  instead of new tables/forms.
+- Pages in `src/modules/<name>/`: `api.ts`, `<Name>ListPage.tsx`, `<Name>FormPage.tsx`.
+- Styling is Tailwind v4 with the tokens in `src/index.css` only (`bg-surface`, `text-muted`,
+  `border-line`, `bg-accent`, `bg-ok-soft text-ok`…). No raw hex colours in components, no UI library.
+- Reuse `src/components/`: `ui.tsx` (Button, Field, Input, Select, Toggle, Checkbox, Segmented, Pill,
+  Kpi, Smart, Dialog, Menu), `DataTable` + `Toolbar`, `SearchInput`, `EntitySelect`, `Record.tsx`
+  (RecordPage, RecordNav, ActionBar, StatusTrack, Sheet, FieldGrid, Row), `Chatter`.
+- A record page = `RecordPage chatter={{model, id}}` → RecordNav → ActionBar (+StatusTrack) → Sheet.
+  A new model with a page gets `TRACK` on the backend and its label in `apps/chatter/views.CHATTER_PAGES`.
+- Icons: lucide-react, `strokeWidth={1.75}`.
 - Permission checks via `useCan(page, action)`; the backend stays the authority.
 - UI text is Uzbek (Latin). Short labels; ERP users scan, they don't read.
 
