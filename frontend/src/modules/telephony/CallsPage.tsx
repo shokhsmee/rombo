@@ -59,7 +59,13 @@ export function CallsPage() {
     { key: "user", title: "Xodim", className: "whitespace-nowrap text-xs", render: (c) => c.user?.full_name ?? (c.extension || <span className="text-muted">—</span>) },
     { key: "dur", title: "Davomiylik", sort: "duration", align: "right", className: "whitespace-nowrap tabular text-xs",
       render: (c) => (c.status === "answered" ? fmtDuration(c.duration) : "—") },
-    { key: "rec", title: "Yozuv", render: (c) => (c.recording_url ? <audio controls preload="none" src={c.recording_url} className="h-8 w-48" /> : <span className="text-muted">—</span>) },
+    { key: "rec", title: "Yozuv", render: (c) => (c.recording_url
+      ? <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <audio controls preload="none" src={c.recording_url} className="h-8 w-48" />
+          {c.recording_saved && <Pill tone="ok">Drive</Pill>}
+          {c.recording_error && <span title={c.recording_error}><Pill tone="warn">!</Pill></span>}
+        </div>
+      : <span className="text-muted">—</span>) },
     { key: "note", title: "Natija", className: "max-w-60 text-xs", render: (c) => <span className="line-clamp-2">{c.note || <span className="text-muted">—</span>}</span> },
     { key: "act", title: "",
       render: (c) => (

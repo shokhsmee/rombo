@@ -117,7 +117,9 @@ def _direction(raw_dir, src: str, dst: str) -> str:
     return CallDirection.IN
 
 
-def normalize(payload: dict, *, company_numbers: list[str] | None = None) -> NormalCall | None:
+def normalize(payload: dict, *, company_numbers: list[str] | None = None, final: bool | None = None
+              ) -> NormalCall | None:
+    """`final` forces an ended call (history sync); None = read it from the event."""
     if not isinstance(payload, dict):
         return None
     d = {**payload, **(payload.get("call") if isinstance(payload.get("call"), dict) else {})}
@@ -144,7 +146,8 @@ def normalize(payload: dict, *, company_numbers: list[str] | None = None) -> Nor
     result = str(_pick(d, "result") or "").lower().replace("-", "_").replace(" ", "_")
     ended_at = _time(_pick(d, "end"))
 
-    final = event in END_WORDS or bool(ended_at) or result in END_RESULTS or (not event and duration > 0)
+    if final is None:
+        final = event in END_WORDS or bool(ended_at) or result in END_RESULTS or (not event and duration > 0)
     if final:
         if result == "busy":
             status = CallStatus.BUSY

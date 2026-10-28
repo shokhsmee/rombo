@@ -1,25 +1,32 @@
-// Calling a number from anywhere: the browser phone when it is registered, else the phone's own dialer (tel:).
-// Ported from uzbridge crm/live.tsx (Rombo has no PBX click-to-call yet).
-
-type Listener<T> = (v: T) => void;
-
-function bus<T>() {
-  const ls = new Set<Listener<T>>();
-  return {
-    on(l: Listener<T>) { ls.add(l); return () => { ls.delete(l); }; },
-    emit(v: T) { ls.forEach((l) => l(v)); },
-  };
-}
+// Calling a number from anywhere: the browser phone when it is registered, else the provider's click-to-call
+// (Moi Zvonki rings the employee's own mobile, an IP-PBX its extension), else the device dialer (tel:).
+// Ported from uzbridge crm/live.tsx.
+import { toast } from "@/components/toast";
+import { api, apiError } from "@/lib/api";
+import { bus } from "@/lib/live";
 
 export const dialRequests = bus<{ number: string }>();
 
 let phoneReady = false;
 export const setPhoneReady = (v: boolean) => { phoneReady = v; };
 
-export function dial(number: string) {
+export async function dial(number: string) {
   if (!number) return;
-  if (phoneReady) dialRequests.emit({ number });
-  else window.location.href = `tel:${number.replace(/[^\d+]/g, "")}`;
+  if (phoneReady) {
+    dialRequests.emit({ number });
+    return;
+  }
+  try {
+    const { data } = await api.post<{ ok: boolean; mobile?: boolean }>("/telephony/dial/", { number });
+    toast.ok(data.mobile ? "Telefoningizga qo'ng'iroq keladi — javob bering" : "Qo'ng'iroq ulanmoqda");
+  } catch (e) {
+    const err = apiError(e);
+    if (err.code === "network" || /sozlanmagan|biriktirilmagan|ulanmagan/.test(err.message)) {
+      window.location.href = `tel:${number.replace(/[^\d+]/g, "")}`;
+    } else {
+      toast.error(err.message);
+    }
+  }
 }
 
 /** 154 -> "2:34" */

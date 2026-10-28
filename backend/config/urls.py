@@ -11,6 +11,7 @@ api_v1 = [
     path("projects/", include("apps.projects.urls")),
     path("crm/", include("apps.crm.urls")),
     path("telephony/", include("apps.crm.urls_telephony")),
+    path("telegram/", include("apps.telegram.urls")),
     path("chatter/", include("apps.chatter.urls")),
     path("references/", include("apps.references.urls")),
     path("pricing/", include("apps.pricing.urls")),

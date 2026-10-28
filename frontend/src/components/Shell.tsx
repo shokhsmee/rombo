@@ -14,6 +14,7 @@ import {
   ListChecks,
   Tags,
   PhoneCall,
+  Send,
   SquareKanban,
   ShieldCheck,
   ShoppingCart,
@@ -27,6 +28,7 @@ import { useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth, type PageKey } from "@/auth/AuthProvider";
+import { useLiveSocket } from "@/lib/live";
 import { useTheme, type Theme } from "@/lib/theme";
 import { TelephonyLive } from "@/modules/telephony/TelephonyLive";
 
@@ -50,6 +52,7 @@ const NAV: NavGroup[] = [
       { page: "crm", label: "Voronka", to: "/crm", icon: SquareKanban },
       { page: "client_map", label: "Mijozlar xaritasi", to: "/crm/map", icon: MapPinned },
       { page: "telephony", label: "Qo'ng'iroqlar", to: "/telephony", icon: PhoneCall },
+      { page: "telegram", label: "Telegram", to: "/telegram", icon: Send },
     ],
   },
   {
@@ -162,7 +165,8 @@ function TopBar() {
 }
 
 export function Shell() {
-  const { can } = useAuth();
+  const { can, me } = useAuth();
+  useLiveSocket(!!me); // live updates (board, calls, Telegram, notifications)
   const { pathname } = useLocation();
   // a new page starts at the top (block body: newer browsers return a Promise from scrollTo)
   useEffect(() => {

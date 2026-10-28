@@ -12,6 +12,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-only-secret-key-change-me-in-
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 INSTALLED_APPS = [
+    "daphne",  # first: `runserver` serves ASGI (WebSockets) too
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -23,6 +24,7 @@ INSTALLED_APPS = [
     "django_filters",
     "corsheaders",
     "drf_spectacular",
+    "channels",
     # Rombo modules — order = dependency order (later apps may depend on earlier ones)
     "apps.core",
     "apps.access",
@@ -35,6 +37,7 @@ INSTALLED_APPS = [
     "apps.clients",
     "apps.projects",
     "apps.crm",
+    "apps.telegram",
 ]
 
 MIDDLEWARE = [
@@ -51,6 +54,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 TEMPLATES = [
     {
@@ -120,3 +124,25 @@ SEED_ADMIN_PASSWORD = env("SEED_ADMIN_PASSWORD", default="admin12345")
 # Telephony: defaults for the settings row (Telefoniya → Sozlamalar). Never commit real values.
 TELEPHONY_SIP_WSS = env("TELEPHONY_SIP_WSS", default="")
 TELEPHONY_SIP_DOMAIN = env("TELEPHONY_SIP_DOMAIN", default="")
+
+# Secrets stored in the database (SIP passwords, API keys, OAuth tokens) are Fernet-encrypted with this key.
+# Comma-separated for rotation (first encrypts). Empty in DEBUG → derived from SECRET_KEY (dev only).
+FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default="")
+
+# Live updates (WebSocket /ws/live/). In-memory layer = one process (dev); set REDIS_URL in production so
+# the worker and the Telegram listener can publish too.
+REDIS_URL = env("REDIS_URL", default="")
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels_redis.core.RedisChannelLayer", "CONFIG": {"hosts": [REDIS_URL]}}
+                  if REDIS_URL else {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+REALTIME_ENABLED = env.bool("REALTIME_ENABLED", default=True)
+
+# Where outside services reach this install (webhook URLs, OAuth redirects): https://erp.rombo.uz.
+# Empty → taken from the request (fine for dev; set it behind a proxy).
+PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", default="").rstrip("/")
+# Google OAuth app for call recordings in Drive (console.cloud.google.com → OAuth client, Web application;
+# redirect URI = PUBLIC_BASE_URL + /api/v1/telephony/recordings/google/callback/). Empty = "ulanmagan".
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
+# Telegram app (my.telegram.org → API development tools). Each account may also enter its own.
+TELEGRAM_API_ID = env.int("TELEGRAM_API_ID", default=0)
+TELEGRAM_API_HASH = env("TELEGRAM_API_HASH", default="")

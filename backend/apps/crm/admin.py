@@ -1,6 +1,17 @@
 from django.contrib import admin
 
-from apps.crm.models import Call, Extension, Lead, LeadTask, Pipeline, Stage, TelephonySettings
+from apps.crm.models import (
+    Call,
+    Connection,
+    CrmSettings,
+    Extension,
+    Lead,
+    LeadField,
+    LeadTask,
+    Pipeline,
+    Stage,
+    TelephonySettings,
+)
 
 
 class StageInline(admin.TabularInline):
@@ -41,3 +52,14 @@ class ExtensionAdmin(admin.ModelAdmin):
 
 
 admin.site.register(TelephonySettings)
+
+
+@admin.register(Connection)
+class ConnectionAdmin(admin.ModelAdmin):
+    list_display = ["name", "kind", "enabled", "status", "last_event_at", "events_count"]
+    list_filter = ["kind", "enabled", "status"]
+    exclude = ["secrets"]  # set in the app; never shown back
+
+
+admin.site.register(LeadField)
+admin.site.register(CrmSettings)

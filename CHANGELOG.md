@@ -3,6 +3,15 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-29
+- `add-crm-full-parity` — The rest of uzbridge's CRM: lead sources (website / ad forms, Yuboraman, amoCRM deals →
+  leads), UTeL and Moi Zvonki (webhooks, history pull, Moi Zvonki click-to-call), call recordings copied to Google
+  Drive, custom lead fields, tags, lost reasons per pipeline, editable task types, card setup, duplicates + merge,
+  auto-assignment, bulk actions, board filters with presets, CRM and call analytics, notifications, live updates over
+  WebSocket (Channels; `runserver` serves it), Telegram (employees' own accounts, chats, chat → client / lead),
+  `crm_worker` and `telegram_listen` processes. Secrets in the DB are Fernet-encrypted (`FIELD_ENCRYPTION_KEY`; SIP
+  passwords migrated). AI call analysis left out by the product owner's decision. Why: the user asked for uzbridge's
+  CRM end to end.
+- Fix: a Django `Http404` / `PermissionDenied` in an API view answered 500; now 404 / 403 in the error format.
 - `add-calculation-and-contract` — Hisob-kitob on the Loyiha from price lists (Narxlar; Termo 306J seeded):
   snapshot prices, half-up line rounding (sample = 1 080), order amount derived from it with the USD rate.
   Printable hisob-kitob (sales sheet layout) and shartnoma (company sample text) to PDF. Company requisites,

@@ -1,16 +1,17 @@
 // Incoming call card (ported from uzbridge crm/CallPopup.tsx): who is calling (client, open lead) while it rings;
-// after the call a result note and quick actions. uzbridge pushes calls over a WebSocket; Rombo polls
-// /telephony/calls/live/ every 4 s, and only for users who have an extension.
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+// after the call a result note and quick actions. Calls arrive over the live socket (pushed to their operator);
+// while the socket is down the popup asks /telephony/calls/live/ every 5 s instead.
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { PhoneIncoming, PhoneOutgoing, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { api } from "@/lib/api";
+import { liveEvents, useLiveConnected } from "@/lib/live";
 import { notifyError } from "@/lib/notify";
 
-import { callsApi, useCreateLeadFromCall, useMyPhone, type Call } from "./api";
+import { useCreateLeadFromCall, useMyPhone, type Call } from "./api";
 import { fmtDuration, fmtPhone } from "./live";
 
 const DONE: Record<string, string> = {
@@ -19,33 +20,35 @@ const DONE: Record<string, string> = {
 
 export function CallPopup() {
   const me = useMyPhone(true);
+  const connected = useLiveConnected();
   const hasExtension = !!me.data?.enabled && !!me.data.phone;
-  const [closed, setClosed] = useState<Set<number>>(() => new Set());
-  const [seen] = useState(() => Date.now()); // calls that ended before the page opened are not news
-  const live = useQuery({
+  const [calls, setCalls] = useState<Call[]>([]);
+  const upsert = (c: Call) => {
+    if (c.direction === "internal") return;
+    setCalls((list) => {
+      const known = list.some((x) => x.id === c.id);
+      if (!known && !c.live) return list; // an ended call we never saw ringing is not news
+      return known ? list.map((x) => (x.id === c.id ? c : x)) : [c, ...list].slice(0, 3);
+    });
+  };
+  useEffect(() => liveEvents.on((m) => { if (m.type === "call") upsert(m.call as Call); }), []);
+  const poll = useQuery({
     queryKey: ["telephony/calls", "live"],
     queryFn: async () => (await api.get<Call[]>("/telephony/calls/live/")).data,
-    enabled: hasExtension,
-    refetchInterval: 4000,
-    refetchIntervalInBackground: true,
+    enabled: hasExtension && !connected,
+    refetchInterval: 5000,
   });
-  const qc = useQueryClient();
-  const anyLive = live.data?.some((c) => c.live);
-  useEffect(() => {
-    if (!anyLive) qc.invalidateQueries({ queryKey: callsApi.keys.all, predicate: (q) => q.queryKey[1] !== "live" });
-  }, [anyLive, qc]);
-
-  const calls = (live.data ?? []).filter((c) => !closed.has(c.id) && (c.live || new Date(c.ended_at ?? 0).getTime() > seen)).slice(0, 3);
-  if (!calls.length) return null;
-  const close = (id: number) => setClosed((s) => new Set(s).add(id));
+  useEffect(() => { poll.data?.forEach(upsert); }, [poll.data]);
+  if (!calls.length || me.data?.popup === false) return null;
+  const close = (id: number) => setCalls((l) => l.filter((c) => c.id !== id));
   return (
     <div className="fixed right-4 top-16 z-[70] flex w-80 flex-col gap-2">
-      {calls.map((c) => <CallCard key={c.id} call={c} onClose={() => close(c.id)} />)}
+      {calls.map((c) => <CallCard key={c.id} call={c} onClose={() => close(c.id)} onUpdated={upsert} />)}
     </div>
   );
 }
 
-function CallCard({ call, onClose }: { call: Call; onClose: () => void }) {
+function CallCard({ call, onClose, onUpdated }: { call: Call; onClose: () => void; onUpdated: (c: Call) => void }) {
   const navigate = useNavigate();
   const canLead = useCan("crm").create;
   const canNote = useCan("telephony").update;
@@ -87,7 +90,7 @@ function CallCard({ call, onClose }: { call: Call; onClose: () => void }) {
           {call.lead
             ? <button type="button" onClick={() => open(call.lead!.id)} className="h-8 flex-1 rounded-lg bg-accent text-xs font-semibold text-white">Lidni ochish</button>
             : <button type="button" disabled={toLead.isPending}
-                onClick={() => toLead.mutate(call.id, { onSuccess: (r) => r.lead && open(r.lead.id), onError: notifyError })}
+                onClick={() => toLead.mutate(call.id, { onSuccess: (r) => { onUpdated(r); if (r.lead) open(r.lead.id); }, onError: notifyError })}
                 className="h-8 flex-1 rounded-lg bg-accent text-xs font-semibold text-white disabled:opacity-50">+ Lid yaratish</button>}
         </div>
       )}

@@ -29,6 +29,19 @@ npm install
 npm run dev                          # http://localhost:5173 (proxies /api to :8000)
 ```
 
+`runserver` is daphne's: it serves the API and the live-updates WebSocket (`/ws/live/`) in one process.
+CRM background work and Telegram run as two more processes (optional in dev):
+
+```bash
+uv run python manage.py crm_worker          # every minute: Drive recordings, task reminders, amoCRM tokens, history pull
+uv run python manage.py telegram_listen     # keeps connected Telegram accounts online (new messages live)
+```
+
+Production: `daphne -b 127.0.0.1 -p 8000 config.asgi:application` behind the proxy (forward `/ws/` as WebSocket),
+the two commands above as services, and `REDIS_URL` set so all three processes share live updates.
+External accounts (amoCRM, PBX keys, Telegram, Google Drive) are filled in the app or `backend/.env`
+(see `.env.example`); secrets in the database are encrypted with `FIELD_ENCRYPTION_KEY`.
+
 - API docs: http://localhost:8000/api/v1/docs/
 - Django admin: http://localhost:8000/admin/
 - Tests: `cd backend && uv run pytest`

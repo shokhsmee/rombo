@@ -6,6 +6,8 @@ usable from management commands, Celery tasks and tests. Every error response ha
     {"error": {"code": "...", "message": "...", "field": "name" | null, "fields": {...}}}
 """
 
+from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
+from django.http import Http404
 from rest_framework import exceptions as drf_exc
 from rest_framework import status
 from rest_framework.response import Response
@@ -65,6 +67,12 @@ def exception_handler(exc, context):
             {"error": {"code": exc.code, "message": exc.message, "field": exc.field, "fields": {}}},
             status=exc.status_code,
         )
+
+    # Django's own 404 / 403 (get_object_or_404, get_object) carry no .detail: use DRF's equivalents
+    if isinstance(exc, Http404):
+        exc = drf_exc.NotFound("Topilmadi")
+    elif isinstance(exc, DjangoPermissionDenied):
+        exc = drf_exc.PermissionDenied()
 
     response = drf_exception_handler(exc, context)
     if response is None:

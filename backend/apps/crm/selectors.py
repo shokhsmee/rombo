@@ -24,24 +24,37 @@ BOARD_CLOSED_DAYS = 30
 
 
 def leads_qs():
-    """Leads with what a card shows: the next open task and counts (subqueries: joins would multiply)."""
+    """Leads with what a card shows: the next open task, counts, the last activity (subqueries: joins would
+    multiply each other)."""
+    from apps.chatter.models import Message
+
     tasks = LeadTask.objects.filter(lead=OuterRef("pk"), done=False).order_by(F("due_at").asc(nulls_last=True), "id")
     calls = Call.objects.filter(lead=OuterRef("pk")).values("lead").annotate(n=Count("id")).values("n")
-    return Lead.objects.select_related("pipeline", "stage", "client", "manager", "source", "project").annotate(
+    missed = (Call.objects.filter(lead=OuterRef("pk"), status__in=[CallStatus.MISSED, CallStatus.NO_ANSWER])
+              .values("lead").annotate(n=Count("id")).values("n"))
+    last = Message.objects.filter(model="crm.lead", res_id=OuterRef("pk"), kind__in=["note", "event"]).order_by(
+        "-created_at", "-pk")
+    return Lead.objects.select_related("pipeline", "stage", "client__crm_data", "manager", "source", "project").annotate(
         next_task_kind=Subquery(tasks.values("kind")[:1]),
         next_task_text=Subquery(tasks.values("text")[:1]),
         next_task_due=Subquery(tasks.values("due_at")[:1]),
         open_tasks=Coalesce(Subquery(tasks.values("lead").annotate(n=Count("id")).values("n")), Value(0),
                             output_field=IntegerField()),
         calls_count=Coalesce(Subquery(calls), Value(0), output_field=IntegerField()),
+        missed_calls=Coalesce(Subquery(missed), Value(0), output_field=IntegerField()),
+        last_activity=Subquery(last.values("body")[:1]),
+        last_activity_at=Subquery(last.values("created_at")[:1]),
     )
 
 
-def board_leads(pipeline: Pipeline, qs=None) -> list[Lead]:
-    """The pipeline's leads for the board: won / lost ones untouched for 30 days leave it (the list keeps them)."""
+def board_leads(pipeline: Pipeline, qs=None, *, closed_all: bool = False) -> list[Lead]:
+    """The pipeline's leads for the board: won / lost ones untouched for 30 days leave it unless a filter asks
+    for closed leads (the list keeps them all)."""
     since = timezone.now() - timedelta(days=BOARD_CLOSED_DAYS)
     qs = (qs if qs is not None else leads_qs()).filter(pipeline=pipeline)
-    return list(qs.filter(Q(status=LeadStatus.OPEN) | Q(updated_at__gte=since)).order_by("-stage_changed_at", "-id"))
+    if not closed_all:
+        qs = qs.filter(Q(status=LeadStatus.OPEN) | Q(updated_at__gte=since))
+    return list(qs.order_by("-stage_changed_at", "-id"))
 
 
 # ------------------------------------------------------------------ phone matching
@@ -106,17 +119,26 @@ def call_stats(since, until, user=None) -> dict:
 
 
 def softphone_config(user, st: TelephonySettings) -> dict | None:
-    """What the browser phone needs. The SIP password goes only to its owner, only when the phone is on."""
-    ext = Extension.objects.filter(user=user).first()
+    """What the browser phone needs. The address comes from the extension's connection (or the first telephony
+    connection that has one); the SIP password goes only to its owner, only when the phone is on."""
+    from apps.crm.models import Connection
+
+    ext = Extension.objects.filter(user=user).select_related("connection").first()
     if ext is None:
         return None
-    wss = st.sip_wss.strip()
+    conn = ext.connection if ext.connection and (ext.connection.config or {}).get("sip_wss") else None
+    if conn is None:
+        conn = next((c for c in Connection.objects.filter(kind__in=Connection.TELEPHONY, enabled=True)
+                     if (c.config or {}).get("sip_wss")), None)
+    cfg = (conn.config or {}) if conn else {}
+    wss = str(cfg.get("sip_wss") or "").strip()
     if wss and not wss.startswith(("wss://", "ws://")):
         wss = ""  # a typo (wws://…) would break the browser phone: treat it as not set
     elif wss and "/" not in wss.split("://", 1)[1]:
-        wss += "/ws"  # Asterisk: SIP over WebSocket lives at /ws
-    out = {"extension": ext.number, "softphone": ext.softphone, "wss": wss, "domain": st.sip_domain.strip(),
-           "sip_login": "", "sip_password": ""}
+        wss += "/ws"  # Asterisk / UTeL: SIP over WebSocket lives at /ws
+    out = {"extension": ext.number, "softphone": ext.softphone, "wss": wss,
+           "domain": str(cfg.get("sip_domain") or "").strip(), "sip_login": "", "sip_password": "",
+           "provider": ext.connection.kind if ext.connection else (conn.kind if conn else "")}
     if ext.softphone and wss and st.enabled:
         out["sip_login"] = ext.sip_login or ext.number
         out["sip_password"] = ext.sip_password

@@ -39,6 +39,7 @@ class Pages:
     CLIENTS = "clients"
     CRM = "crm"
     TELEPHONY = "telephony"
+    TELEGRAM = "telegram"
     CLIENT_MAP = "client_map"
     PROCUREMENT = "procurement"
     MRP = "mrp"
@@ -56,6 +57,7 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.CLIENTS, "Mijozlar", "Savdo"),
     PageDef(Pages.CRM, "Lidlar / voronka", "CRM"),
     PageDef(Pages.TELEPHONY, "Telefoniya", "CRM"),
+    PageDef(Pages.TELEGRAM, "Telegram", "CRM"),
     PageDef(Pages.CLIENT_MAP, "Mijozlar xaritasi", "CRM", VIEW_ONLY),
     PageDef(Pages.PROCUREMENT, "Xaridlar", "Ta'minot", planned=True),
     PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", planned=True),
