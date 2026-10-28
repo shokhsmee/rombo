@@ -9,6 +9,8 @@ api_v1 = [
     path("employees/", include("apps.employees.urls")),
     path("clients/", include("apps.clients.urls")),
     path("projects/", include("apps.projects.urls")),
+    path("crm/", include("apps.crm.urls")),
+    path("telephony/", include("apps.crm.urls_telephony")),
     path("chatter/", include("apps.chatter.urls")),
     path("references/", include("apps.references.urls")),
     path("pricing/", include("apps.pricing.urls")),

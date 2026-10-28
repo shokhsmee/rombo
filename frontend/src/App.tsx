@@ -7,6 +7,8 @@ import { RolesListPage } from "@/modules/access/RolesListPage";
 import { LoginPage } from "@/modules/auth/LoginPage";
 import { ClientFormPage } from "@/modules/clients/ClientFormPage";
 import { ClientsListPage } from "@/modules/clients/ClientsListPage";
+import { BoardPage } from "@/modules/crm/BoardPage";
+import { LeadFormPage } from "@/modules/crm/LeadFormPage";
 import { DashboardPage } from "@/modules/dashboard/DashboardPage";
 import { EmployeeFormPage } from "@/modules/employees/EmployeeFormPage";
 import { EmployeesListPage } from "@/modules/employees/EmployeesListPage";
@@ -19,6 +21,8 @@ import { CompanyPage } from "@/modules/company/CompanyPage";
 import { PriceListFormPage } from "@/modules/pricing/PriceListFormPage";
 import { PriceListsPage } from "@/modules/pricing/PriceListsPage";
 import { ReferencesPage } from "@/modules/references/ReferencesPage";
+import { CallsPage } from "@/modules/telephony/CallsPage";
+import { TelephonySettingsPage } from "@/modules/telephony/SettingsPage";
 import { UserFormPage } from "@/modules/users/UserFormPage";
 import { UsersListPage } from "@/modules/users/UsersListPage";
 
@@ -38,6 +42,11 @@ export function App() {
 
         <Route path="clients" element={<RequirePage page="clients"><ClientsListPage /></RequirePage>} />
         <Route path="clients/:id" element={<RequirePage page="clients"><ClientFormPage /></RequirePage>} />
+
+        <Route path="crm" element={<RequirePage page="crm"><BoardPage /></RequirePage>} />
+        <Route path="crm/leads/:id" element={<RequirePage page="crm"><LeadFormPage /></RequirePage>} />
+        <Route path="telephony" element={<RequirePage page="telephony"><CallsPage /></RequirePage>} />
+        <Route path="telephony/settings" element={<RequirePage page="telephony"><TelephonySettingsPage /></RequirePage>} />
 
         <Route path="employees" element={<RequirePage page="employees"><EmployeesListPage /></RequirePage>} />
         <Route path="employees/:id" element={<RequirePage page="employees"><EmployeeFormPage /></RequirePage>} />

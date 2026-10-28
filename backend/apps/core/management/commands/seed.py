@@ -15,10 +15,11 @@ DEFAULT_ROLES = {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: FULL, Pages.CLIENTS: FULL, Pages.EMPLOYEES: FULL,
         Pages.USERS: FULL, Pages.ROLES: FULL, Pages.REFERENCES: FULL, Pages.PRICING: FULL,
         Pages.COMPANY: dict(can_view=True, can_update=True), Pages.PROCUREMENT: FULL, Pages.MRP: FULL,
+        Pages.CRM: FULL, Pages.TELEPHONY: FULL,
     }),
     "Savdo menejeri": ("Loyiha va mijozlar bilan ishlaydi", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: EDIT, Pages.CLIENTS: EDIT, Pages.EMPLOYEES: VIEW,
-        Pages.PRICING: VIEW,
+        Pages.PRICING: VIEW, Pages.CRM: EDIT, Pages.TELEPHONY: VIEW,
     }),
     "Ta'minotchi": ("Xaridlar bo'limi", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.PROCUREMENT: EDIT,

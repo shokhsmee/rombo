@@ -8,6 +8,11 @@ Newest first. Each entry: date · change-id (if any) · what · why (one line).
   Printable hisob-kitob (sales sheet layout) and shartnoma (company sample text) to PDF. Company requisites,
   contract spec fields, client passport. Process map in docs/process-map.md.
   Why: the client's price comes from this sheet; one source for price, contract, and later the material list.
+- `add-crm-telephony` — CRM ported from uzbridge: Voronka (kanban + list, editable stages), Lid card with
+  tasks and chatter, "Loyiha ochish" turns a lead into a Mijoz + Loyiha. Telephony: PBX webhook (any
+  IP-PBX), call log with stats, calls matched to leads/clients by number and written to their history, missed
+  call → lead + call-back task, live call popup, browser softphone (JsSIP 3.10.1), per-user extensions.
+  New "CRM" menu group. Why: leads and calls had no trace before the order; uzbridge already had it working.
 - `add-loyiha-card-fields` — Loyiha card has every field of the sales order card: service/advance amounts
   with computed debt, sale date, phone, partner, sales channel, brand/product, location, mosquito net,
   dismantling, order lines (type · m² · count) with totals, drawings. Lock now covers only production fields.
