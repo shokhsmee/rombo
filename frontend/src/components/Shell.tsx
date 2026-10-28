@@ -72,6 +72,9 @@ const NAV: NavGroup[] = [
   },
 ];
 
+/** /crm must not light up on /crm/map: an item whose path prefixes another item's matches exactly. */
+const hasChildItem = (to: string) => NAV.some((g) => g.items.some((i) => i.to !== to && i.to.startsWith(`${to}/`)));
+
 function Row({ to, icon: Icon, label, end }: { to: string; icon: LucideIcon; label: string; end?: boolean }) {
   return (
     <NavLink
@@ -190,7 +193,7 @@ export function Shell() {
                       <span className="ml-auto rounded-full bg-sunk px-1.5 py-px text-2xs font-medium text-muted">tez orada</span>
                     </span>
                   ) : (
-                    <Row key={n.to} to={n.to} icon={n.icon} label={n.label} />
+                    <Row key={n.to} to={n.to} icon={n.icon} label={n.label} end={hasChildItem(n.to)} />
                   ),
                 )}
               </div>
