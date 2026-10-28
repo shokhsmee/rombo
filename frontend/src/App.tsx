@@ -6,6 +6,7 @@ import { RoleFormPage } from "@/modules/access/RoleFormPage";
 import { RolesListPage } from "@/modules/access/RolesListPage";
 import { LoginPage } from "@/modules/auth/LoginPage";
 import { ClientFormPage } from "@/modules/clients/ClientFormPage";
+import { ClientMapPage } from "@/modules/clients/ClientMapPage";
 import { ClientsListPage } from "@/modules/clients/ClientsListPage";
 import { DashboardPage } from "@/modules/dashboard/DashboardPage";
 import { EmployeeFormPage } from "@/modules/employees/EmployeeFormPage";
@@ -28,6 +29,8 @@ export function App() {
 
         <Route path="clients" element={<RequirePage page="clients"><ClientsListPage /></RequirePage>} />
         <Route path="clients/:id" element={<RequirePage page="clients"><ClientFormPage /></RequirePage>} />
+
+        <Route path="crm/map" element={<RequirePage page="client_map"><RequirePage page="clients"><ClientMapPage /></RequirePage></RequirePage>} />
 
         <Route path="employees" element={<RequirePage page="employees"><EmployeesListPage /></RequirePage>} />
         <Route path="employees/:id" element={<RequirePage page="employees"><EmployeeFormPage /></RequirePage>} />

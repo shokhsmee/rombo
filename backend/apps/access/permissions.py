@@ -31,3 +31,19 @@ class PagePermission(BasePermission):
             action_name, Action.VIEW
         )
         return has_permission(request.user, page_key, action)
+
+
+def page_required(page_key: str, action: Action = Action.VIEW) -> type[BasePermission]:
+    """A second page an endpoint needs on top of its viewset's own, e.g. the client map also needs
+    `clients` view: `@action(permission_classes=[*ServiceModelViewSet.permission_classes,
+    page_required(Pages.CLIENTS)])`."""
+    assert page_key in PAGE_BY_KEY, f"{page_key} is not in the registry"
+
+    class _PageRequired(BasePermission):
+        message = PagePermission.message
+
+        def has_permission(self, request, view):
+            return has_permission(request.user, page_key, action)
+
+    _PageRequired.__name__ = f"PageRequired_{page_key}"
+    return _PageRequired

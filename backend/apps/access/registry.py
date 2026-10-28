@@ -37,6 +37,7 @@ class Pages:
     DASHBOARD = "dashboard"
     PROJECTS = "projects"
     CLIENTS = "clients"
+    CLIENT_MAP = "client_map"
     PROCUREMENT = "procurement"
     MRP = "mrp"
     EMPLOYEES = "employees"
@@ -49,6 +50,7 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.DASHBOARD, "Bosh sahifa", "Umumiy", VIEW_ONLY),
     PageDef(Pages.PROJECTS, "Loyihalar", "Savdo"),
     PageDef(Pages.CLIENTS, "Mijozlar", "Savdo"),
+    PageDef(Pages.CLIENT_MAP, "Mijozlar xaritasi", "CRM", VIEW_ONLY),
     PageDef(Pages.PROCUREMENT, "Xaridlar", "Ta'minot", planned=True),
     PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", planned=True),
     PageDef(Pages.EMPLOYEES, "Xodimlar", "Xodimlar"),

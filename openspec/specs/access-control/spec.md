@@ -46,3 +46,19 @@ User permissions SHALL be the union of their roles; superusers get everything. `
 
 ### Requirement: Users are never deleted
 Users are referenced by audit columns. Delete SHALL return 409; block (`is_active=false`) instead. A user SHALL NOT block themselves or drop their own superuser flag.
+
+### Requirement: CRM pages
+The registry SHALL have page `client_map` "Mijozlar xaritasi" in group "CRM", view only. Roles that
+could view clients when it was introduced get its view permission.
+
+#### Scenario: Existing sales role after upgrade
+- WHEN the migration runs on a database where role "Savdo menejeri" can view clients
+- THEN that role can view `client_map`
+
+### Requirement: Endpoints needing two pages
+An endpoint MAY require a second page on top of its viewset's page (`page_required(page, action)`);
+both checks SHALL pass.
+
+#### Scenario: Second page missing
+- WHEN a user has only one of the two required pages
+- THEN 403

@@ -6,6 +6,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  MapPinned,
   Monitor,
   Moon,
   Plus,
@@ -36,6 +37,10 @@ const NAV: NavGroup[] = [
       { page: "projects", label: "Loyihalar", to: "/projects", icon: FileText },
       { page: "clients", label: "Mijozlar", to: "/clients", icon: Building2 },
     ],
+  },
+  {
+    title: "CRM",
+    items: [{ page: "client_map", label: "Mijozlar xaritasi", to: "/crm/map", icon: MapPinned }],
   },
   {
     title: "Ta'minot",

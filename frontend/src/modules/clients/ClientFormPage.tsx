@@ -14,16 +14,18 @@ import { RefSelect } from "@/modules/references/RefSelect";
 import { STATUS } from "@/modules/projects/statuses";
 
 import { clientsApi, KIND_LABEL, REGIONS, type Client, type ClientKind } from "./api";
+import { LocationField } from "./LocationField";
 
 type Values = {
   kind: ClientKind; name: string; tin: string; contact_person: string; phone: string; phone_extra: string;
   email: string; region: string; address: string; source: string; notes: string; is_active: boolean;
-  manager_id: number | null; segment_id: number | null;
+  manager_id: number | null; segment_id: number | null; latitude: number | null; longitude: number | null;
 };
 
 const EMPTY: Values = {
   kind: "individual", name: "", tin: "", contact_person: "", phone: "", phone_extra: "", email: "",
   region: "", address: "", source: "", notes: "", is_active: true, manager_id: null, segment_id: null,
+  latitude: null, longitude: null,
 };
 
 export function ClientFormPage() {
@@ -45,6 +47,7 @@ export function ClientFormPage() {
       kind: r.kind, name: r.name, tin: r.tin, contact_person: r.contact_person, phone: r.phone,
       phone_extra: r.phone_extra, email: r.email, region: r.region, address: r.address, source: r.source,
       notes: r.notes, is_active: r.is_active, manager_id: r.manager_id, segment_id: r.segment_id,
+      latitude: r.latitude == null ? null : Number(r.latitude), longitude: r.longitude == null ? null : Number(r.longitude),
     }),
     validate: {
       name: (v) => (v.trim().length >= 2 ? null : "Kamida 2 ta belgi"),
@@ -94,8 +97,10 @@ export function ClientFormPage() {
           <fieldset disabled={!editable} className="grid gap-6">
             <FieldGrid>
               <Row label="Turi" wide>
-                <Segmented value={v.kind} onChange={(k) => form.set("kind", k)}
-                  options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value: value as ClientKind, label }))} />
+                <div className="no-scrollbar max-w-full overflow-x-auto">
+                  <Segmented value={v.kind} onChange={(k) => form.set("kind", k)}
+                    options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value: value as ClientKind, label }))} />
+                </div>
               </Row>
               <Row label={company ? "Tashkilot nomi" : "F.I.O."} required error={form.errors.name}><Input {...form.text("name")} /></Row>
               <Row label="STIR" error={form.errors.tin}><Input inputMode="numeric" placeholder={company ? "9 ta raqam" : "ixtiyoriy"} {...form.text("tin")} /></Row>
@@ -122,6 +127,11 @@ export function ClientFormPage() {
                 </Select>
               </Row>
               <Row label="Manzil"><Input {...form.text("address")} /></Row>
+              <Row label="Lokatsiya" wide>
+                <LocationField disabled={!editable} error={form.errors.latitude ?? form.errors.longitude}
+                  value={v.latitude != null && v.longitude != null ? { lat: v.latitude, lng: v.longitude } : null}
+                  onChange={(p) => { form.set("latitude", p?.lat ?? null); form.set("longitude", p?.lng ?? null); }} />
+              </Row>
               <Row label="Izoh" wide><Textarea {...form.text("notes")} /></Row>
               <Row label="Holat"><Toggle label="Faol mijoz" checked={v.is_active} disabled={!editable} onChange={(x) => form.set("is_active", x)} /></Row>
             </FieldGrid>

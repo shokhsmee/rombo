@@ -21,6 +21,8 @@ export type ClientListItem = {
   is_active: boolean;
   manager: Ref | null;
   segment: { id: number; name: string } | null;
+  latitude: string | null; // "39.654200" — decimal string, like money
+  longitude: string | null;
 };
 
 export type Client = ClientListItem & {
@@ -36,7 +38,8 @@ export type Client = ClientListItem & {
   updated_at: string;
 };
 
-export type ClientInput = Partial<Omit<Client, "id" | "code" | "manager" | "segment" | "projects_count" | "created_at" | "updated_at">>;
+export type ClientInput = Partial<Omit<Client, "id" | "code" | "manager" | "segment" | "projects_count" | "created_at" | "updated_at" | "latitude" | "longitude">>
+  & { latitude?: number | null; longitude?: number | null };
 
 export const clientsApi = crudResource<ClientListItem, Client, ClientInput>("clients");
 

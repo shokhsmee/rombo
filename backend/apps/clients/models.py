@@ -1,4 +1,4 @@
-from django.core.validators import MinLengthValidator, RegexValidator
+from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator, RegexValidator
 from django.db import models
 
 from apps.core.models import AuditModel, SoftDeleteModel
@@ -10,13 +10,18 @@ class ClientKind(models.TextChoices):
     DEALER = "dealer", "Diler / hamkor"
 
 
-tin_validator = RegexValidator(r"^\d{9,14}$", "STIR 9–14 ta raqamdan iborat bo'lishi kerak")
+# Loyiha statuses that are done with the client — mirrors projects.models.FINISHED_STATUSES
+# (clients must not import projects; a test keeps the two equal).
+FINISHED_PROJECT_STATUSES = ("delivered", "closed", "cancelled")
+
+tin_validator =RegexValidator(r"^\d{9,14}$", "STIR 9–14 ta raqamdan iborat bo'lishi kerak")
 
 
 class Client(AuditModel, SoftDeleteModel):
     TRACK = {
         "name": "Nomi", "kind": "Turi", "tin": "STIR", "phone": "Telefon", "contact_person": "Aloqa shaxsi",
         "region": "Hudud", "manager": "Menejer", "is_active": "Faol", "segment": "Segment",
+        "latitude": "Kenglik", "longitude": "Uzunlik",
     }
     CHATTER_NAME = "Mijoz"
 
@@ -35,6 +40,11 @@ class Client(AuditModel, SoftDeleteModel):
     source = models.CharField("Qayerdan kelgan", max_length=100, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)
+    # point on the map (6 decimals ≈ 11 cm); both set or both empty — see services._check_point
+    latitude = models.DecimalField("Kenglik", max_digits=9, decimal_places=6, null=True, blank=True,
+                                   validators=[MinValueValidator(-90), MaxValueValidator(90)])
+    longitude = models.DecimalField("Uzunlik", max_digits=9, decimal_places=6, null=True, blank=True,
+                                    validators=[MinValueValidator(-180), MaxValueValidator(180)])
 
     manager = models.ForeignKey("employees.Employee", null=True, blank=True, on_delete=models.SET_NULL,
                                 related_name="clients")
