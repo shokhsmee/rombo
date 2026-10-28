@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { Pill, Toggle } from "@/components/ui";
 import { useListParams } from "@/hooks/useListParams";
-import { fmtDate, fmtMoney, isOverdue } from "@/lib/format";
+import { fmtArea, fmtDate, fmtMoney, isOverdue } from "@/lib/format";
 
 import { projectsApi, useProjectSummary, type ProjectListItem, type ProjectStatus } from "./api";
 import { FINISHED, PIPELINE, STATUS } from "./statuses";
@@ -22,13 +22,18 @@ const columns: Column<ProjectListItem>[] = [
         <div className="text-xs text-muted">{r.client.name}</div>
       </div>
     ) },
-  { key: "manager", title: "Menejer", className: "whitespace-nowrap text-xs", render: (r) => r.manager?.name ?? <span className="text-muted">—</span> },
+  { key: "manager", title: "Sotuvchi", className: "whitespace-nowrap text-xs", render: (r) => r.manager?.name ?? <span className="text-muted">—</span> },
   { key: "deadline", title: "Muddat", sort: "deadline", className: "whitespace-nowrap",
     render: (r) => {
       const late = isOverdue(r.deadline, FINISHED.includes(r.status));
       return <span className={late ? "font-medium text-bad" : ""}>{fmtDate(r.deadline)}</span>;
     } },
+  { key: "area", title: "m²", align: "right", render: (r) => (Number(r.total_area) ? fmtArea(r.total_area).replace(" m²", "") : <span className="text-muted">—</span>) },
   { key: "amount", title: "Summa", sort: "amount", align: "right", render: (r) => fmtMoney(r.amount, r.currency) },
+  { key: "debt", title: "Qarz", align: "right",
+    render: (r) => Number(r.debt_amount) > 0
+      ? <span className="font-medium text-bad">{fmtMoney(r.debt_amount)}</span>
+      : <span className="text-ok">0</span> },
   { key: "status", title: "Holat", sort: "status", render: (r) => <Pill tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Pill> },
 ];
 

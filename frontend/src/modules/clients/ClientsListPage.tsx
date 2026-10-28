@@ -18,7 +18,7 @@ const columns: Column<ClientListItem>[] = [
     render: (r) => (
       <div className="min-w-48">
         <div className="font-medium">{r.name}</div>
-        <div className="text-xs text-muted">{KIND_LABEL[r.kind]}{r.tin && <> · STIR <span className="tabular">{r.tin}</span></>}</div>
+        <div className="text-xs text-muted">{KIND_LABEL[r.kind]}{r.segment && <> · {r.segment.name}</>}{r.tin && <> · STIR <span className="tabular">{r.tin}</span></>}</div>
       </div>
     ) },
   { key: "phone", title: "Aloqa",

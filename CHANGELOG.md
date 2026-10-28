@@ -3,6 +3,11 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-29
+- `add-loyiha-card-fields` — Loyiha card has every field of the sales order card: service/advance amounts
+  with computed debt, sale date, phone, partner, sales channel, brand/product, location, mosquito net,
+  dismantling, order lines (type · m² · count) with totals, drawings. Lock now covers only production fields.
+  New Sozlamalar → Ma'lumotnomalar (channels, order types, brands, segments); client segment.
+  Why: sales keeps the whole order in one card instead of Excel; MRP will read the lines.
 - `add-chatter-and-uzbridge-design` — Chatter: every tracked record has a history (create, field changes,
   notes) with author and time; Loyiha status history moved into it (old rows migrated).
   Why: one place to answer "who changed what and why", same as uzbridge/Odoo.

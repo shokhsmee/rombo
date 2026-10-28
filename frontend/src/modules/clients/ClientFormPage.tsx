@@ -10,6 +10,7 @@ import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDate, fmtMoney } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
 import { projectsApi } from "@/modules/projects/api";
+import { RefSelect } from "@/modules/references/RefSelect";
 import { STATUS } from "@/modules/projects/statuses";
 
 import { clientsApi, KIND_LABEL, REGIONS, type Client, type ClientKind } from "./api";
@@ -17,12 +18,12 @@ import { clientsApi, KIND_LABEL, REGIONS, type Client, type ClientKind } from ".
 type Values = {
   kind: ClientKind; name: string; tin: string; contact_person: string; phone: string; phone_extra: string;
   email: string; region: string; address: string; source: string; notes: string; is_active: boolean;
-  manager_id: number | null;
+  manager_id: number | null; segment_id: number | null;
 };
 
 const EMPTY: Values = {
   kind: "individual", name: "", tin: "", contact_person: "", phone: "", phone_extra: "", email: "",
-  region: "", address: "", source: "", notes: "", is_active: true, manager_id: null,
+  region: "", address: "", source: "", notes: "", is_active: true, manager_id: null, segment_id: null,
 };
 
 export function ClientFormPage() {
@@ -43,7 +44,7 @@ export function ClientFormPage() {
     toForm: (r) => ({
       kind: r.kind, name: r.name, tin: r.tin, contact_person: r.contact_person, phone: r.phone,
       phone_extra: r.phone_extra, email: r.email, region: r.region, address: r.address, source: r.source,
-      notes: r.notes, is_active: r.is_active, manager_id: r.manager_id,
+      notes: r.notes, is_active: r.is_active, manager_id: r.manager_id, segment_id: r.segment_id,
     }),
     validate: {
       name: (v) => (v.trim().length >= 2 ? null : "Kamida 2 ta belgi"),
@@ -102,6 +103,9 @@ export function ClientFormPage() {
               <Row label="Mas'ul menejer">
                 <EntitySelect endpoint="employees" current={c?.manager} disabled={!editable} extraParams={{ status: "active" }}
                   value={v.manager_id} onChange={(mid) => form.set("manager_id", mid)} />
+              </Row>
+              <Row label="Segment">
+                <RefSelect kind="client_segment" value={v.segment_id} onChange={(x) => form.set("segment_id", x)} />
               </Row>
             </FieldGrid>
             <FieldGrid title="Aloqa">

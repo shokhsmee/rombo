@@ -15,15 +15,43 @@ export type ProjectListItem = {
   client: Ref;
   manager: Ref | null;
   region: string;
+  sale_date: string | null;
   deadline: string | null;
   amount: string;
+  debt_amount: string;
+  total_area: string;
   currency: Currency;
   created_at: string;
 };
 
+export type RefShort = { id: number; name: string };
+
+export type ProjectItem = { id?: number; product_type: RefShort; product_type_id: number; area_m2: string; quantity: number };
+
+export type ProjectFile = { id: number; name: string; size: number; created_at: string; uploaded_by: string };
+
 export type Project = ProjectListItem & {
   client_id: number;
+  client_phone: string;
+  client_segment: RefShort | null;
   manager_id: number | null;
+  partner: Ref | null;
+  partner_id: number | null;
+  sales_channel: RefShort | null;
+  sales_channel_id: number | null;
+  brand: RefShort | null;
+  brand_id: number | null;
+  product_name: string;
+  phone: string;
+  location: string;
+  service_amount: string;
+  advance_amount: string;
+  total_amount: string;
+  mosquito_net: boolean;
+  dismantling: boolean;
+  items: ProjectItem[];
+  total_quantity: number;
+  files: ProjectFile[];
   object_address: string;
   contract_number: string;
   contract_date: string | null;
@@ -33,6 +61,18 @@ export type Project = ProjectListItem & {
 };
 
 export type ProjectInput = Partial<{
+  partner_id: number | null;
+  sales_channel_id: number | null;
+  brand_id: number | null;
+  product_name: string;
+  phone: string;
+  location: string;
+  sale_date: string | null;
+  service_amount: string;
+  advance_amount: string;
+  mosquito_net: boolean;
+  dismantling: boolean;
+  items: { product_type_id: number; area_m2: string; quantity: number }[];
   name: string;
   client_id: number | null;
   manager_id: number | null;
@@ -66,4 +106,38 @@ export function useProjectSummary() {
     queryKey: ["projects", "summary"],
     queryFn: async () => (await api.get<{ status: ProjectStatus; count: number }[]>("/projects/summary/")).data,
   });
+}
+
+// ---- drawings
+
+export function useProjectFiles(projectId: number) {
+  const qc = useQueryClient();
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: projectsApi.keys.detail(projectId) });
+    qc.invalidateQueries({ queryKey: ["chatter", "projects.project", projectId] });
+  };
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const body = new FormData();
+      body.append("file", file);
+      return (await api.post<ProjectFile>(`/projects/${projectId}/files/`, body)).data;
+    },
+    onSuccess: refresh,
+  });
+  const remove = useMutation({
+    mutationFn: async (fileId: number) => api.delete(`/projects/${projectId}/files/${fileId}/`),
+    onSuccess: refresh,
+  });
+  return { upload, remove };
+}
+
+/** Files are behind auth, so download through axios and hand the browser a blob. */
+export async function downloadProjectFile(projectId: number, f: ProjectFile) {
+  const { data } = await api.get<Blob>(`/projects/${projectId}/files/${f.id}/`, { responseType: "blob" });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = f.name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

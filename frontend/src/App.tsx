@@ -12,6 +12,7 @@ import { EmployeeFormPage } from "@/modules/employees/EmployeeFormPage";
 import { EmployeesListPage } from "@/modules/employees/EmployeesListPage";
 import { ProjectFormPage } from "@/modules/projects/ProjectFormPage";
 import { ProjectsListPage } from "@/modules/projects/ProjectsListPage";
+import { ReferencesPage } from "@/modules/references/ReferencesPage";
 import { UserFormPage } from "@/modules/users/UserFormPage";
 import { UsersListPage } from "@/modules/users/UsersListPage";
 
@@ -35,6 +36,8 @@ export function App() {
         <Route path="settings/users/:id" element={<RequirePage page="users"><UserFormPage /></RequirePage>} />
         <Route path="settings/roles" element={<RequirePage page="roles"><RolesListPage /></RequirePage>} />
         <Route path="settings/roles/:id" element={<RequirePage page="roles"><RoleFormPage /></RequirePage>} />
+
+        <Route path="settings/references" element={<RequirePage page="references"><ReferencesPage /></RequirePage>} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

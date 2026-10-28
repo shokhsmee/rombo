@@ -6,7 +6,7 @@ export type ClientKind = "individual" | "company" | "dealer";
 export const KIND_LABEL: Record<ClientKind, string> = {
   individual: "Jismoniy shaxs",
   company: "Yuridik shaxs",
-  dealer: "Diler",
+  dealer: "Diler / hamkor",
 };
 
 export type ClientListItem = {
@@ -20,6 +20,7 @@ export type ClientListItem = {
   region: string;
   is_active: boolean;
   manager: Ref | null;
+  segment: { id: number; name: string } | null;
 };
 
 export type Client = ClientListItem & {
@@ -29,12 +30,13 @@ export type Client = ClientListItem & {
   source: string;
   notes: string;
   manager_id: number | null;
+  segment_id: number | null;
   projects_count: number;
   created_at: string;
   updated_at: string;
 };
 
-export type ClientInput = Partial<Omit<Client, "id" | "code" | "manager" | "projects_count" | "created_at" | "updated_at">>;
+export type ClientInput = Partial<Omit<Client, "id" | "code" | "manager" | "segment" | "projects_count" | "created_at" | "updated_at">>;
 
 export const clientsApi = crudResource<ClientListItem, Client, ClientInput>("clients");
 

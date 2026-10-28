@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { api, tokens } from "@/lib/api";
 
 export type PageKey =
-  | "dashboard" | "projects" | "clients" | "procurement" | "mrp" | "employees" | "users" | "roles";
+  | "dashboard" | "projects" | "clients" | "procurement" | "mrp" | "employees" | "users" | "roles" | "references";
 export type PermAction = "view" | "create" | "update" | "delete";
 
 export type Me = {

@@ -9,6 +9,7 @@ import {
   Monitor,
   Moon,
   Plus,
+  ListChecks,
   ShieldCheck,
   ShoppingCart,
   Sun,
@@ -49,6 +50,7 @@ const NAV: NavGroup[] = [
     items: [
       { page: "users", label: "Foydalanuvchilar", to: "/settings/users", icon: Users },
       { page: "roles", label: "Rollar va ruxsatlar", to: "/settings/roles", icon: ShieldCheck },
+      { page: "references", label: "Ma'lumotnomalar", to: "/settings/references", icon: ListChecks },
     ],
   },
 ];
