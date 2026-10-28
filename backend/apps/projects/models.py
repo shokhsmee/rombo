@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.core.validators import MinValueValidator
@@ -35,7 +35,10 @@ TRANSITIONS: dict[str, set[str]] = {
 # From procurement on, the fields production depends on are locked (MRP plans are computed from them).
 # Money, contacts, dates and notes stay editable: advances and debt change while the order is in the factory.
 EDITABLE_STATUSES = {S.DRAFT, S.CONFIRMED}
-PRODUCTION_FIELDS = {"name", "client", "items", "brand", "product_name", "mosquito_net", "dismantling"}
+PRODUCTION_FIELDS = {
+    "name", "client", "items", "brand", "product_name", "mosquito_net", "dismantling",
+    "profile_color", "door_accessory", "window_accessory", "windowsill", "glass", "shotlandka",
+}
 FINISHED_STATUSES = {S.DELIVERED, S.CLOSED, S.CANCELLED}
 
 
@@ -52,7 +55,9 @@ class Project(AuditModel, SoftDeleteModel):
         "sale_date": "Sotuv sanasi", "service_amount": "Xizmat summasi", "advance_amount": "Avans",
         "phone": "Telefon", "partner": "Hamkor", "sales_channel": "Sotuv kanali", "brand": "Brend",
         "product_name": "Mahsulot", "location": "Lokatsiya", "mosquito_net": "Maskitka",
-        "dismantling": "Demontaj",
+        "dismantling": "Demontaj", "advance_date": "Avans sanasi", "usd_rate": "USD kursi",
+        "profile_color": "Profil rangi", "door_accessory": "Eshik aksessuari", "window_accessory": "Rom aksessuari",
+        "windowsill": "Podokonnik", "glass": "Oyna", "shotlandka": "Shotlandka",
     }
     CHATTER_NAME = "Loyiha"
 
@@ -76,6 +81,18 @@ class Project(AuditModel, SoftDeleteModel):
     mosquito_net = models.BooleanField("Maskitka", default=False)
     dismantling = models.BooleanField("Demontaj", default=False)
     sale_date = models.DateField(null=True, blank=True, db_index=True)
+    advance_date = models.DateField("Avans olingan sana", null=True, blank=True)
+    # USD → so'm rate on the day of the offer: hisob-kitob is priced in USD, the contract shows both
+    usd_rate = models.DecimalField("USD kursi", max_digits=12, decimal_places=2, null=True, blank=True,
+                                   validators=[MinValueValidator(Decimal("1"))])
+
+    # Product spec block of the contract ("Маҳсулотларни ишлаб чиқариш учун талабнома")
+    profile_color = models.CharField("Profil rangi", max_length=200, blank=True, default="")
+    door_accessory = models.CharField("Eshik aksessuari", max_length=200, blank=True, default="")
+    window_accessory = models.CharField("Rom aksessuari", max_length=200, blank=True, default="")
+    windowsill = models.CharField("Podokonnik (rangi, o'lchami)", max_length=200, blank=True, default="")
+    glass = models.CharField("Oyna turi va rangi", max_length=200, blank=True, default="")
+    shotlandka = models.CharField("Shotlandka", max_length=200, blank=True, default="")
 
     object_address = models.CharField("Obyekt manzili", max_length=255, blank=True, default="")
     region = models.CharField(max_length=100, blank=True, default="")
@@ -148,3 +165,54 @@ class ProjectFile(models.Model):
 
     class Meta:
         ordering = ["-id"]
+
+
+def round_sum(qty: Decimal, price: Decimal) -> Decimal:
+    """Line sum exactly as on the paper hisob-kitob: half-up to whole units (2.5 x 80.2 = 200.5 -> 201)."""
+    return (qty * price).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
+
+class ProjectCalc(AuditModel):
+    """Hisob-kitob varaqasi (invoice/calculation) of a Loyiha, made from one price list.
+
+    Lines copy name/unit/price when the calc is created, so later price-list changes never re-price
+    an offer already given to the client. The lines are also the order's material list (Zakup, MRP).
+    """
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="calcs")
+    price_list = models.ForeignKey("pricing.PriceList", null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name="calcs")
+    title = models.CharField(max_length=150)  # price list name at creation, e.g. "Rombo Termo 306J 65 seriya"
+    bar_length_m = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.USD)
+    calc_date = models.DateField()
+    notes = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def total(self) -> Decimal:
+        return sum((ln.line_sum for ln in self.lines.all()), Decimal("0"))
+
+
+class ProjectCalcLine(models.Model):
+    calc = models.ForeignKey(ProjectCalc, on_delete=models.CASCADE, related_name="lines")
+    item = models.ForeignKey("pricing.PriceListItem", null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name="+")  # the material, for purchasing and MRP
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    name = models.CharField(max_length=200)
+    unit = models.CharField(max_length=20)
+    price = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0"))])
+    qty = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"),
+                              validators=[MinValueValidator(Decimal("0"))])
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    @property
+    def line_sum(self) -> Decimal:
+        return round_sum(self.qty, self.price)

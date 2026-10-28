@@ -75,6 +75,8 @@ def _locked_changes(project: Project, fields: dict, items: list[dict] | None) ->
 
 @transaction.atomic
 def project_update(project: Project, *, actor, items: list[dict] | None = None, **fields) -> Project:
+    if project.calcs.exists():
+        fields.pop("amount", None)  # derived from the hisob-kitob; see recompute_amount
     if project.status not in EDITABLE_STATUSES:
         locked = _locked_changes(project, fields, items)
         if locked:
@@ -88,6 +90,7 @@ def project_update(project: Project, *, actor, items: list[dict] | None = None, 
     project.save()  # chatter tracks the changed fields
     if items is not None:
         _set_items(project, items, actor=actor)
+    recompute_amount(project)  # the rate or currency may have changed
     return project
 
 
@@ -144,3 +147,117 @@ def project_file_delete(f: ProjectFile, *, actor) -> None:
     f.file.delete(save=False)
     f.delete()
     event(project, f"Chizma o'chirildi: {name}", actor=actor)
+
+
+# ------------------------------------------------------------------ hisob-kitob (calculations)
+
+
+def _check_calc_editable(project: Project) -> None:
+    # the calculation is the order's material list: it locks together with the other production fields
+    if project.status not in EDITABLE_STATUSES:
+        raise Conflict(f"Loyiha «{ProjectStatus(project.status).label}» bosqichida — hisob-kitob qulflangan")
+
+
+def recompute_amount(project: Project) -> None:
+    """With calculations, the order amount is their total (converted by the USD rate when currencies differ).
+    Without a rate for a cross-currency order the amount is left as is; the card shows a warning."""
+    calcs = list(project.calcs.prefetch_related("lines"))
+    if not calcs:
+        return
+    currencies = {c.currency for c in calcs}
+    if len(currencies) != 1:
+        return
+    calc_cur = currencies.pop()
+    total = sum((c.total for c in calcs), Decimal("0"))
+    rate = project.usd_rate
+    if calc_cur == project.currency:
+        amount = total
+    elif calc_cur == "USD" and project.currency == "UZS" and rate:
+        amount = (total * rate).quantize(Decimal("1"))
+    elif calc_cur == "UZS" and project.currency == "USD" and rate:
+        amount = (total / rate).quantize(Decimal("0.01"))
+    else:
+        return
+    if amount != project.amount:
+        project.amount = amount
+        project.save(update_fields=["amount", "updated_at"])  # tracked: "Summa: … → …"
+
+
+def _calc_total_change(project, calc, before: Decimal, *, actor) -> None:
+    after = sum((ln.line_sum for ln in calc.lines.all()), Decimal("0"))
+    if after != before:
+        post(project, kind="track", actor=actor, changes=[{
+            "field": f"calc_{calc.pk}", "label": f"Hisob-kitob ({calc.title})",
+            "old": f"{before:f} {calc.currency}", "new": f"{after:f} {calc.currency}"}])
+
+
+@transaction.atomic
+def calc_create(project: Project, *, actor, price_list, calc_date=None, notes: str = ""):
+    from apps.projects.models import ProjectCalc, ProjectCalcLine
+
+    _check_calc_editable(project)
+    calc = ProjectCalc(project=project, price_list=price_list, title=price_list.name,
+                       bar_length_m=price_list.bar_length_m, currency=price_list.currency,
+                       calc_date=calc_date or timezone.localdate(), notes=notes)
+    calc.stamp(actor, created=True)
+    calc.save()
+    ProjectCalcLine.objects.bulk_create(
+        ProjectCalcLine(calc=calc, item=it, sort_order=it.sort_order, name=it.name, unit=it.unit, price=it.price)
+        for it in price_list.items.filter(is_active=True)
+    )
+    event(project, f"Hisob-kitob qo'shildi: {calc.title}", actor=actor)
+    return calc
+
+
+@transaction.atomic
+def calc_update(calc, *, actor, lines: list[dict] | None = None, **fields):
+    project = calc.project
+    _check_calc_editable(project)
+    before = calc.total
+    for k, v in fields.items():
+        setattr(calc, k, v)
+    calc.stamp(actor)
+    calc.save()
+    if lines is not None:
+        by_id = {ln.pk: ln for ln in calc.lines.all()}
+        for row in lines:
+            ln = by_id.get(row.get("id"))
+            if ln is None:
+                raise ValidationFailed("Hisob-kitobda bunday qator yo'q", field="lines")
+            new_qty, new_price = row.get("qty", ln.qty), row.get("price", ln.price)
+            if (new_qty, new_price) != (ln.qty, ln.price):
+                ln.qty, ln.price = new_qty, new_price
+                ln.save(update_fields=["qty", "price"])
+    calc = type(calc).objects.prefetch_related("lines").get(pk=calc.pk)
+    _calc_total_change(project, calc, before, actor=actor)
+    recompute_amount(project)
+    return calc
+
+
+@transaction.atomic
+def calc_refresh_prices(calc, *, actor):
+    """Re-read current price-list prices (on purpose, never automatically)."""
+    project = calc.project
+    _check_calc_editable(project)
+    before = calc.total
+    changed = 0
+    for ln in calc.lines.select_related("item"):
+        if ln.item and ln.item.price != ln.price:
+            ln.price = ln.item.price
+            ln.save(update_fields=["price"])
+            changed += 1
+    calc = type(calc).objects.prefetch_related("lines").get(pk=calc.pk)
+    event(project, f"Hisob-kitob narxlari yangilandi ({calc.title}): {changed} qator", actor=actor)
+    _calc_total_change(project, calc, before, actor=actor)
+    recompute_amount(project)
+    return calc
+
+
+@transaction.atomic
+def calc_delete(calc, *, actor) -> None:
+    project = calc.project
+    _check_calc_editable(project)
+    title = calc.title
+    calc.delete()
+    event(project, f"Hisob-kitob o'chirildi: {title}", actor=actor)
+    recompute_amount(project)

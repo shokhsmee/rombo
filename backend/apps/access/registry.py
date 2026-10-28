@@ -43,6 +43,8 @@ class Pages:
     USERS = "users"
     ROLES = "roles"
     REFERENCES = "references"
+    PRICING = "pricing"
+    COMPANY = "company"
 
 
 PAGES: tuple[PageDef, ...] = (
@@ -55,6 +57,8 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.USERS, "Foydalanuvchilar", "Sozlamalar"),
     PageDef(Pages.ROLES, "Rollar va ruxsatlar", "Sozlamalar"),
     PageDef(Pages.REFERENCES, "Ma'lumotnomalar", "Sozlamalar"),
+    PageDef(Pages.PRICING, "Narxlar", "Sozlamalar"),
+    PageDef(Pages.COMPANY, "Kompaniya rekvizitlari", "Sozlamalar", (Action.VIEW, Action.UPDATE)),
 )
 
 PAGE_BY_KEY = {p.key: p for p in PAGES}

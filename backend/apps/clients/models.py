@@ -16,7 +16,7 @@ tin_validator = RegexValidator(r"^\d{9,14}$", "STIR 9–14 ta raqamdan iborat bo
 class Client(AuditModel, SoftDeleteModel):
     TRACK = {
         "name": "Nomi", "kind": "Turi", "tin": "STIR", "phone": "Telefon", "contact_person": "Aloqa shaxsi",
-        "region": "Hudud", "manager": "Menejer", "is_active": "Faol", "segment": "Segment",
+        "region": "Hudud", "manager": "Menejer", "is_active": "Faol", "segment": "Segment", "passport": "Pasport",
     }
     CHATTER_NAME = "Mijoz"
 
@@ -32,6 +32,7 @@ class Client(AuditModel, SoftDeleteModel):
     email = models.EmailField(blank=True, default="")
     region = models.CharField("Hudud", max_length=100, blank=True, default="", db_index=True)
     address = models.CharField(max_length=255, blank=True, default="")
+    passport = models.CharField("Pasport", max_length=30, blank=True, default="")  # printed on the contract
     source = models.CharField("Qayerdan kelgan", max_length=100, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     is_active = models.BooleanField(default=True)

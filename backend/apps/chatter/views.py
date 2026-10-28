@@ -16,6 +16,7 @@ CHATTER_PAGES = {
     "employees.employee": Pages.EMPLOYEES,
     "users.user": Pages.USERS,
     "access.role": Pages.ROLES,
+    "pricing.pricelist": Pages.PRICING,
 }
 
 

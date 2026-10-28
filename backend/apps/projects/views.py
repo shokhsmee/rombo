@@ -5,15 +5,22 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status as http
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.access.permissions import PagePermission
 from apps.access.registry import Action, Pages
 from apps.core.views import ServiceModelViewSet
 from apps.projects import services
-from apps.projects.models import FINISHED_STATUSES, Project, ProjectFile, ProjectItem, ProjectStatus
+from apps.projects.models import FINISHED_STATUSES, Project, ProjectCalc, ProjectFile, ProjectItem, ProjectStatus
 from apps.projects.serializers import (
+    CalcCreateSerializer,
+    CalcSerializer,
+    CalcSummarySerializer,
+    CalcUpdateSerializer,
     FileUploadSerializer,
     ProjectFileSerializer,
     ProjectListSerializer,
@@ -71,7 +78,7 @@ class ProjectViewSet(ServiceModelViewSet):
         )
         if self.action != "list":
             qs = qs.select_related("client__segment", "partner", "sales_channel", "brand").prefetch_related(
-                "items__product_type", "files__uploaded_by")
+                "items__product_type", "files__uploaded_by", "calcs__lines")
         return qs
 
     @action(detail=True, methods=["post"], url_path="status")
@@ -108,3 +115,49 @@ class ProjectViewSet(ServiceModelViewSet):
     def summary(self, request):
         rows = Project.objects.values("status").annotate(count=Count("id")).order_by("status")
         return Response(StatusSummarySerializer(rows, many=True).data)
+
+
+class ProjectCalcViewSet(viewsets.GenericViewSet):
+    """/projects/{project_pk}/calcs/ — the Loyiha's hisob-kitob sheets. Changing one = updating the Loyiha."""
+
+    page_key = Pages.PROJECTS
+    permission_classes = [IsAuthenticated, PagePermission]
+    permission_action_map = {
+        "list": Action.VIEW, "retrieve": Action.VIEW, "create": Action.UPDATE, "partial_update": Action.UPDATE,
+        "destroy": Action.UPDATE, "refresh_prices": Action.UPDATE,
+    }
+    serializer_class = CalcSerializer
+    pagination_class = None
+
+    def project(self) -> Project:
+        return get_object_or_404(Project, pk=self.kwargs["project_pk"])
+
+    def get_queryset(self):
+        return ProjectCalc.objects.filter(project_id=self.kwargs["project_pk"]).prefetch_related("lines")
+
+    def list(self, request, project_pk=None):
+        return Response(CalcSummarySerializer(self.get_queryset(), many=True).data)
+
+    def retrieve(self, request, project_pk=None, pk=None):
+        return Response(CalcSerializer(self.get_object()).data)
+
+    def create(self, request, project_pk=None):
+        s = CalcCreateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        calc = services.calc_create(self.project(), actor=request.user, **s.validated_data)
+        return Response(CalcSerializer(self.get_queryset().get(pk=calc.pk)).data, status=http.HTTP_201_CREATED)
+
+    def partial_update(self, request, project_pk=None, pk=None):
+        s = CalcUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        calc = services.calc_update(self.get_object(), actor=request.user, **s.validated_data)
+        return Response(CalcSerializer(calc).data)
+
+    def destroy(self, request, project_pk=None, pk=None):
+        services.calc_delete(self.get_object(), actor=request.user)
+        return Response(status=http.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="refresh-prices")
+    def refresh_prices(self, request, project_pk=None, pk=None):
+        calc = services.calc_refresh_prices(self.get_object(), actor=request.user)
+        return Response(CalcSerializer(calc).data)

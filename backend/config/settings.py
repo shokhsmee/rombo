@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     "apps.access",
     "apps.chatter",
     "apps.references",
+    "apps.company",
+    "apps.pricing",
     "apps.users",
     "apps.employees",
     "apps.clients",

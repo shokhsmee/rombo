@@ -3,7 +3,8 @@ from rest_framework import serializers
 from apps.clients.models import Client, ClientKind
 from apps.core.serializers import RefSerializer
 from apps.employees.models import Employee
-from apps.projects.models import Project, ProjectFile, ProjectItem, ProjectStatus
+from apps.pricing.models import PriceList
+from apps.projects.models import Project, ProjectCalc, ProjectCalcLine, ProjectFile, ProjectItem, ProjectStatus
 from apps.references.models import RefItem, RefKind
 from apps.references.serializers import RefShortSerializer
 
@@ -31,6 +32,52 @@ class ProjectFileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProjectFile
         fields = ["id", "name", "size", "created_at", "uploaded_by"]
+
+
+# ------------------------------------------------------------------ hisob-kitob
+
+
+class CalcLineSerializer(serializers.ModelSerializer):
+    line_sum = serializers.DecimalField(max_digits=16, decimal_places=0, read_only=True)
+    item_id = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ProjectCalcLine
+        fields = ["id", "item_id", "name", "unit", "price", "qty", "line_sum"]
+
+
+class CalcSummarySerializer(serializers.ModelSerializer):
+    total = serializers.DecimalField(max_digits=16, decimal_places=0, read_only=True)
+
+    class Meta:
+        model = ProjectCalc
+        fields = ["id", "title", "currency", "calc_date", "total"]
+
+
+class CalcSerializer(CalcSummarySerializer):
+    lines = CalcLineSerializer(many=True, read_only=True)
+    price_list_id = serializers.IntegerField(read_only=True)
+
+    class Meta(CalcSummarySerializer.Meta):
+        fields = [*CalcSummarySerializer.Meta.fields, "price_list_id", "bar_length_m", "notes", "lines", "updated_at"]
+
+
+class CalcCreateSerializer(serializers.Serializer):
+    price_list_id = serializers.PrimaryKeyRelatedField(source="price_list", queryset=PriceList.objects.filter(is_active=True))
+    calc_date = serializers.DateField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class CalcLineInputSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    qty = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0, required=False)
+    price = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=0, required=False)
+
+
+class CalcUpdateSerializer(serializers.Serializer):
+    calc_date = serializers.DateField(required=False)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    lines = CalcLineInputSerializer(many=True, required=False)
 
 
 class ProjectListSerializer(serializers.ModelSerializer):
@@ -61,6 +108,9 @@ class ProjectSerializer(ProjectListSerializer):
     client_phone = serializers.CharField(source="client.phone", read_only=True)
     items = ProjectItemSerializer(many=True, required=False)
     files = ProjectFileSerializer(many=True, read_only=True)
+    calcs = CalcSummarySerializer(many=True, read_only=True)
+    client_address = serializers.CharField(source="client.address", read_only=True)
+    client_passport = serializers.CharField(source="client.passport", read_only=True)
     total_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     total_quantity = serializers.IntegerField(read_only=True)
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
@@ -70,7 +120,9 @@ class ProjectSerializer(ProjectListSerializer):
                   "partner", "partner_id", "sales_channel", "sales_channel_id", "brand", "brand_id", "product_name",
                   "phone", "object_address", "location", "contract_number", "contract_date", "service_amount",
                   "advance_amount", "total_amount", "mosquito_net", "dismantling", "items", "total_quantity",
-                  "files", "notes", "allowed_statuses", "updated_at"]
+                  "files", "notes", "allowed_statuses", "updated_at", "calcs", "usd_rate", "advance_date",
+                  "profile_color", "door_accessory", "window_accessory", "windowsill", "glass", "shotlandka",
+                  "client_address", "client_passport"]
 
 
 class StatusChangeSerializer(serializers.Serializer):

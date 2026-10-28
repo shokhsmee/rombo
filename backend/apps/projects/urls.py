@@ -1,8 +1,11 @@
 from rest_framework.routers import SimpleRouter
 
-from apps.projects.views import ProjectViewSet
+from apps.projects.views import ProjectCalcViewSet, ProjectViewSet
+
+calcs = SimpleRouter()
+calcs.register(r"(?P<project_pk>\d+)/calcs", ProjectCalcViewSet, basename="project-calc")
 
 router = SimpleRouter()
 router.register("", ProjectViewSet, basename="project")
 
-urlpatterns = router.urls
+urlpatterns = calcs.urls + router.urls
