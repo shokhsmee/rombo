@@ -1,20 +1,19 @@
 from django.db import transaction
 from django.utils import timezone
 
+from apps.chatter.services import diff, muted, post
 from apps.core.exceptions import Conflict, ValidationFailed
-from apps.projects.models import EDITABLE_STATUSES, TRANSITIONS, Project, ProjectStatus, ProjectStatusLog
+from apps.projects.models import EDITABLE_STATUSES, TRANSITIONS, Project, ProjectStatus
 
 
 @transaction.atomic
 def project_create(*, actor, **fields) -> Project:
     project = Project(**fields)
     project.stamp(actor, created=True)
-    project.save()
+    project.save()  # chatter: "Loyiha yaratildi"
     # LY-26-00042: the year helps people on the phone ("the order from last year")
     project.code = f"LY-{timezone.localdate():%y}-{project.pk:05d}"
     project.save(update_fields=["code"])
-    ProjectStatusLog.objects.create(project=project, to_status=ProjectStatus.DRAFT, user=actor,
-                                    comment="Loyiha yaratildi")
     return project
 
 
@@ -25,7 +24,7 @@ def project_update(project: Project, *, actor, **fields) -> Project:
     for key, value in fields.items():
         setattr(project, key, value)
     project.stamp(actor)
-    project.save()
+    project.save()  # chatter tracks the changed fields
     return project
 
 
@@ -39,14 +38,16 @@ def project_change_status(project: Project, *, actor, status: str, comment: str 
             f"'{ProjectStatus(current).label}' holatidan '{ProjectStatus(status).label}' holatiga o'tib bo'lmaydi",
             field="status",
         )
-    if status == ProjectStatus.CANCELLED and not comment.strip():
+    comment = comment.strip()
+    if status == ProjectStatus.CANCELLED and not comment:
         raise ValidationFailed("Bekor qilish sababini yozing", field="comment")
 
+    before = {"status": current}
     project.status = status
     project.stamp(actor)
-    project.save(update_fields=["status", "updated_by", "updated_at"])
-    ProjectStatusLog.objects.create(project=project, from_status=current, to_status=status,
-                                    comment=comment, user=actor)
+    with muted():  # one history line with the comment, not a bare tracked change + a separate note
+        project.save(update_fields=["status", "updated_by", "updated_at"])
+    post(project, comment, kind="track", changes=diff(project, before, {"status": "Holat"}), actor=actor)
     return project
 
 

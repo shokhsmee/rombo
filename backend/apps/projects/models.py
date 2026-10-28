@@ -1,6 +1,5 @@
 from decimal import Decimal
 
-from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -43,6 +42,13 @@ class Currency(models.TextChoices):
 
 
 class Project(AuditModel, SoftDeleteModel):
+    TRACK = {
+        "status": "Holat", "name": "Nomi", "client": "Mijoz", "manager": "Menejer", "deadline": "Muddat",
+        "amount": "Summa", "currency": "Valyuta", "contract_number": "Shartnoma №",
+        "contract_date": "Shartnoma sanasi", "object_address": "Obyekt manzili", "region": "Hudud",
+    }
+    CHATTER_NAME = "Loyiha"
+
     code = models.CharField(max_length=24, unique=True, null=True, editable=False)  # LY-26-00001
     name = models.CharField("Nomi", max_length=255)
     status = models.CharField(max_length=20, choices=ProjectStatus.choices, default=ProjectStatus.DRAFT,
@@ -73,17 +79,3 @@ class Project(AuditModel, SoftDeleteModel):
     @property
     def allowed_statuses(self) -> list[str]:
         return sorted(TRANSITIONS[self.status])
-
-
-class ProjectStatusLog(models.Model):
-    """Append-only. Answers "who moved this order to production, when and why"."""
-
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="history")
-    from_status = models.CharField(max_length=20, blank=True, default="")
-    to_status = models.CharField(max_length=20)
-    comment = models.TextField(blank=True, default="")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-id"]

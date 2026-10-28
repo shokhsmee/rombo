@@ -11,6 +11,12 @@ class EmployeeStatus(models.TextChoices):
 
 
 class Employee(AuditModel, SoftDeleteModel):
+    TRACK = {
+        "last_name": "Familiya", "first_name": "Ism", "department": "Bo'lim", "position": "Lavozim",
+        "status": "Holat", "phone": "Telefon", "user": "Login",
+    }
+    CHATTER_NAME = "Xodim"
+
     code = models.CharField(max_length=20, unique=True, null=True, editable=False)  # XD-0001
     last_name = models.CharField("Familiya", max_length=100, db_index=True)
     first_name = models.CharField("Ism", max_length=100)

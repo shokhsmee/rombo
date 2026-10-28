@@ -4,6 +4,9 @@ from apps.core.models import AuditModel
 
 
 class Role(AuditModel):
+    TRACK = {"name": "Nomi", "description": "Tavsif"}
+    CHATTER_NAME = "Rol"
+
     name = models.CharField("Nomi", max_length=100, unique=True)
     description = models.TextField("Tavsif", blank=True, default="")
     is_system = models.BooleanField(default=False, help_text="Seed qilingan rollarni o'chirib bo'lmaydi")

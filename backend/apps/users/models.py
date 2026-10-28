@@ -5,6 +5,12 @@ from django.db import models
 class User(AbstractUser):
     """Login account. Roles decide page access (see apps.access); is_superuser bypasses them."""
 
+    TRACK = {
+        "username": "Login", "first_name": "Ism", "last_name": "Familiya", "email": "Email", "phone": "Telefon",
+        "is_active": "Faol", "is_superuser": "Superuser",
+    }
+    CHATTER_NAME = "Foydalanuvchi"
+
     phone = models.CharField("Telefon", max_length=32, blank=True, default="")
     roles = models.ManyToManyField("access.Role", related_name="users", blank=True)
     # Bumped on block / password change: every token carrying an older value is rejected.

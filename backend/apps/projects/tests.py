@@ -8,12 +8,16 @@ def _project(admin, name="Uy derazalari"):
     return r.json()
 
 
+def _history(admin, pid):
+    return admin.get(f"{API}/chatter/", {"model": "projects.project", "res_id": pid}).json()
+
+
 def test_project_created_as_draft_with_history(admin):
     p = _project(admin)
     assert p["status"] == "draft"
     assert p["code"].startswith("LY-")
     assert p["client"]["name"] == "Ali Valiyev"
-    assert len(p["history"]) == 1
+    assert [m["body"] for m in _history(admin, p["id"])] == ["Loyiha yaratildi"]
     assert set(p["allowed_statuses"]) == {"confirmed", "cancelled"}
 
 
@@ -26,17 +30,24 @@ def test_status_workflow_and_header_lock(admin):
     for s in ("confirmed", "production"):
         r = admin.post(f"{API}/projects/{pid}/status/", {"status": s}, format="json")
         assert r.status_code == 200, r.content
-    assert r.json()["history"][0]["to_status"] == "production"
+    assert _history(admin, pid)[0]["changes"] == [
+        {"field": "status", "label": "Holat", "old": "Tasdiqlangan", "new": "Ishlab chiqarishda"}]
     assert r.json()["allowed_statuses"] == ["ready"]
 
     locked = admin.patch(f"{API}/projects/{pid}/", {"name": "Boshqa nom"}, format="json")
     assert locked.status_code == 409
 
 
-def test_cancel_requires_reason(admin):
+def test_cancel_requires_reason_and_logs_it_once(admin):
     pid = _project(admin)["id"]
     r = admin.post(f"{API}/projects/{pid}/status/", {"status": "cancelled"}, format="json")
     assert r.json()["error"]["field"] == "comment"
+
+    admin.post(f"{API}/projects/{pid}/status/", {"status": "cancelled", "comment": "Mijoz rad etdi"}, format="json")
+    last, *rest = _history(admin, pid)
+    assert last["body"] == "Mijoz rad etdi"
+    assert last["changes"][0]["new"] == "Bekor qilindi"
+    assert len(rest) == 1  # only "Loyiha yaratildi" before it — no duplicate line
 
 
 def test_search_matches_every_word_across_client(admin):

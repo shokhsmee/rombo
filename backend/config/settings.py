@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     # Rombo modules — order = dependency order (later apps may depend on earlier ones)
     "apps.core",
     "apps.access",
+    "apps.chatter",
     "apps.users",
     "apps.employees",
     "apps.clients",
@@ -41,6 +42,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.chatter.tracking.ChatterMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

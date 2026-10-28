@@ -1,5 +1,6 @@
 from django.db import transaction
 
+from apps.chatter.services import event, post
 from apps.core.exceptions import Conflict, ValidationFailed
 from apps.users.models import User
 
@@ -29,7 +30,14 @@ def user_update(user: User, *, actor, roles=None, password: str | None = None, *
         user.revoke_tokens()
     user.save()
     if roles is not None:
+        before = ", ".join(sorted(r.name for r in user.roles.all())) or "—"
         user.roles.set(roles)
+        after = ", ".join(sorted(r.name for r in roles)) or "—"
+        if before != after:
+            post(user, kind="track", actor=actor,
+                 changes=[{"field": "roles", "label": "Rollar", "old": before, "new": after}])
+    if password:
+        event(user, "Parol o'zgartirildi", actor=actor)
     return user
 
 
@@ -42,6 +50,7 @@ def user_set_password(user: User, *, actor, password: str) -> None:
     user.set_password(password)
     user.revoke_tokens()
     user.save(update_fields=["password", "token_version"])
+    event(user, "Parol tiklandi — barcha qurilmalardan chiqarildi", actor=actor)
 
 
 def user_change_own_password(user: User, *, current_password: str, new_password: str) -> None:

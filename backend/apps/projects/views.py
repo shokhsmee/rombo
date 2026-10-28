@@ -1,5 +1,5 @@
 import django_filters
-from django.db.models import Count, Prefetch
+from django.db.models import Count
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from apps.access.registry import Action, Pages
 from apps.core.views import ServiceModelViewSet
 from apps.projects import services
-from apps.projects.models import FINISHED_STATUSES, Project, ProjectStatus, ProjectStatusLog
+from apps.projects.models import FINISHED_STATUSES, Project, ProjectStatus
 from apps.projects.serializers import (
     ProjectListSerializer,
     ProjectSerializer,
@@ -50,12 +50,7 @@ class ProjectViewSet(ServiceModelViewSet):
     service_delete = services.project_delete
 
     def get_queryset(self):
-        qs = Project.objects.select_related("client", "manager")
-        if self.action != "list":
-            qs = qs.prefetch_related(
-                Prefetch("history", queryset=ProjectStatusLog.objects.select_related("user"))
-            )
-        return qs
+        return Project.objects.select_related("client", "manager")
 
     @action(detail=True, methods=["post"], url_path="status")
     def change_status(self, request, pk=None):

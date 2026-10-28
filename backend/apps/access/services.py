@@ -2,6 +2,7 @@ from django.db import transaction
 
 from apps.access.models import Role, RolePermission
 from apps.access.registry import ALL_ACTIONS, PAGE_BY_KEY, PAGES, Action
+from apps.chatter.services import post
 from apps.core.exceptions import Conflict, ValidationFailed
 
 PermissionMap = dict[str, list[str]]
@@ -67,6 +68,19 @@ def role_create(*, actor, name: str, description: str = "", permissions: list[di
     return role
 
 
+ACTION_LABELS = {"view": "Ko'rish", "create": "Yaratish", "update": "Tahrirlash", "delete": "O'chirish"}
+
+
+def _matrix(role: Role) -> dict[str, str]:
+    """{page_key: "Ko'rish, Yaratish"} — how the role's permissions read in history."""
+    out = {}
+    for p in RolePermission.objects.filter(role=role):  # not role.permissions: may be a stale prefetch
+        on = [ACTION_LABELS[a.value] for a in ALL_ACTIONS if getattr(p, f"can_{a.value}")]
+        if on:
+            out[p.page_key] = ", ".join(on)
+    return out
+
+
 @transaction.atomic
 def role_update(role: Role, *, actor, permissions: list[dict] | None = None, **fields) -> Role:
     for key, value in fields.items():
@@ -74,7 +88,16 @@ def role_update(role: Role, *, actor, permissions: list[dict] | None = None, **f
     role.stamp(actor)
     role.save()
     if permissions is not None:
+        before = _matrix(role)
         _set_permissions(role, permissions)
+        after = _matrix(role)
+        changes = [
+            {"field": k, "label": PAGE_BY_KEY[k].label if k in PAGE_BY_KEY else k,
+             "old": before.get(k, "—"), "new": after.get(k, "—")}
+            for k in [p.key for p in PAGES] if before.get(k) != after.get(k)
+        ]
+        if changes:
+            post(role, "Ruxsatlar o'zgartirildi", kind="track", changes=changes, actor=actor)
     return role
 
 

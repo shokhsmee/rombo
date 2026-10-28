@@ -14,6 +14,12 @@ tin_validator = RegexValidator(r"^\d{9,14}$", "STIR 9–14 ta raqamdan iborat bo
 
 
 class Client(AuditModel, SoftDeleteModel):
+    TRACK = {
+        "name": "Nomi", "kind": "Turi", "tin": "STIR", "phone": "Telefon", "contact_person": "Aloqa shaxsi",
+        "region": "Hudud", "manager": "Menejer", "is_active": "Faol",
+    }
+    CHATTER_NAME = "Mijoz"
+
     code = models.CharField(max_length=20, unique=True, null=True, editable=False)  # MJ-00001
     kind = models.CharField(max_length=20, choices=ClientKind.choices, default=ClientKind.INDIVIDUAL,
                             db_index=True)
