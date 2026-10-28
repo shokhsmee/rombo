@@ -1,0 +1,68 @@
+from datetime import date, timedelta
+from decimal import Decimal
+
+from django.core.management.base import BaseCommand
+from django.db import transaction
+
+from apps.clients.models import Client, ClientKind
+from apps.clients.services import client_create
+from apps.employees.services import employee_create
+from apps.projects.services import project_change_status, project_create
+from apps.users.models import User
+
+
+class Command(BaseCommand):
+    help = "Sample employees, clients and Loyihalar for local development."
+
+    @transaction.atomic
+    def handle(self, *args, **options):
+        if Client.all_objects.exists():
+            self.stdout.write("demo data already present")
+            return
+        actor = User.objects.filter(is_superuser=True).first()
+
+        emps = [
+            employee_create(actor=actor, last_name="Karimov", first_name="Jasur", department="Savdo",
+                            position="Savdo menejeri", phone="+998 90 123 45 67", hire_date=date(2023, 3, 1)),
+            employee_create(actor=actor, last_name="Rahimova", first_name="Dilnoza", department="Savdo",
+                            position="Katta menejer", phone="+998 93 222 11 00", hire_date=date(2021, 9, 15)),
+            employee_create(actor=actor, last_name="Tursunov", first_name="Bekzod", department="Ta'minot",
+                            position="Ta'minotchi", phone="+998 97 555 66 77", hire_date=date(2024, 1, 10)),
+            employee_create(actor=actor, last_name="Usmonov", first_name="Akmal",
+                            department="Ishlab chiqarish", position="Sex boshlig'i",
+                            phone="+998 99 700 80 90", hire_date=date(2019, 5, 20)),
+            employee_create(actor=actor, last_name="Saidova", first_name="Malika", department="Buxgalteriya",
+                            position="Bosh hisobchi", phone="+998 90 410 20 30", hire_date=date(2020, 2, 3),
+                            status="on_leave"),
+        ]
+        clients = [
+            client_create(actor=actor, kind=ClientKind.COMPANY, name="Mega Qurilish MChJ", tin="305123456",
+                          contact_person="Aziz Qodirov", phone="+998 71 200 30 40", region="Toshkent sh.",
+                          manager=emps[0]),
+            client_create(actor=actor, kind=ClientKind.INDIVIDUAL, name="Shoxruh Aliyev",
+                          phone="+998 90 987 65 43", region="Toshkent vil.", manager=emps[1]),
+            client_create(actor=actor, kind=ClientKind.DEALER, name="Samarqand Oyna Servis", tin="207654321",
+                          contact_person="Olim Saidov", phone="+998 66 233 44 55", region="Samarqand",
+                          manager=emps[0]),
+            client_create(actor=actor, kind=ClientKind.COMPANY, name="Golden House Development",
+                          tin="309887766", contact_person="Nodira Ismoilova", phone="+998 71 150 00 00",
+                          region="Toshkent sh.", manager=emps[1]),
+            client_create(actor=actor, kind=ClientKind.INDIVIDUAL, name="Farrux Nazarov",
+                          phone="+998 94 600 70 80", region="Farg'ona", manager=emps[0]),
+        ]
+        today = date.today()
+        plan = [
+            ("Turar-joy majmuasi, 3-blok derazalar", 3, ["confirmed", "production"], 45, "1280000000"),
+            ("Xususiy uy — eshik va derazalar", 1, ["confirmed"], 20, "38500000"),
+            ("Diler buyurtmasi, oktyabr", 2, ["confirmed", "procurement"], 12, "214000000"),
+            ("Ofis binosi fasad oynalari", 0, [], 60, "560000000"),
+            ("Kottej, alyumin vitraj", 1, ["confirmed", "production", "ready", "delivered"], -5, "72000000"),
+            ("Maktab binosi derazalari", 4, ["confirmed", "procurement"], -3, "148000000"),
+        ]
+        for name, ci, steps, days, amount in plan:
+            c = clients[ci]
+            p = project_create(actor=actor, name=name, client=c, manager=c.manager, region=c.region,
+                               deadline=today + timedelta(days=days), amount=Decimal(amount))
+            for s in steps:
+                p = project_change_status(p, actor=actor, status=s)
+        self.stdout.write(self.style.SUCCESS("demo data created"))
