@@ -13,6 +13,12 @@ Newest first. Each entry: date · change-id (if any) · what · why (one line).
   IP-PBX), call log with stats, calls matched to leads/clients by number and written to their history, missed
   call → lead + call-back task, live call popup, browser softphone (JsSIP 3.10.1), per-user extensions.
   New "CRM" menu group. Why: leads and calls had no trace before the order; uzbridge already had it working.
+- `add-client-map` — Clients have a map point (latitude/longitude, tracked in chatter); new CRM →
+  "Mijozlar xaritasi" (`/crm/map`, page `client_map`): Leaflet + OSM opening on Samarqand, pins by kind or
+  segment, grouped bubbles, popups with a link to the card, filters, list ↔ map in sync; `GET /clients/map/`.
+  Client card gets a "Lokatsiya" pin picker that also reads pasted "lat, lng" / Google / Yandex / OSM links.
+  Kind switch on the client card no longer widens the page at 375 px.
+  Why: sales and installers plan visits by area; points come from Telegram links today.
 - `add-loyiha-card-fields` — Loyiha card has every field of the sales order card: service/advance amounts
   with computed debt, sale date, phone, partner, sales channel, brand/product, location, mosquito net,
   dismantling, order lines (type · m² · count) with totals, drawings. Lock now covers only production fields.

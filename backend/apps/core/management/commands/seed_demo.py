@@ -37,20 +37,45 @@ class Command(BaseCommand):
                             position="Bosh hisobchi", phone="+998 90 410 20 30", hire_date=date(2020, 2, 3),
                             status="on_leave"),
         ]
+        ref = {(r.kind, r.name): r for r in RefItem.objects.all()}
+        seg = {n: ref[("client_segment", n)] for n in ("Ekonom", "Standart", "Premium", "VIP")}
+
+        def pt(lat: str, lng: str) -> dict:
+            return {"latitude": Decimal(lat), "longitude": Decimal(lng)}
+
         clients = [
             client_create(actor=actor, kind=ClientKind.COMPANY, name="Mega Qurilish MChJ", tin="305123456",
                           contact_person="Aziz Qodirov", phone="+998 71 200 30 40", region="Toshkent sh.",
-                          manager=emps[0]),
+                          manager=emps[0], segment=seg["Premium"], **pt("41.285600", "69.204500")),
             client_create(actor=actor, kind=ClientKind.INDIVIDUAL, name="Shoxruh Aliyev",
-                          phone="+998 90 987 65 43", region="Toshkent vil.", manager=emps[1]),
+                          phone="+998 90 987 65 43", region="Samarqand", manager=emps[1],
+                          segment=seg["Standart"], **pt("39.670200", "66.903500")),
             client_create(actor=actor, kind=ClientKind.DEALER, name="Samarqand Oyna Servis", tin="207654321",
                           contact_person="Olim Saidov", phone="+998 66 233 44 55", region="Samarqand",
-                          manager=emps[0]),
+                          manager=emps[0], segment=seg["VIP"], **pt("39.658700", "66.946600")),
             client_create(actor=actor, kind=ClientKind.COMPANY, name="Golden House Development",
-                          tin="309887766", contact_person="Nodira Ismoilova", phone="+998 71 150 00 00",
-                          region="Toshkent sh.", manager=emps[1]),
+                          tin="309887766", contact_person="Nodira Ismoilova", phone="+998 66 150 00 00",
+                          region="Samarqand", manager=emps[1], segment=seg["Premium"],
+                          **pt("39.648900", "66.961100")),
             client_create(actor=actor, kind=ClientKind.INDIVIDUAL, name="Farrux Nazarov",
-                          phone="+998 94 600 70 80", region="Farg'ona", manager=emps[0]),
+                          phone="+998 94 600 70 80", region="Farg'ona", manager=emps[0],
+                          segment=seg["Ekonom"], **pt("40.386400", "71.786400")),
+            # more Samarqand points so the map has something to group; one without a pin
+            client_create(actor=actor, kind=ClientKind.INDIVIDUAL, name="Dilshod Rahimov",
+                          phone="+998 91 540 12 34", region="Samarqand", manager=emps[1],
+                          segment=seg["Ekonom"], **pt("39.633800", "66.986700")),
+            client_create(actor=actor, kind=ClientKind.INDIVIDUAL, name="Sardor Qobilov",
+                          phone="+998 97 911 22 44", region="Samarqand", manager=emps[0],
+                          segment=seg["Standart"], **pt("39.661900", "66.931200")),
+            client_create(actor=actor, kind=ClientKind.COMPANY, name="Urgut Savdo Markazi MChJ",
+                          tin="301556677", contact_person="Bahrom Jo'rayev", phone="+998 66 452 10 10",
+                          region="Samarqand", manager=emps[1], segment=seg["Standart"],
+                          **pt("39.402200", "67.243100")),
+            client_create(actor=actor, kind=ClientKind.DEALER, name="Kattaqo'rg'on Deraza", tin="208112233",
+                          contact_person="Ulug'bek Hamroyev", phone="+998 66 455 30 30", region="Samarqand",
+                          manager=emps[0], segment=seg["Premium"], **pt("39.898900", "66.256100")),
+            client_create(actor=actor, kind=ClientKind.INDIVIDUAL, name="Malika Yusupova",
+                          phone="+998 93 330 44 55", region="Samarqand", manager=emps[1]),
         ]
         today = date.today()
         plan = [
@@ -61,7 +86,6 @@ class Command(BaseCommand):
             ("Kottej, alyumin vitraj", 1, ["confirmed", "production", "ready", "delivered"], -5, "72000000"),
             ("Maktab binosi derazalari", 4, ["confirmed", "procurement"], -3, "148000000"),
         ]
-        ref = {(r.kind, r.name): r for r in RefItem.objects.all()}
         types = [ref[("product_type", n)] for n in ("Termo", "PVX", "Novation", "Aldoks")]
         channels = [ref[("sales_channel", n)] for n in ("Salon / do'kon", "Diler", "Tavsiya", "Instagram / Telegram")]
         for i, (name, ci, steps, days, amount) in enumerate(plan):

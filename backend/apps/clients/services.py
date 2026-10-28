@@ -1,7 +1,7 @@
 from django.db import transaction
 
 from apps.clients.models import Client
-from apps.core.exceptions import Conflict
+from apps.core.exceptions import Conflict, ValidationFailed
 from apps.core.models import assign_code
 
 
@@ -15,9 +15,18 @@ def _check_tin(tin: str, exclude_id: int | None = None) -> None:
         raise Conflict("Bu STIR bilan mijoz mavjud", field="tin")
 
 
+def _check_point(lat, lng) -> None:
+    """A point needs both coordinates; half a point can't be put on the map."""
+    if lat is None and lng is not None:
+        raise ValidationFailed("Kenglikni ham kiriting", field="latitude")
+    if lng is None and lat is not None:
+        raise ValidationFailed("Uzunlikni ham kiriting", field="longitude")
+
+
 @transaction.atomic
 def client_create(*, actor, **fields) -> Client:
     _check_tin(fields.get("tin", ""))
+    _check_point(fields.get("latitude"), fields.get("longitude"))
     client = Client(**fields)
     client.stamp(actor, created=True)
     client.save()
@@ -29,6 +38,8 @@ def client_create(*, actor, **fields) -> Client:
 def client_update(client: Client, *, actor, **fields) -> Client:
     if "tin" in fields:
         _check_tin(fields["tin"], exclude_id=client.pk)
+    if "latitude" in fields or "longitude" in fields:
+        _check_point(fields.get("latitude", client.latitude), fields.get("longitude", client.longitude))
     for key, value in fields.items():
         setattr(client, key, value)
     client.stamp(actor)
