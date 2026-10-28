@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -80,3 +81,4 @@ class Command(BaseCommand):
             for s in steps:
                 p = project_change_status(p, actor=actor, status=s)
         self.stdout.write(self.style.SUCCESS("demo data created"))
+        call_command("seed_crm_demo")

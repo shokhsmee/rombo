@@ -13,6 +13,7 @@ from apps.core.exceptions import NotFound
 CHATTER_PAGES = {
     "projects.project": Pages.PROJECTS,
     "clients.client": Pages.CLIENTS,
+    "crm.lead": Pages.CRM,
     "employees.employee": Pages.EMPLOYEES,
     "users.user": Pages.USERS,
     "access.role": Pages.ROLES,

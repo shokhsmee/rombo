@@ -10,6 +10,8 @@ import {
   Moon,
   Plus,
   ListChecks,
+  PhoneCall,
+  SquareKanban,
   ShieldCheck,
   ShoppingCart,
   Sun,
@@ -22,6 +24,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { useAuth, type PageKey } from "@/auth/AuthProvider";
 import { useTheme, type Theme } from "@/lib/theme";
+import { TelephonyLive } from "@/modules/telephony/TelephonyLive";
 
 import { Menu } from "./ui";
 
@@ -35,6 +38,13 @@ const NAV: NavGroup[] = [
     items: [
       { page: "projects", label: "Loyihalar", to: "/projects", icon: FileText },
       { page: "clients", label: "Mijozlar", to: "/clients", icon: Building2 },
+    ],
+  },
+  {
+    title: "CRM",
+    items: [
+      { page: "crm", label: "Voronka", to: "/crm", icon: SquareKanban },
+      { page: "telephony", label: "Qo'ng'iroqlar", to: "/telephony", icon: PhoneCall },
     ],
   },
   {
@@ -184,6 +194,7 @@ export function Shell() {
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
           <Outlet />
         </main>
+        <TelephonyLive />
       </div>
     </div>
   );

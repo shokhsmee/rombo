@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.employees",
     "apps.clients",
     "apps.projects",
+    "apps.crm",
 ]
 
 MIDDLEWARE = [
@@ -113,3 +114,7 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localho
 
 SEED_ADMIN_USERNAME = env("SEED_ADMIN_USERNAME", default="admin")
 SEED_ADMIN_PASSWORD = env("SEED_ADMIN_PASSWORD", default="admin12345")
+
+# Telephony: defaults for the settings row (Telefoniya → Sozlamalar). Never commit real values.
+TELEPHONY_SIP_WSS = env("TELEPHONY_SIP_WSS", default="")
+TELEPHONY_SIP_DOMAIN = env("TELEPHONY_SIP_DOMAIN", default="")

@@ -13,6 +13,7 @@
     "@tanstack/react-query": "5.62.8",
     "axios": "1.7.9",
     "dayjs": "1.11.13",
+    "jssip": "3.10.1",
     "lucide-react": "1.48.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
