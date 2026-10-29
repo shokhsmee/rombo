@@ -78,7 +78,7 @@ def _locked_changes(project: Project, fields: dict, items: list[dict] | None) ->
 def project_update(project: Project, *, actor, items: list[dict] | None = None, **fields) -> Project:
     if project.calcs.exists():
         fields.pop("amount", None)  # derived from the hisob-kitob; see recompute_amount
-    if extensions.detail_extra("advance", project) is not None:
+    if extensions.derived_advance(project) is not None:
         fields.pop("advance_amount", None)  # derived from posted kassa payments; see recompute_advance
         fields.pop("advance_date", None)
     if project.status not in EDITABLE_STATUSES:
@@ -189,10 +189,10 @@ def recompute_amount(project: Project) -> None:
 
 
 def recompute_advance(project: Project) -> None:
-    """Once the Loyiha has a posted customer payment (kassa registers the "advance" extra), the advance is
+    """Once the Loyiha has a posted customer payment (kassa registers an advance source), the advance is
     the sum of those payments and its date the first one's; typed values are overwritten. With no payments
     nothing happens: the advance stays the number sales typed."""
-    derived = extensions.detail_extra("advance", project)
+    derived = extensions.derived_advance(project)
     if derived is None:
         return
     amount, date = derived["amount"], derived["date"]

@@ -41,7 +41,11 @@ class Pages:
     TELEPHONY = "telephony"
     TELEGRAM = "telegram"
     CLIENT_MAP = "client_map"
-    PROCUREMENT = "procurement"
+    PROCUREMENT = "procurement"  # purchase requests
+    PURCHASE_APPROVE = "purchase_approve"
+    PURCHASE_ORDERS = "purchase_orders"
+    GOODS_RECEIPTS = "goods_receipts"
+    SUPPLIERS = "suppliers"
     MRP = "mrp"
     EMPLOYEES = "employees"
     USERS = "users"
@@ -66,7 +70,11 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.TELEPHONY, "Telefoniya", "CRM"),
     PageDef(Pages.TELEGRAM, "Telegram", "CRM"),
     PageDef(Pages.CLIENT_MAP, "Mijozlar xaritasi", "CRM", VIEW_ONLY),
-    PageDef(Pages.PROCUREMENT, "Xaridlar", "Ta'minot", planned=True),
+    PageDef(Pages.PROCUREMENT, "Xarid so'rovlari", "Ta'minot"),
+    PageDef(Pages.PURCHASE_APPROVE, "So'rovlarni tasdiqlash", "Ta'minot", (Action.VIEW, Action.UPDATE)),
+    PageDef(Pages.PURCHASE_ORDERS, "Buyurtmalar", "Ta'minot"),
+    PageDef(Pages.GOODS_RECEIPTS, "Kirim", "Ta'minot"),
+    PageDef(Pages.SUPPLIERS, "Yetkazib beruvchilar", "Ta'minot"),
     PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", planned=True),
     PageDef(Pages.ACCOUNTING, "Jurnal (o'tkazmalar)", "Buxgalteriya", (Action.VIEW, Action.CREATE, Action.UPDATE)),
     PageDef(Pages.INVOICES, "Hisob-fakturalar", "Buxgalteriya"),

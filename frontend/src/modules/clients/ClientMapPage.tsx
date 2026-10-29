@@ -17,7 +17,7 @@ import type { Bounds } from "./leaflet";
 
 const ClientsMap = lazy(() => import("./leaflet"));
 
-const KIND_TONE: Record<ClientKind, string> = { individual: "bg-accent", company: "bg-done", dealer: "bg-warn" };
+const KIND_TONE: Record<ClientKind, string> = { individual: "bg-accent", company: "bg-done", dealer: "bg-warn", supplier: "bg-lapis" };
 const SEGMENT_TONES = ["bg-ok", "bg-info", "bg-done", "bg-warn", "bg-bad", "bg-lapis"];
 const NO_SEGMENT = "bg-faint";
 

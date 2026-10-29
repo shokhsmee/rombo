@@ -9,7 +9,9 @@ class KassaConfig(AppConfig):
     def ready(self):
         # the Loyiha card shows its payments and derives the advance from them; projects never imports kassa
         from apps.kassa.selectors import project_advance, project_payments
-        from apps.projects.extensions import register_detail_extra
+        from apps.projects.extensions import register_advance_source, register_detail_block
 
-        register_detail_extra("payments", project_payments)
-        register_detail_extra("advance", project_advance)
+        # strings, not Decimals: DRF's JSON encoder would render raw Decimals as floats
+        register_detail_block("payments", lambda p: {k: (None if v is None else str(v))
+                                                     for k, v in project_payments(p).items()})
+        register_advance_source(project_advance)

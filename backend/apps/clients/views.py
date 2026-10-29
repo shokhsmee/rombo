@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from apps.access.permissions import page_required
 from apps.access.registry import Action, Pages
 from apps.clients import services
-from apps.clients.models import FINISHED_PROJECT_STATUSES, Client
+from apps.clients.models import FINISHED_PROJECT_STATUSES, Client, ClientKind
 from apps.clients.serializers import ClientListSerializer, ClientMapSerializer, ClientSerializer
 from apps.core.views import ServiceModelViewSet
 
@@ -26,7 +26,11 @@ class ClientViewSet(ServiceModelViewSet):
 
     def get_queryset(self):
         qs = Client.objects.select_related("manager", "segment")
-        if self.action not in ("list", "map"):
+        if self.action in ("list", "map"):
+            # suppliers live under Ta'minot (ADR 0008): the sales list shows them only when asked for
+            if self.request.query_params.get("kind") != ClientKind.SUPPLIER:
+                qs = qs.exclude(kind=ClientKind.SUPPLIER)
+        else:
             qs = qs.annotate(projects_count=Count("projects", filter=Q(projects__deleted_at__isnull=True)))
         return qs
 

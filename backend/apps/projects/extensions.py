@@ -1,18 +1,29 @@
-"""Hooks the apps that hang off the Loyiha use to add to its card without projects importing them
-(ADR 0004, ADR 0007). `accounting` registers "money", `kassa` registers "payments" and "advance" (the
-derived advance_amount / advance_date, or None while the Loyiha has no posted customer payment)."""
+"""Blocks that leaf apps add to the Loyiha detail (procurement counts, accounting money, kassa payments).
+
+The hub never imports the apps that hang off it (AGENTS.md §2): a leaf app registers its block from
+`AppConfig.ready()`, and `ProjectSerializer` appends `{key: fn(project)}` for every registered block.
+Block values must be JSON-ready (strings for money, never raw Decimals).
+
+`register_advance_source` is the one hook that feeds a *stored* field: kassa registers a function that
+returns `{"amount": Decimal, "date": date}` once the Loyiha has a posted customer payment (else None);
+`projects.services` then derives `advance_amount` / `advance_date` from it and ignores typed values.
+"""
 
 from collections.abc import Callable
 
-DetailExtra = Callable[[object], object]
+DETAIL_BLOCKS: dict[str, Callable[[object], dict]] = {}
 
-_DETAIL_EXTRAS: dict[str, DetailExtra] = {}
-
-
-def register_detail_extra(key: str, fn: DetailExtra) -> None:
-    _DETAIL_EXTRAS[key] = fn
+_ADVANCE_SOURCE: list[Callable[[object], dict | None]] = []
 
 
-def detail_extra(key: str, project, default=None):
-    fn = _DETAIL_EXTRAS.get(key)
-    return fn(project) if fn is not None else default
+def register_detail_block(key: str, fn: Callable[[object], dict]) -> None:
+    DETAIL_BLOCKS[key] = fn
+
+
+def register_advance_source(fn: Callable[[object], dict | None]) -> None:
+    _ADVANCE_SOURCE[:] = [fn]
+
+
+def derived_advance(project) -> dict | None:
+    """`{"amount", "date"}` when a registered source derives the advance for this Loyiha, else None."""
+    return _ADVANCE_SOURCE[0](project) if _ADVANCE_SOURCE else None
