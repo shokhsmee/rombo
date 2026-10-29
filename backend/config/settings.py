@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.accounting",
     "apps.crm",
     "apps.telegram",
+    "apps.procurement",
 ]
 
 MIDDLEWARE = [
@@ -144,6 +145,15 @@ PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", default="").rstrip("/")
 # redirect URI = PUBLIC_BASE_URL + /api/v1/telephony/recordings/google/callback/). Empty = "ulanmagan".
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
+# Outgoing email (purchase orders to suppliers). Empty EMAIL_HOST = "Email sozlanmagan": the send action
+# refuses `via = email` with 409 and nothing else changes.
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_TIMEOUT = 20
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER or "erp@rombo.uz")
 # Telegram app (my.telegram.org → API development tools). Each account may also enter its own.
 TELEGRAM_API_ID = env.int("TELEGRAM_API_ID", default=0)
 TELEGRAM_API_HASH = env("TELEGRAM_API_HASH", default="")

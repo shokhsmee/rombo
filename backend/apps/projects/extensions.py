@@ -1,17 +1,13 @@
-"""Hooks the apps that hang off the Loyiha use to add to its card without projects importing them
-(ADR 0004, ADR 0007). `accounting` registers "money" in its AppConfig.ready()."""
+"""Blocks that leaf apps add to the Loyiha detail (procurement counts, later accounting money).
+
+The hub never imports the apps that hang off it (AGENTS.md §2): a leaf app registers its block from
+`AppConfig.ready()`, and `ProjectSerializer` appends `{key: fn(project)}` for every registered block.
+"""
 
 from collections.abc import Callable
 
-DetailExtra = Callable[[object], object]
-
-_DETAIL_EXTRAS: dict[str, DetailExtra] = {}
+DETAIL_BLOCKS: dict[str, Callable[[object], dict]] = {}
 
 
-def register_detail_extra(key: str, fn: DetailExtra) -> None:
-    _DETAIL_EXTRAS[key] = fn
-
-
-def detail_extra(key: str, project, default=None):
-    fn = _DETAIL_EXTRAS.get(key)
-    return fn(project) if fn is not None else default
+def register_detail_block(key: str, fn: Callable[[object], dict]) -> None:
+    DETAIL_BLOCKS[key] = fn

@@ -1,0 +1,67 @@
+{% load l10n %}{% localize off %}<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Buyurtma {{ order.code }}</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 14px; }
+  table.lines { border-collapse: collapse; width: 100%; margin-top: 12px; }
+  table.lines th, table.lines td { border: 1px solid #222; padding: 4px 8px; }
+  table.lines th { background: #f0f0f0; text-align: left; }
+  .num { text-align: right; white-space: nowrap; }
+  .muted { color: #555; font-size: 12px; }
+</style>
+</head>
+<body>
+<h2 style="margin:0">Buyurtma № {{ order.code }}</h2>
+<p class="muted">Sana: {{ order.date|date:"d.m.Y" }}{% if order.expected_date %} · Kutilayotgan sana: {{ order.expected_date|date:"d.m.Y" }}{% endif %}</p>
+
+<table style="width:100%; margin-top:8px">
+  <tr>
+    <td style="vertical-align:top; width:50%">
+      <b>Buyurtmachi:</b> {{ company.legal_form }} {{ company.name }}<br>
+      {% if company.address %}{{ company.city }} {{ company.address }}<br>{% endif %}
+      {% if company.inn %}STIR: {{ company.inn }}<br>{% endif %}
+      {% if company.bank_account %}X/R: {{ company.bank_account }}, {{ company.bank_name }}{% if company.mfo %}, MFO {{ company.mfo }}{% endif %}<br>{% endif %}
+      {% if company.phone %}Tel: {{ company.phone }}{% endif %}
+    </td>
+    <td style="vertical-align:top; width:50%">
+      <b>Yetkazib beruvchi:</b> {{ order.supplier.name }}<br>
+      {% if order.supplier.tin %}STIR: {{ order.supplier.tin }}<br>{% endif %}
+      {% if order.supplier.address %}{{ order.supplier.address }}<br>{% endif %}
+      {% if order.supplier.contact_person %}{{ order.supplier.contact_person }}{% if order.supplier.phone %}, {{ order.supplier.phone }}{% endif %}{% endif %}
+    </td>
+  </tr>
+</table>
+
+<table class="lines">
+  <thead>
+    <tr><th>№</th><th>Nomi</th><th>Birlik</th><th class="num">Miqdor</th><th class="num">Narx, {{ order.currency }}</th><th class="num">QQS %</th><th class="num">Summa, {{ order.currency }}</th></tr>
+  </thead>
+  <tbody>
+    {% for ln in lines %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ ln.name }}</td>
+      <td>{{ ln.unit }}</td>
+      <td class="num">{{ ln.qty }}</td>
+      <td class="num">{{ ln.price }}</td>
+      <td class="num">{{ ln.vat_rate }}</td>
+      <td class="num">{{ ln.gross }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr><td colspan="6" class="num">Summa (QQSsiz):</td><td class="num">{{ totals.net }} {{ order.currency }}</td></tr>
+    <tr><td colspan="6" class="num">QQS:</td><td class="num">{{ totals.vat }} {{ order.currency }}</td></tr>
+    <tr><td colspan="6" class="num"><b>Jami:</b></td><td class="num"><b>{{ totals.gross }} {{ order.currency }}</b></td></tr>
+    {% if order.currency != "UZS" and order.rate %}
+    <tr><td colspan="6" class="num">Kurs {{ order.rate }} bo'yicha, so'm:</td><td class="num">{{ totals.gross_uzs }}</td></tr>
+    {% endif %}
+  </tfoot>
+</table>
+
+{% if order.notes %}<p><b>Izoh:</b> {{ order.notes|linebreaksbr }}</p>{% endif %}
+<p class="muted">{{ company.name }} · Rombo ERP</p>
+</body>
+</html>{% endlocalize %}

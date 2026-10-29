@@ -15,6 +15,8 @@ DEFAULT_ROLES = {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: FULL, Pages.CLIENTS: FULL, Pages.CLIENT_MAP: VIEW,
         Pages.EMPLOYEES: FULL, Pages.USERS: FULL, Pages.ROLES: FULL, Pages.REFERENCES: FULL, Pages.PRICING: FULL,
         Pages.COMPANY: dict(can_view=True, can_update=True), Pages.PROCUREMENT: FULL, Pages.MRP: FULL,
+        Pages.PURCHASE_APPROVE: dict(can_view=True, can_update=True), Pages.PURCHASE_ORDERS: FULL,
+        Pages.GOODS_RECEIPTS: FULL, Pages.SUPPLIERS: FULL,
         Pages.CRM: FULL, Pages.TELEPHONY: FULL, Pages.TELEGRAM: FULL,
         Pages.ACCOUNTING: EDIT, Pages.ACCOUNTS: FULL, Pages.INVOICES: FULL, Pages.ACCOUNTING_REPORTS: VIEW,
     }),
@@ -27,7 +29,8 @@ DEFAULT_ROLES = {
         Pages.EMPLOYEES: VIEW, Pages.PRICING: VIEW, Pages.CRM: EDIT, Pages.TELEPHONY: VIEW, Pages.TELEGRAM: VIEW,
     }),
     "Ta'minotchi": ("Xaridlar bo'limi", {
-        Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.PROCUREMENT: EDIT,
+        Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.PROCUREMENT: EDIT, Pages.PURCHASE_ORDERS: EDIT,
+        Pages.GOODS_RECEIPTS: EDIT, Pages.SUPPLIERS: EDIT,
     }),
 }
 

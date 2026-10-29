@@ -21,12 +21,13 @@ type Values = {
   email: string; region: string; address: string; source: string; notes: string; is_active: boolean;
   manager_id: number | null; segment_id: number | null; passport: string;
   latitude: number | null; longitude: number | null;
+  bank_account: string; bank_name: string; mfo: string; price_currency: "UZS" | "USD"; prepay_percent: string; credit_days: string;
 };
 
 const EMPTY: Values = {
   kind: "individual", name: "", tin: "", contact_person: "", phone: "", phone_extra: "", email: "",
   region: "", address: "", source: "", notes: "", is_active: true, manager_id: null, segment_id: null, passport: "",
-  latitude: null, longitude: null,
+  latitude: null, longitude: null, bank_account: "", bank_name: "", mfo: "", price_currency: "UZS", prepay_percent: "", credit_days: "",
 };
 
 export function ClientFormPage() {
@@ -50,6 +51,8 @@ export function ClientFormPage() {
       notes: r.notes, is_active: r.is_active, manager_id: r.manager_id, segment_id: r.segment_id,
       passport: r.passport,
       latitude: r.latitude == null ? null : Number(r.latitude), longitude: r.longitude == null ? null : Number(r.longitude),
+      bank_account: r.bank_account, bank_name: r.bank_name, mfo: r.mfo, price_currency: r.price_currency,
+      prepay_percent: r.prepay_percent == null ? "" : String(r.prepay_percent), credit_days: r.credit_days == null ? "" : String(r.credit_days),
     }),
     validate: {
       name: (v) => (v.trim().length >= 2 ? null : "Kamida 2 ta belgi"),
@@ -58,11 +61,13 @@ export function ClientFormPage() {
   });
   const v = form.values;
   const company = v.kind !== "individual";
+  const supplier = v.kind === "supplier";
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.check()) return;
-    save.mutate({ id, data: v }, {
+    const data = { ...v, prepay_percent: v.prepay_percent === "" ? null : Number(v.prepay_percent), credit_days: v.credit_days === "" ? null : Number(v.credit_days) };
+    save.mutate({ id, data }, {
       onSuccess: (saved) => {
         notifyOk("Saqlandi");
         form.commit();
@@ -138,6 +143,25 @@ export function ClientFormPage() {
               <Row label="Izoh" wide><Textarea {...form.text("notes")} /></Row>
               <Row label="Holat"><Toggle label="Faol mijoz" checked={v.is_active} disabled={!editable} onChange={(x) => form.set("is_active", x)} /></Row>
             </FieldGrid>
+            {company && (
+              <FieldGrid title="Bank rekvizitlari">
+                <Row label="Hisob raqami"><Input className="font-mono" {...form.text("bank_account")} /></Row>
+                <Row label="Bank"><Input {...form.text("bank_name")} /></Row>
+                <Row label="MFO"><Input className="w-32 font-mono" {...form.text("mfo")} /></Row>
+              </FieldGrid>
+            )}
+            {supplier && (
+              <FieldGrid title="Yetkazib beruvchi shartlari">
+                <Row label="Narx valyutasi">
+                  <Select className="w-32" value={v.price_currency} onChange={(e) => form.set("price_currency", e.target.value as "UZS" | "USD")}>
+                    <option value="UZS">so'm</option>
+                    <option value="USD">USD</option>
+                  </Select>
+                </Row>
+                <Row label="Oldindan to'lov, %"><Input inputMode="numeric" className="w-32 tabular" {...form.text("prepay_percent")} /></Row>
+                <Row label="Kredit kunlari"><Input inputMode="numeric" className="w-32 tabular" {...form.text("credit_days")} /></Row>
+              </FieldGrid>
+            )}
           </fieldset>
         </Sheet>
 

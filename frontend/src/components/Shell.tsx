@@ -11,6 +11,9 @@ import {
   LogOut,
   MapPinned,
   Monitor,
+  PackageCheck,
+  ClipboardList,
+  Truck,
   Moon,
   Plus,
   ListChecks,
@@ -62,7 +65,10 @@ const NAV: NavGroup[] = [
   {
     title: "Ta'minot",
     items: [
-      { page: "procurement", label: "Xaridlar", to: "/procurement", icon: ShoppingCart, planned: true },
+      { page: "procurement", label: "Xarid so'rovlari", to: "/procurement/requests", icon: ClipboardList },
+      { page: "purchase_orders", label: "Buyurtmalar", to: "/procurement/orders", icon: ShoppingCart },
+      { page: "goods_receipts", label: "Kirim", to: "/procurement/receipts", icon: PackageCheck },
+      { page: "suppliers", label: "Yetkazib beruvchilar", to: "/procurement/suppliers", icon: Truck },
       { page: "mrp", label: "MRP", to: "/mrp", icon: Factory, planned: true },
     ],
   },

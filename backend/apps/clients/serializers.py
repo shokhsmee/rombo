@@ -47,7 +47,8 @@ class ClientSerializer(ClientListSerializer):
 
     class Meta(ClientListSerializer.Meta):
         fields = [*ClientListSerializer.Meta.fields, "phone_extra", "email", "address", "source", "notes",
-                  "manager_id", "segment_id", "passport", "projects_count", "created_at", "updated_at"]
+                  "manager_id", "segment_id", "passport", "bank_account", "bank_name", "mfo", "price_currency",
+                  "prepay_percent", "credit_days", "projects_count", "created_at", "updated_at"]
 
 
 class ClientMapSerializer(serializers.ModelSerializer):

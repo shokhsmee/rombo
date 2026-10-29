@@ -4,7 +4,7 @@ from apps.clients.models import Client, ClientKind
 from apps.core.serializers import RefSerializer
 from apps.employees.models import Employee
 from apps.pricing.models import PriceList
-from apps.projects import extensions
+from apps.projects.extensions import DETAIL_BLOCKS
 from apps.projects.models import Project, ProjectCalc, ProjectCalcLine, ProjectFile, ProjectItem, ProjectStatus
 from apps.references.models import RefItem, RefKind
 from apps.references.serializers import RefShortSerializer
@@ -115,7 +115,6 @@ class ProjectSerializer(ProjectListSerializer):
     total_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     total_quantity = serializers.IntegerField(read_only=True)
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
-    money = serializers.SerializerMethodField()  # from the ledger (accounting registers it), never typed
 
     class Meta(ProjectListSerializer.Meta):
         fields = [*ProjectListSerializer.Meta.fields, "client_id", "client_phone", "client_segment", "manager_id",
@@ -124,11 +123,13 @@ class ProjectSerializer(ProjectListSerializer):
                   "advance_amount", "total_amount", "mosquito_net", "dismantling", "items", "total_quantity",
                   "files", "notes", "allowed_statuses", "updated_at", "calcs", "usd_rate", "advance_date",
                   "profile_color", "door_accessory", "window_accessory", "windowsill", "glass", "shotlandka",
-                  "client_address", "client_passport", "money"]
+                  "client_address", "client_passport"]
 
-    def get_money(self, obj) -> dict:
-        money = extensions.detail_extra("money", obj, default={"invoiced": 0, "paid": 0, "debt": 0})
-        return {k: str(v) for k, v in money.items()}
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for key, fn in DETAIL_BLOCKS.items():  # "procurement": {requests, orders, received_pct}; "money": ledger
+            data[key] = fn(instance)
+        return data
 
 
 class StatusChangeSerializer(serializers.Serializer):
