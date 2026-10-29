@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.chatter.services import diff, event, muted, post
 from apps.core.exceptions import Conflict, ValidationFailed
+from apps.projects import extensions
 from apps.projects.models import (
     EDITABLE_STATUSES,
     PRODUCTION_FIELDS,
@@ -77,6 +78,9 @@ def _locked_changes(project: Project, fields: dict, items: list[dict] | None) ->
 def project_update(project: Project, *, actor, items: list[dict] | None = None, **fields) -> Project:
     if project.calcs.exists():
         fields.pop("amount", None)  # derived from the hisob-kitob; see recompute_amount
+    if extensions.detail_extra("advance", project) is not None:
+        fields.pop("advance_amount", None)  # derived from posted kassa payments; see recompute_advance
+        fields.pop("advance_date", None)
     if project.status not in EDITABLE_STATUSES:
         locked = _locked_changes(project, fields, items)
         if locked:
@@ -91,6 +95,7 @@ def project_update(project: Project, *, actor, items: list[dict] | None = None, 
     if items is not None:
         _set_items(project, items, actor=actor)
     recompute_amount(project)  # the rate or currency may have changed
+    recompute_advance(project)
     return project
 
 
@@ -181,6 +186,19 @@ def recompute_amount(project: Project) -> None:
     if amount != project.amount:
         project.amount = amount
         project.save(update_fields=["amount", "updated_at"])  # tracked: "Summa: … → …"
+
+
+def recompute_advance(project: Project) -> None:
+    """Once the Loyiha has a posted customer payment (kassa registers the "advance" extra), the advance is
+    the sum of those payments and its date the first one's; typed values are overwritten. With no payments
+    nothing happens: the advance stays the number sales typed."""
+    derived = extensions.detail_extra("advance", project)
+    if derived is None:
+        return
+    amount, date = derived["amount"], derived["date"]
+    if (project.advance_amount, project.advance_date) != (amount, date):
+        project.advance_amount, project.advance_date = amount, date
+        project.save(update_fields=["advance_amount", "advance_date", "updated_at"])  # tracked: "Avans: … → …"
 
 
 def _calc_total_change(project, calc, before: Decimal, *, actor) -> None:

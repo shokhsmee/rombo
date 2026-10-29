@@ -17,10 +17,16 @@ DEFAULT_ROLES = {
         Pages.COMPANY: dict(can_view=True, can_update=True), Pages.PROCUREMENT: FULL, Pages.MRP: FULL,
         Pages.CRM: FULL, Pages.TELEPHONY: FULL, Pages.TELEGRAM: FULL,
         Pages.ACCOUNTING: EDIT, Pages.ACCOUNTS: FULL, Pages.INVOICES: FULL, Pages.ACCOUNTING_REPORTS: VIEW,
+        Pages.KASSA: EDIT, Pages.CASH_ORDERS: FULL, Pages.CASH_BOOK: VIEW,
     }),
-    "Buxgalter": ("Jurnal, hisob-fakturalar, hisoblar rejasi va hisobotlar", {
+    "Buxgalter": ("Jurnal, hisob-fakturalar, hisoblar rejasi, hisobotlar va kassa", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: VIEW, Pages.COMPANY: dict(can_view=True, can_update=True),
         Pages.ACCOUNTING: EDIT, Pages.ACCOUNTS: FULL, Pages.INVOICES: FULL, Pages.ACCOUNTING_REPORTS: VIEW,
+        Pages.KASSA: EDIT, Pages.CASH_ORDERS: FULL, Pages.CASH_BOOK: VIEW,
+    }),
+    "Kassir": ("Kirim / chiqim orderlari va kassa kitobi", {
+        Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: VIEW, Pages.EMPLOYEES: VIEW,
+        Pages.KASSA: VIEW, Pages.CASH_ORDERS: FULL, Pages.CASH_BOOK: VIEW,
     }),
     "Savdo menejeri": ("Loyiha va mijozlar bilan ishlaydi", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: EDIT, Pages.CLIENTS: EDIT, Pages.CLIENT_MAP: VIEW,

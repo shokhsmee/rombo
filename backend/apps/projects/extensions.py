@@ -1,5 +1,6 @@
 """Hooks the apps that hang off the Loyiha use to add to its card without projects importing them
-(ADR 0004, ADR 0007). `accounting` registers "money" in its AppConfig.ready()."""
+(ADR 0004, ADR 0007). `accounting` registers "money", `kassa` registers "payments" and "advance" (the
+derived advance_amount / advance_date, or None while the Loyiha has no posted customer payment)."""
 
 from collections.abc import Callable
 

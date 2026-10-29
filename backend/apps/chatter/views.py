@@ -20,6 +20,8 @@ CHATTER_PAGES = {
     "pricing.pricelist": Pages.PRICING,
     "accounting.invoice": Pages.INVOICES,
     "accounting.account": Pages.ACCOUNTS,
+    "kassa.cashaccount": Pages.KASSA,
+    "kassa.cashorder": Pages.CASH_ORDERS,
 }
 
 

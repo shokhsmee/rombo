@@ -116,6 +116,8 @@ class ProjectSerializer(ProjectListSerializer):
     total_quantity = serializers.IntegerField(read_only=True)
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
     money = serializers.SerializerMethodField()  # from the ledger (accounting registers it), never typed
+    payments = serializers.SerializerMethodField()  # posted kassa orders of the Loyiha (kassa registers it)
+    advance_derived = serializers.SerializerMethodField()  # True → advance_amount / advance_date are read-only
 
     class Meta(ProjectListSerializer.Meta):
         fields = [*ProjectListSerializer.Meta.fields, "client_id", "client_phone", "client_segment", "manager_id",
@@ -124,11 +126,18 @@ class ProjectSerializer(ProjectListSerializer):
                   "advance_amount", "total_amount", "mosquito_net", "dismantling", "items", "total_quantity",
                   "files", "notes", "allowed_statuses", "updated_at", "calcs", "usd_rate", "advance_date",
                   "profile_color", "door_accessory", "window_accessory", "windowsill", "glass", "shotlandka",
-                  "client_address", "client_passport", "money"]
+                  "client_address", "client_passport", "money", "payments", "advance_derived"]
 
     def get_money(self, obj) -> dict:
         money = extensions.detail_extra("money", obj, default={"invoiced": 0, "paid": 0, "debt": 0})
         return {k: str(v) for k, v in money.items()}
+
+    def get_payments(self, obj) -> dict:
+        p = extensions.detail_extra("payments", obj, default={"count": 0, "paid": 0, "last_date": None})
+        return {k: (None if v is None else str(v)) for k, v in p.items()}
+
+    def get_advance_derived(self, obj) -> bool:
+        return extensions.detail_extra("advance", obj) is not None
 
 
 class StatusChangeSerializer(serializers.Serializer):
