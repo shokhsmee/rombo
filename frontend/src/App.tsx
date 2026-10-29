@@ -16,6 +16,7 @@ import { ProjectFormPage } from "@/modules/projects/ProjectFormPage";
 import { ProjectsListPage } from "@/modules/projects/ProjectsListPage";
 import { CalcPage } from "@/modules/projects/CalcPage";
 import { ContractPrint } from "@/modules/projects/print/ContractPrint";
+import { OrderPrint } from "@/modules/procurement/print/OrderPrint";
 import { InvoicePrint } from "@/modules/projects/print/InvoicePrint";
 import { CompanyPage } from "@/modules/company/CompanyPage";
 import { PriceListFormPage } from "@/modules/pricing/PriceListFormPage";
@@ -32,6 +33,14 @@ const TelephonySettingsPage = lazy(() => import("@/modules/telephony/SettingsPag
 const BoardPage = lazy(() => import("@/modules/crm/BoardPage").then((m) => ({ default: m.BoardPage })));
 const LeadFormPage = lazy(() => import("@/modules/crm/LeadFormPage").then((m) => ({ default: m.LeadFormPage })));
 const CallsPage = lazy(() => import("@/modules/telephony/CallsPage").then((m) => ({ default: m.CallsPage })));
+const RequestsListPage = lazy(() => import("@/modules/procurement/RequestsListPage").then((m) => ({ default: m.RequestsListPage })));
+const RequestFormPage = lazy(() => import("@/modules/procurement/RequestFormPage").then((m) => ({ default: m.RequestFormPage })));
+const OrdersListPage = lazy(() => import("@/modules/procurement/OrdersListPage").then((m) => ({ default: m.OrdersListPage })));
+const OrderFormPage = lazy(() => import("@/modules/procurement/OrderFormPage").then((m) => ({ default: m.OrderFormPage })));
+const ReceiptsListPage = lazy(() => import("@/modules/procurement/ReceiptsListPage").then((m) => ({ default: m.ReceiptsListPage })));
+const ReceiptFormPage = lazy(() => import("@/modules/procurement/ReceiptFormPage").then((m) => ({ default: m.ReceiptFormPage })));
+const SuppliersListPage = lazy(() => import("@/modules/procurement/SuppliersListPage").then((m) => ({ default: m.SuppliersListPage })));
+const SupplierFormPage = lazy(() => import("@/modules/procurement/SupplierFormPage").then((m) => ({ default: m.SupplierFormPage })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
 export function App() {
@@ -41,6 +50,7 @@ export function App() {
       {/* paper documents: no app chrome, opened in a new tab and printed to PDF */}
       <Route path="/print/projects/:id/calcs/:calcId" element={<RequireAuth><RequirePage page="projects"><InvoicePrint /></RequirePage></RequireAuth>} />
       <Route path="/print/projects/:id/contract" element={<RequireAuth><RequirePage page="projects"><ContractPrint /></RequirePage></RequireAuth>} />
+      <Route path="/print/procurement/orders/:id" element={<RequireAuth><RequirePage page="purchase_orders"><OrderPrint /></RequirePage></RequireAuth>} />
       <Route element={<RequireAuth><Shell /></RequireAuth>}>
         <Route index element={<DashboardPage />} />
 
@@ -60,6 +70,15 @@ export function App() {
         <Route path="telephony" element={<RequirePage page="telephony"><Later><CallsPage /></Later></RequirePage>} />
         <Route path="telephony/settings" element={<RequirePage page="telephony"><Later><TelephonySettingsPage /></Later></RequirePage>} />
         <Route path="crm/map" element={<RequirePage page="client_map"><RequirePage page="clients"><ClientMapPage /></RequirePage></RequirePage>} />
+
+        <Route path="procurement/requests" element={<RequirePage page="procurement"><Later><RequestsListPage /></Later></RequirePage>} />
+        <Route path="procurement/requests/:id" element={<RequirePage page="procurement"><Later><RequestFormPage /></Later></RequirePage>} />
+        <Route path="procurement/orders" element={<RequirePage page="purchase_orders"><Later><OrdersListPage /></Later></RequirePage>} />
+        <Route path="procurement/orders/:id" element={<RequirePage page="purchase_orders"><Later><OrderFormPage /></Later></RequirePage>} />
+        <Route path="procurement/receipts" element={<RequirePage page="goods_receipts"><Later><ReceiptsListPage /></Later></RequirePage>} />
+        <Route path="procurement/receipts/:id" element={<RequirePage page="goods_receipts"><Later><ReceiptFormPage /></Later></RequirePage>} />
+        <Route path="procurement/suppliers" element={<RequirePage page="suppliers"><Later><SuppliersListPage /></Later></RequirePage>} />
+        <Route path="procurement/suppliers/:id" element={<RequirePage page="suppliers"><Later><SupplierFormPage /></Later></RequirePage>} />
 
         <Route path="employees" element={<RequirePage page="employees"><EmployeesListPage /></RequirePage>} />
         <Route path="employees/:id" element={<RequirePage page="employees"><EmployeeFormPage /></RequirePage>} />

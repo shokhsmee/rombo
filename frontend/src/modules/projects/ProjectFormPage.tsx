@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Ruler, Wallet } from "lucide-react";
+import { Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Ruler, ShoppingCart, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -74,6 +74,7 @@ export function ProjectFormPage() {
   const isNew = id === "new";
   const navigate = useNavigate();
   const can = useCan("projects");
+  const canProcurement = useCan("procurement");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
   const save = projectsApi.useSave();
   const remove = projectsApi.useRemove();
@@ -173,6 +174,11 @@ export function ProjectFormPage() {
                 <Smart icon={<Wallet className="size-4" />} value={fmtMoney(p.total_amount, p.currency)} label="Jami summa" />
                 <Smart icon={<Wallet className="size-4 text-bad" />} value={<span className={Number(p.debt_amount) > 0 ? "text-bad" : "text-ok"}>{fmtMoney(p.debt_amount, p.currency)}</span>} label="Qarz" />
                 <Smart icon={<Ruler className="size-4" />} value={fmtArea(p.total_area)} label={`${p.total_quantity} dona buyum`} />
+                {canProcurement.view && p.procurement && (
+                  <Smart icon={<ShoppingCart className="size-4" />}
+                    value={`${p.procurement.requests} / ${p.procurement.orders}${p.procurement.orders ? ` · ${p.procurement.received_pct}%` : ""}`}
+                    label="Xaridlar: so'rov / buyurtma" onClick={() => navigate(`/procurement/requests?project=${p.id}`)} />
+                )}
               </>
             )}
           />

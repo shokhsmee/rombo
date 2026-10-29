@@ -69,6 +69,8 @@ export type Project = ProjectListItem & {
   notes: string;
   allowed_statuses: ProjectStatus[];
   updated_at: string;
+  /** From apps.procurement (registered detail block): counts and the share of ordered quantity received. */
+  procurement?: { requests: number; orders: number; received_pct: number };
 };
 
 export type CalcSummary = { id: number; title: string; currency: Currency; calc_date: string; total: string };
