@@ -16,6 +16,11 @@ DEFAULT_ROLES = {
         Pages.EMPLOYEES: FULL, Pages.USERS: FULL, Pages.ROLES: FULL, Pages.REFERENCES: FULL, Pages.PRICING: FULL,
         Pages.COMPANY: dict(can_view=True, can_update=True), Pages.PROCUREMENT: FULL, Pages.MRP: FULL,
         Pages.CRM: FULL, Pages.TELEPHONY: FULL, Pages.TELEGRAM: FULL,
+        Pages.ACCOUNTING: EDIT, Pages.ACCOUNTS: FULL, Pages.INVOICES: FULL, Pages.ACCOUNTING_REPORTS: VIEW,
+    }),
+    "Buxgalter": ("Jurnal, hisob-fakturalar, hisoblar rejasi va hisobotlar", {
+        Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: VIEW, Pages.COMPANY: dict(can_view=True, can_update=True),
+        Pages.ACCOUNTING: EDIT, Pages.ACCOUNTS: FULL, Pages.INVOICES: FULL, Pages.ACCOUNTING_REPORTS: VIEW,
     }),
     "Savdo menejeri": ("Loyiha va mijozlar bilan ishlaydi", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: EDIT, Pages.CLIENTS: EDIT, Pages.CLIENT_MAP: VIEW,

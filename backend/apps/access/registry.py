@@ -49,6 +49,10 @@ class Pages:
     REFERENCES = "references"
     PRICING = "pricing"
     COMPANY = "company"
+    ACCOUNTING = "accounting"
+    ACCOUNTS = "accounts"
+    INVOICES = "invoices"
+    ACCOUNTING_REPORTS = "accounting_reports"
 
 
 PAGES: tuple[PageDef, ...] = (
@@ -61,6 +65,10 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.CLIENT_MAP, "Mijozlar xaritasi", "CRM", VIEW_ONLY),
     PageDef(Pages.PROCUREMENT, "Xaridlar", "Ta'minot", planned=True),
     PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", planned=True),
+    PageDef(Pages.ACCOUNTING, "Jurnal (o'tkazmalar)", "Buxgalteriya", (Action.VIEW, Action.CREATE, Action.UPDATE)),
+    PageDef(Pages.INVOICES, "Hisob-fakturalar", "Buxgalteriya"),
+    PageDef(Pages.ACCOUNTS, "Hisoblar rejasi, rollar, kurslar", "Buxgalteriya"),
+    PageDef(Pages.ACCOUNTING_REPORTS, "Buxgalteriya hisobotlari", "Buxgalteriya", VIEW_ONLY),
     PageDef(Pages.EMPLOYEES, "Xodimlar", "Xodimlar"),
     PageDef(Pages.USERS, "Foydalanuvchilar", "Sozlamalar"),
     PageDef(Pages.ROLES, "Rollar va ruxsatlar", "Sozlamalar"),
