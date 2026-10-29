@@ -228,13 +228,14 @@ def _check_rate(order: PurchaseOrder) -> None:
 
 
 def _accounting_rate(date, currency) -> Decimal | None:
-    if currency == Currency.UZS or not selectors.accounting_installed():
+    """The Central Bank rate of the day as the default; none for that day → the buyer types one."""
+    if currency == Currency.UZS:
         return None
     from apps.accounting import selectors as accsel
 
     try:
         return accsel.rate_for(date, currency)
-    except Exception:  # no rate for that day: the buyer types one
+    except Conflict:
         return None
 
 
@@ -530,10 +531,7 @@ def receipt_update(receipt: GoodsReceipt, *, actor, lines: list[dict] | None = N
 
 
 def _ledger():
-    """The accounting write/read API (ADR 0007). Imported here: procurement depends on accounting, and
-    the app may not be installed yet."""
-    if not selectors.accounting_installed():
-        raise Conflict("Buxgalteriya moduli ulanmagan — kirim o'tkazilmaydi")
+    """The accounting write/read API (ADR 0007): procurement imports accounting, never the reverse."""
     from apps.accounting import selectors as accsel
     from apps.accounting import services as acc
 
@@ -592,14 +590,12 @@ def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
         ol = ln.order_line
         ol.received_qty += ln.qty
         ol.save(update_fields=["received_qty"])
-    receipt.posted_at, receipt.posted_by, receipt.entry_id = timezone.now(), actor, entry.pk
+    receipt.posted_at, receipt.posted_by, receipt.entry = timezone.now(), actor, entry
     with muted():
-        receipt.save(update_fields=["posted_at", "posted_by", "entry_id"])
+        receipt.save(update_fields=["posted_at", "posted_by", "entry"])
     _move(receipt, RECEIPT_TRANSITIONS, ReceiptStatus.POSTED, actor=actor, labels=ReceiptStatus)
-    event(receipt,
-          f"Jurnalga o'tkazildi: {getattr(entry, 'code', entry.pk)} — {gross_total:,.2f} so'm".replace(",",
-                                                                                                       " "),
-          actor=actor)
+    total = f"{gross_total:,.2f}".replace(",", " ")
+    event(receipt, f"Jurnalga o'tkazildi: {entry.code} — {total} so'm", actor=actor)
     _derive_order_status(order, actor=actor)
     return receipt
 
@@ -615,11 +611,8 @@ def receipt_cancel(receipt: GoodsReceipt, *, actor, comment: str = "") -> GoodsR
         raise ValidationFailed("Faqat o'tkazilgan kirim bekor qilinadi", field="status")
     acc, _ = _ledger()
     if receipt.entry_id:
-        from apps.accounting.models import JournalEntry
-
-        entry = JournalEntry.objects.get(pk=receipt.entry_id)
-        reversal = acc.entry_reverse(entry, actor=actor, memo=f"Storno {receipt.code}")
-        event(receipt, f"Storno: {getattr(reversal, 'code', reversal.pk)}", actor=actor)
+        reversal = acc.entry_reverse(receipt.entry, actor=actor, memo=f"Storno {receipt.code}")
+        event(receipt, f"Storno: {reversal.code}", actor=actor)
     for ln in receipt.lines.select_related("order_line"):
         ol = ln.order_line
         ol.received_qty = max(ol.received_qty - ln.qty, ZERO)

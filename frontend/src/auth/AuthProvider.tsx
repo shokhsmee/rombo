@@ -6,7 +6,7 @@ import { api, tokens } from "@/lib/api";
 export type PageKey =
   | "dashboard" | "projects" | "clients" | "procurement" | "mrp" | "employees" | "users" | "roles" | "references"
   | "pricing" | "company" | "crm" | "telephony" | "client_map" | "telegram"
-  | "purchase_approve" | "purchase_orders" | "goods_receipts" | "suppliers";
+  | "purchase_approve" | "purchase_orders" | "goods_receipts" | "suppliers"
   | "accounting" | "accounts" | "invoices" | "accounting_reports";
 export type PermAction = "view" | "create" | "update" | "delete";
 

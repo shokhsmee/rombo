@@ -2,7 +2,6 @@
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from django.apps import apps
 from django.db.models import Sum
 
 from apps.procurement.models import (
@@ -45,23 +44,17 @@ def project_procurement(project) -> dict:
     return {"requests": requests, "orders": orders, "received_pct": min(pct, 100)}
 
 
-def accounting_installed() -> bool:
-    return apps.is_installed("apps.accounting")
-
-
 def supplier_balance(client) -> dict:
-    """{"balance_uzs", "balance_cur"} from the ledger: positive = we owe, negative = prepaid (ADR 0007).
-    Without the accounting app the balance is simply unknown (zeros)."""
-    if not accounting_installed():
-        return {"balance_uzs": ZERO, "balance_cur": None}
+    """{"balance_uzs", "balance_cur"} from the ledger: positive = we owe, negative = prepaid (ADR 0007)."""
     from apps.accounting import selectors as accsel
+    from apps.core.exceptions import Conflict
 
-    b = accsel.partner_balance(client)
-    if isinstance(b, dict) and "ap" in b:
-        uzs = Decimal(b.get("ap") or 0) - Decimal(b.get("advance_paid") or 0)
-        cur = b.get("net_cur")
-    elif isinstance(b, dict):
-        uzs, cur = Decimal(b.get("net_uzs") or 0), b.get("net_cur")
-    else:
-        uzs, cur = Decimal(b or 0), None
-    return {"balance_uzs": uzs, "balance_cur": cur}
+    try:
+        b = accsel.partner_balance(client)
+    except Conflict:  # chart of accounts not seeded yet (roles unmapped): no balance, not an error
+        return {"balance_uzs": ZERO, "balance_cur": None}
+    # positive = we owe the supplier (6010), negative = we prepaid (4310); `net_cur` is {currency: amount}
+    uzs = Decimal(b["ap"]) - Decimal(b["advance_paid"])
+    cur = b.get("net_cur") or {}
+    amount_cur = cur.get(client.price_currency) if client.price_currency != "UZS" else None
+    return {"balance_uzs": uzs, "balance_cur": -amount_cur if amount_cur is not None else None}

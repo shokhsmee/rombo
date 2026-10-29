@@ -279,9 +279,9 @@ class GoodsReceipt(AuditModel, SoftDeleteModel):
     posted_at = models.DateTimeField(null=True, blank=True)
     posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
                                   related_name="+")
-    # The ledger entry this receipt posted (accounting.JournalEntry). A plain id until the accounting app
-    # is on main; then it becomes the FK and the initial migration is regenerated (nothing is deployed yet).
-    entry_id = models.BigIntegerField(null=True, blank=True, editable=False)
+    # the ledger entry this receipt posted (ADR 0007); cancelling reverses it
+    entry = models.ForeignKey("accounting.JournalEntry", null=True, blank=True, on_delete=models.PROTECT,
+                              related_name="+", editable=False)
 
     class Meta:
         ordering = ["-created_at"]

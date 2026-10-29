@@ -223,13 +223,15 @@ class ReceiptSerializer(ReceiptListSerializer):
     date = serializers.DateField(required=False)
     lines = ReceiptLineSerializer(many=True, required=False)
     posted_by = UserRefSerializer(read_only=True)
+    entry_id = serializers.IntegerField(read_only=True)
+    entry_code = serializers.CharField(source="entry.code", read_only=True, default=None)
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
 
     class Meta(ReceiptListSerializer.Meta):
         fields = [*ReceiptListSerializer.Meta.fields, "order_id", "project", "rate", "invoice_date",
                   "invoice_total",
-                  "notes", "lines", "posted_at", "posted_by", "entry_id", "allowed_statuses", "updated_at"]
-        read_only_fields = ["entry_id"]
+                  "notes", "lines", "posted_at", "posted_by", "entry_id", "entry_code", "allowed_statuses",
+                  "updated_at"]
 
 
 # ------------------------------------------------------------------ suppliers (clients of kind supplier)

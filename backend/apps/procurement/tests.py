@@ -1,14 +1,17 @@
 from decimal import Decimal
 
 import pytest
-from django.apps import apps
 from django.core import mail
 
+from apps.accounting.seed import seed_chart
 from apps.projects.test_calc import SAMPLE_QTY, _calc, _fill_sample
 from conftest import API, login
 
-ACCOUNTING = apps.is_installed("apps.accounting")
-needs_accounting = pytest.mark.skipif(not ACCOUNTING, reason="add-accounting is not on this branch yet")
+
+@pytest.fixture(autouse=True)
+def _chart(db):
+    seed_chart()  # roles → accounts, as `seed_accounting` does on a real install
+
 
 
 # ------------------------------------------------------------------ helpers
@@ -363,17 +366,7 @@ def test_receipt_prefills_remaining_and_refuses_over_receipt(admin):
     assert admin.delete(f"{API}/procurement/receipts/{rec['id']}/").status_code == 204
 
 
-@pytest.mark.skipif(ACCOUNTING, reason="with accounting installed posting works; see the tests below")
-def test_posting_without_accounting_is_refused(admin):
-    order, *_ = _usd_order(admin)
-    _send(admin, order["id"])
-    rec = admin.post(f"{API}/procurement/receipts/", {"order_id": order["id"]}, format="json").json()
-    r = admin.post(f"{API}/procurement/receipts/{rec['id']}/post/")
-    assert r.status_code == 409
-    assert admin.get(f"{API}/procurement/orders/{order['id']}/").json()["status"] == "sent"
-
-
-# ------------------------------------------------------------------ posting (needs add-accounting)
+# ------------------------------------------------------------------ posting (ADR 0007)
 
 
 def _entry_lines(entry_id):
@@ -391,7 +384,6 @@ def _by_code(lines):
     return out
 
 
-@needs_accounting
 def test_posting_writes_the_ledger_and_the_received_qty(admin):
     order, req, sup, project = _usd_order(admin)
     _send(admin, order["id"])
@@ -419,7 +411,6 @@ def test_posting_writes_the_ledger_and_the_received_qty(admin):
                       format="json").status_code == 409
 
 
-@needs_accounting
 def test_partial_receipts_derive_the_order_status(admin):
     order, req, sup, project = _usd_order(admin)
     _send(admin, order["id"])
@@ -433,7 +424,8 @@ def test_partial_receipts_derive_the_order_status(admin):
 
     rest = admin.post(f"{API}/procurement/receipts/", {"order_id": order["id"]}, format="json").json()
     assert rest["lines"][0]["qty"] == "40.00"
-    assert admin.post(f"{API}/procurement/receipts/{rest['id']}/post/").status_code == 200
+    rest = admin.post(f"{API}/procurement/receipts/{rest['id']}/post/").json()
+    assert rest["status"] == "posted" and rest["entry_code"].startswith("BX-")
     assert admin.get(f"{API}/procurement/orders/{order['id']}/").json()["status"] == "received"
 
     # cancelling the second receipt reverses its entry and the order is partially received again
@@ -447,7 +439,6 @@ def test_partial_receipts_derive_the_order_status(admin):
     assert o["status"] == "partially_received" and o["lines"][0]["received_qty"] == "60.00"
 
 
-@needs_accounting
 def test_prepayment_is_offset_on_posting(admin):
     from apps.accounting import services as acc
     from apps.clients.models import Client
@@ -470,7 +461,6 @@ def test_prepayment_is_offset_on_posting(admin):
     assert Decimal(_balance(admin, sup)) == Decimal("16880000")
 
 
-@needs_accounting
 def test_posting_into_a_closed_period_is_refused(admin):
     from apps.company.models import Company
 
@@ -483,7 +473,6 @@ def test_posting_into_a_closed_period_is_refused(admin):
     assert admin.get(f"{API}/procurement/receipts/{rec['id']}/").json()["status"] == "draft"
 
 
-@needs_accounting
 def test_default_price_is_the_last_posted_receipt_price(admin):
     order, req, sup, project = _usd_order(admin)
     item_order = admin.get(f"{API}/procurement/orders/{order['id']}/").json()

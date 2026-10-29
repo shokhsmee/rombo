@@ -241,7 +241,7 @@ class GoodsReceiptViewSet(ServiceModelViewSet):
         qs = GoodsReceipt.objects.select_related("order", "supplier", "storekeeper").prefetch_related("lines")
         if self.action != "list":
             qs = qs.select_related("order__project",
-                                   "posted_by").prefetch_related("lines__order_line__project")
+                                   "posted_by", "entry").prefetch_related("lines__order_line__project")
         return qs
 
     def _respond(self, receipt):
