@@ -48,6 +48,11 @@ const InvoicesListPage = lazy(() => import("@/modules/accounting/InvoicesListPag
 const InvoiceFormPage = lazy(() => import("@/modules/accounting/InvoiceFormPage").then((m) => ({ default: m.InvoiceFormPage })));
 const ReportsPage = lazy(() => import("@/modules/accounting/ReportsPage").then((m) => ({ default: m.ReportsPage })));
 const ReconciliationPrint = lazy(() => import("@/modules/accounting/print/ReconciliationPrint").then((m) => ({ default: m.ReconciliationPrint })));
+const KassaPage = lazy(() => import("@/modules/kassa/KassaPage").then((m) => ({ default: m.KassaPage })));
+const CashOrdersListPage = lazy(() => import("@/modules/kassa/CashOrdersListPage").then((m) => ({ default: m.CashOrdersListPage })));
+const CashOrderFormPage = lazy(() => import("@/modules/kassa/CashOrderFormPage").then((m) => ({ default: m.CashOrderFormPage })));
+const CashBookPage = lazy(() => import("@/modules/kassa/CashBookPage").then((m) => ({ default: m.CashBookPage })));
+const CashOrderPrint = lazy(() => import("@/modules/kassa/print/CashOrderPrint").then((m) => ({ default: m.CashOrderPrint })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
 export function App() {
@@ -59,6 +64,7 @@ export function App() {
       <Route path="/print/projects/:id/contract" element={<RequireAuth><RequirePage page="projects"><ContractPrint /></RequirePage></RequireAuth>} />
       <Route path="/print/procurement/orders/:id" element={<RequireAuth><RequirePage page="purchase_orders"><OrderPrint /></RequirePage></RequireAuth>} />
       <Route path="/print/accounting/reconciliation" element={<RequireAuth><RequirePage page="accounting_reports"><Later><ReconciliationPrint /></Later></RequirePage></RequireAuth>} />
+      <Route path="/print/kassa/orders/:id" element={<RequireAuth><RequirePage page="cash_orders"><Later><CashOrderPrint /></Later></RequirePage></RequireAuth>} />
       <Route element={<RequireAuth><Shell /></RequireAuth>}>
         <Route index element={<DashboardPage />} />
 
@@ -93,6 +99,11 @@ export function App() {
         <Route path="accounting/invoices/:id" element={<RequirePage page="invoices"><Later><InvoiceFormPage /></Later></RequirePage>} />
         <Route path="accounting/reports" element={<RequirePage page="accounting_reports"><Later><ReportsPage /></Later></RequirePage>} />
         <Route path="accounting/accounts" element={<RequirePage page="accounts"><Later><AccountsPage /></Later></RequirePage>} />
+
+        <Route path="kassa" element={<RequirePage page="kassa"><Later><KassaPage /></Later></RequirePage>} />
+        <Route path="kassa/orders" element={<RequirePage page="cash_orders"><Later><CashOrdersListPage /></Later></RequirePage>} />
+        <Route path="kassa/orders/:id" element={<RequirePage page="cash_orders"><Later><CashOrderFormPage /></Later></RequirePage>} />
+        <Route path="kassa/book" element={<RequirePage page="cash_book"><Later><CashBookPage /></Later></RequirePage>} />
 
         <Route path="employees" element={<RequirePage page="employees"><EmployeesListPage /></RequirePage>} />
         <Route path="employees/:id" element={<RequirePage page="employees"><EmployeeFormPage /></RequirePage>} />

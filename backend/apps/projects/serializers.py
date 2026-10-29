@@ -4,6 +4,7 @@ from apps.clients.models import Client, ClientKind
 from apps.core.serializers import RefSerializer
 from apps.employees.models import Employee
 from apps.pricing.models import PriceList
+from apps.projects import extensions
 from apps.projects.extensions import DETAIL_BLOCKS
 from apps.projects.models import Project, ProjectCalc, ProjectCalcLine, ProjectFile, ProjectItem, ProjectStatus
 from apps.references.models import RefItem, RefKind
@@ -115,6 +116,7 @@ class ProjectSerializer(ProjectListSerializer):
     total_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     total_quantity = serializers.IntegerField(read_only=True)
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
+    advance_derived = serializers.SerializerMethodField()  # True → advance_amount / advance_date come from kassa
 
     class Meta(ProjectListSerializer.Meta):
         fields = [*ProjectListSerializer.Meta.fields, "client_id", "client_phone", "client_segment", "manager_id",
@@ -123,13 +125,16 @@ class ProjectSerializer(ProjectListSerializer):
                   "advance_amount", "total_amount", "mosquito_net", "dismantling", "items", "total_quantity",
                   "files", "notes", "allowed_statuses", "updated_at", "calcs", "usd_rate", "advance_date",
                   "profile_color", "door_accessory", "window_accessory", "windowsill", "glass", "shotlandka",
-                  "client_address", "client_passport"]
+                  "client_address", "client_passport", "advance_derived"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         for key, fn in DETAIL_BLOCKS.items():  # "procurement": {requests, orders, received_pct}; "money": ledger
             data[key] = fn(instance)
         return data
+
+    def get_advance_derived(self, obj) -> bool:
+        return extensions.derived_advance(obj) is not None
 
 
 class StatusChangeSerializer(serializers.Serializer):

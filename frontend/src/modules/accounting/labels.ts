@@ -20,6 +20,7 @@ export const SOURCE_KIND: Record<SourceKind, string> = { document: "Hujjat", man
 /** Where a source document opens in the app, by its `source_model`. Other modules add theirs here. */
 export const SOURCE_LINK: Record<string, (id: number) => string> = {
   "accounting.invoice": (id) => `/accounting/invoices/${id}`,
+  "kassa.cashorder": (id) => `/kassa/orders/${id}`,
 };
 
 /** Money in the ledger's style: "12 000 000" (no decimals when whole), "1 234,50" otherwise. */

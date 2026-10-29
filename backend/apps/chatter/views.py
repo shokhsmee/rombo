@@ -23,6 +23,8 @@ CHATTER_PAGES = {
     "procurement.goodsreceipt": Pages.GOODS_RECEIPTS,
     "accounting.invoice": Pages.INVOICES,
     "accounting.account": Pages.ACCOUNTS,
+    "kassa.cashaccount": Pages.KASSA,
+    "kassa.cashorder": Pages.CASH_ORDERS,
 }
 
 

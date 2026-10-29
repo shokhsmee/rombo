@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Receipt, Ruler, ShoppingCart, Wallet } from "lucide-react";
+import { Banknote, Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Receipt, Ruler, ShoppingCart, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -11,6 +11,7 @@ import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtArea, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
 import { useInvoiceFromProject, useInvoicesOf } from "@/modules/accounting/api";
+import { useOrdersOf } from "@/modules/kassa/api";
 import { pricingApi } from "@/modules/pricing/api";
 import { RefSelect } from "@/modules/references/RefSelect";
 
@@ -77,6 +78,7 @@ export function ProjectFormPage() {
   const can = useCan("projects");
   const canProcurement = useCan("procurement");
   const canInvoice = useCan("invoices");
+  const canCash = useCan("cash_orders");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
   const save = projectsApi.useSave();
   const remove = projectsApi.useRemove();
@@ -182,6 +184,7 @@ export function ProjectFormPage() {
                     label="Xaridlar: so'rov / buyurtma" onClick={() => navigate(`/procurement/requests?project=${p.id}`)} />
                 )}
                 {canInvoice.view && <InvoicesSmart project={p} />}
+                {canCash.view && <PaymentsSmart project={p} />}
               </>
             )}
           />
@@ -274,7 +277,10 @@ export function ProjectFormPage() {
               <Row label="Xizmat summasi" error={form.errors.service_amount}>
                 <Input inputMode="decimal" className="tabular" placeholder="O'rnatish, yetkazish…" {...form.text("service_amount")} />
               </Row>
-              <Row label="Avans" error={form.errors.advance_amount}><Input inputMode="decimal" className="tabular" {...form.text("advance_amount")} /></Row>
+              <Row label="Avans" error={form.errors.advance_amount}>
+                <Input inputMode="decimal" className="tabular" disabled={!!p?.advance_derived} {...form.text("advance_amount")} />
+                {p?.advance_derived && <span className="text-xs text-muted">Kassadagi to'lovlardan hisoblanadi ({p.payments.count} ta)</span>}
+              </Row>
               <Row label="Qarz">
                 <div className={`flex h-9 items-center rounded-lg px-3 text-sm font-semibold tabular ${
                   debt > 0 ? "bg-bad-soft text-bad" : debt < 0 ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok"}`}>
@@ -285,8 +291,8 @@ export function ProjectFormPage() {
               <Row label="Shartnoma №"><Input {...form.text("contract_number")} /></Row>
               <Row label="Shartnoma sanasi"><Input type="date" {...form.text("contract_date")} /></Row>
               <Row label="USD kursi" error={form.errors.usd_rate}><Input inputMode="decimal" className="tabular" placeholder="12 000" {...form.text("usd_rate")} /></Row>
-              <Row label="Avans sanasi"><Input type="date" {...form.text("advance_date")} /></Row>
-              {p && canInvoice.view && <LedgerMoney project={p} canCreate={canInvoice.create} />}
+              <Row label="Avans sanasi"><Input type="date" disabled={!!p?.advance_derived} {...form.text("advance_date")} /></Row>
+              {p && (canInvoice.view || canCash.view) && <LedgerMoney project={p} canCreate={canInvoice.view && canInvoice.create} canPay={canCash.create} />}
               {!!p?.calcs.length && (
                 <p className="text-xs text-muted lg:col-span-2">
                   Buyurtma summasi hisob-kitobdan olinadi{p.currency === "UZS" && p.calcs.some((c) => c.currency === "USD") ? " (USD × kurs)" : ""}.
@@ -325,12 +331,24 @@ function InvoicesSmart({ project }: { project: Project }) {
   return <Smart icon={<Receipt className="size-4" />} value={list.data?.total ?? "…"} label="Hisob-fakturalar" onClick={() => navigate(`/accounting/invoices?project=${project.id}`)} />;
 }
 
+/** "To'lovlar" smart button: the Loyiha's cash orders, opens the filtered list. */
+function PaymentsSmart({ project }: { project: Project }) {
+  const navigate = useNavigate();
+  const list = useOrdersOf({ project: project.id, size: 1 });
+  return <Smart icon={<Banknote className="size-4" />} value={list.data?.total ?? project.payments.count} label="To'lovlar" onClick={() => navigate(`/kassa/orders?project=${project.id}`)} />;
+}
+
+/** "To'lov qo'shish": a kirim pre-filled with the client, the Loyiha and the remaining debt. */
+const payUrl = (p: Project) =>
+  `/kassa/orders/new?kind=in&partner=${p.client_id}&project=${p.id}&amount=${Math.max(Number(p.debt_amount), 0)}&basis=${encodeURIComponent(`Loyiha ${p.code}`)}`;
+
 /** Money as the ledger sees it (ADR 0007): invoiced, paid, debt — next to the typed amounts. */
-function LedgerMoney({ project, canCreate }: { project: Project; canCreate: boolean }) {
+function LedgerMoney({ project, canCreate, canPay }: { project: Project; canCreate: boolean; canPay: boolean }) {
   const navigate = useNavigate();
   const draft = useInvoiceFromProject();
   const m = project.money;
-  const empty = !Number(m.invoiced) && !Number(m.paid);
+  const pay = project.payments;
+  const empty = !Number(m.invoiced) && !Number(m.paid) && !Number(pay.count);
   return (
     <div className="grid gap-2 rounded-xl border border-line bg-ground/50 p-3 lg:col-span-2">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
@@ -338,12 +356,20 @@ function LedgerMoney({ project, canCreate }: { project: Project; canCreate: bool
         <span className="text-muted">Hisob-faktura: <b className="tabular text-ink">{fmtMoney(m.invoiced)}</b></span>
         <span className="text-muted">To'langan: <b className="tabular text-ok">{fmtMoney(m.paid)}</b></span>
         <span className="text-muted">Qarz: <b className={`tabular ${Number(m.debt) > 0 ? "text-bad" : "text-ink"}`}>{fmtMoney(m.debt)}</b></span>
-        {canCreate && (
-          <Button size="sm" variant="soft" className="ml-auto" busy={draft.isPending}
-            onClick={() => draft.mutate(project.id, { onSuccess: (inv) => { notifyOk(`Qoralama: ${inv.code}`); navigate(`/accounting/invoices/${inv.id}`); }, onError: notifyError })}>
-            <Receipt className="size-4" strokeWidth={1.75} /> Hisob-faktura chiqarish
-          </Button>
-        )}
+        {Number(pay.count) > 0 && <span className="text-muted">Kassa: <b className="tabular text-ink">{pay.count} ta</b>{pay.last_date && <>, oxirgisi {dayjs(pay.last_date).format("DD.MM.YYYY")}</>}</span>}
+        <span className="ml-auto flex gap-2">
+          {canPay && (
+            <Button size="sm" variant="soft" onClick={() => navigate(payUrl(project))}>
+              <Banknote className="size-4" strokeWidth={1.75} /> To'lov qo'shish
+            </Button>
+          )}
+          {canCreate && (
+            <Button size="sm" variant="soft" busy={draft.isPending}
+              onClick={() => draft.mutate(project.id, { onSuccess: (inv) => { notifyOk(`Qoralama: ${inv.code}`); navigate(`/accounting/invoices/${inv.id}`); }, onError: notifyError })}>
+              <Receipt className="size-4" strokeWidth={1.75} /> Hisob-faktura chiqarish
+            </Button>
+          )}
+        </span>
       </div>
       {empty && <p className="text-xs text-muted">Hali hisob-faktura yoki to'lov o'tkazilmagan — yuqoridagi summa va avans qo'lda kiritilgan.</p>}
     </div>
