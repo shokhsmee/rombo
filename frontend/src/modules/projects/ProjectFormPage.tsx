@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Ruler, Wallet } from "lucide-react";
+import { Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Receipt, Ruler, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -10,6 +10,7 @@ import { Button, Dialog, Input, Menu, Pill, Select, Smart, Textarea, Toggle } fr
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtArea, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
+import { useInvoiceFromProject, useInvoicesOf } from "@/modules/accounting/api";
 import { pricingApi } from "@/modules/pricing/api";
 import { RefSelect } from "@/modules/references/RefSelect";
 
@@ -74,6 +75,7 @@ export function ProjectFormPage() {
   const isNew = id === "new";
   const navigate = useNavigate();
   const can = useCan("projects");
+  const canInvoice = useCan("invoices");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
   const save = projectsApi.useSave();
   const remove = projectsApi.useRemove();
@@ -173,6 +175,7 @@ export function ProjectFormPage() {
                 <Smart icon={<Wallet className="size-4" />} value={fmtMoney(p.total_amount, p.currency)} label="Jami summa" />
                 <Smart icon={<Wallet className="size-4 text-bad" />} value={<span className={Number(p.debt_amount) > 0 ? "text-bad" : "text-ok"}>{fmtMoney(p.debt_amount, p.currency)}</span>} label="Qarz" />
                 <Smart icon={<Ruler className="size-4" />} value={fmtArea(p.total_area)} label={`${p.total_quantity} dona buyum`} />
+                {canInvoice.view && <InvoicesSmart project={p} />}
               </>
             )}
           />
@@ -277,6 +280,7 @@ export function ProjectFormPage() {
               <Row label="Shartnoma sanasi"><Input type="date" {...form.text("contract_date")} /></Row>
               <Row label="USD kursi" error={form.errors.usd_rate}><Input inputMode="decimal" className="tabular" placeholder="12 000" {...form.text("usd_rate")} /></Row>
               <Row label="Avans sanasi"><Input type="date" {...form.text("advance_date")} /></Row>
+              {p && canInvoice.view && <LedgerMoney project={p} canCreate={canInvoice.create} />}
               {!!p?.calcs.length && (
                 <p className="text-xs text-muted lg:col-span-2">
                   Buyurtma summasi hisob-kitobdan olinadi{p.currency === "UZS" && p.calcs.some((c) => c.currency === "USD") ? " (USD × kurs)" : ""}.
@@ -305,6 +309,38 @@ export function ProjectFormPage() {
         </Sheet>
       </RecordPage>
     </form>
+  );
+}
+
+/** "Hisob-fakturalar" smart button: how many invoices the Loyiha has, opens the filtered list. */
+function InvoicesSmart({ project }: { project: Project }) {
+  const navigate = useNavigate();
+  const list = useInvoicesOf({ project: project.id, size: 1 });
+  return <Smart icon={<Receipt className="size-4" />} value={list.data?.total ?? "…"} label="Hisob-fakturalar" onClick={() => navigate(`/accounting/invoices?project=${project.id}`)} />;
+}
+
+/** Money as the ledger sees it (ADR 0007): invoiced, paid, debt — next to the typed amounts. */
+function LedgerMoney({ project, canCreate }: { project: Project; canCreate: boolean }) {
+  const navigate = useNavigate();
+  const draft = useInvoiceFromProject();
+  const m = project.money;
+  const empty = !Number(m.invoiced) && !Number(m.paid);
+  return (
+    <div className="grid gap-2 rounded-xl border border-line bg-ground/50 p-3 lg:col-span-2">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+        <span className="t-label">Buxgalteriya</span>
+        <span className="text-muted">Hisob-faktura: <b className="tabular text-ink">{fmtMoney(m.invoiced)}</b></span>
+        <span className="text-muted">To'langan: <b className="tabular text-ok">{fmtMoney(m.paid)}</b></span>
+        <span className="text-muted">Qarz: <b className={`tabular ${Number(m.debt) > 0 ? "text-bad" : "text-ink"}`}>{fmtMoney(m.debt)}</b></span>
+        {canCreate && (
+          <Button size="sm" variant="soft" className="ml-auto" busy={draft.isPending}
+            onClick={() => draft.mutate(project.id, { onSuccess: (inv) => { notifyOk(`Qoralama: ${inv.code}`); navigate(`/accounting/invoices/${inv.id}`); }, onError: notifyError })}>
+            <Receipt className="size-4" strokeWidth={1.75} /> Hisob-faktura chiqarish
+          </Button>
+        )}
+      </div>
+      {empty && <p className="text-xs text-muted">Hali hisob-faktura yoki to'lov o'tkazilmagan — yuqoridagi summa va avans qo'lda kiritilgan.</p>}
+    </div>
   );
 }
 

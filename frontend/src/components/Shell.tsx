@@ -2,7 +2,9 @@
 import {
   Building,
   Building2,
+  BookOpen,
   ChevronDown,
+  FileSpreadsheet,
   Factory,
   FileText,
   LayoutDashboard,
@@ -12,6 +14,8 @@ import {
   Moon,
   Plus,
   ListChecks,
+  ListTree,
+  Receipt,
   Tags,
   PhoneCall,
   Send,
@@ -60,6 +64,15 @@ const NAV: NavGroup[] = [
     items: [
       { page: "procurement", label: "Xaridlar", to: "/procurement", icon: ShoppingCart, planned: true },
       { page: "mrp", label: "MRP", to: "/mrp", icon: Factory, planned: true },
+    ],
+  },
+  {
+    title: "Buxgalteriya",
+    items: [
+      { page: "accounting", label: "Jurnal", to: "/accounting", icon: BookOpen },
+      { page: "invoices", label: "Hisob-fakturalar", to: "/accounting/invoices", icon: Receipt },
+      { page: "accounting_reports", label: "Hisobotlar", to: "/accounting/reports", icon: FileSpreadsheet },
+      { page: "accounts", label: "Hisoblar rejasi", to: "/accounting/accounts", icon: ListTree },
     ],
   },
   { title: "Xodimlar", items: [{ page: "employees", label: "Xodimlar", to: "/employees", icon: UsersRound }] },
