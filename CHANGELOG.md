@@ -2,6 +2,34 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-10-30
+- `add-kassa` — Moliya: kassa and bank accounts (`CashAccount`, balance = ledger balance), one cash-order
+  document for PKO / RKO / bank kirim / payment orders / transfers (`PKO-`, `RKO-`, `BK-`, `BT-`, `OT-`
+  sequences), seeded payment purposes that decide the posting (customer → 4010 then 6310, supplier → 6010
+  then 4310, expenses, salary, employee advance, founder loan, taxes), no overdraft, cancel = reversal,
+  cash book per account and day, printable PKO / RKO forms. Loyiha `advance_amount` / `advance_date` are
+  derived from posted customer payments once there is one; card gets "To'lovlar" and "To'lov qo'shish".
+  Pages `kassa`, `cash_orders`, `cash_book`; role "Kassir". Why: money for orders was a typed number;
+  now every so'm in and out is a document and a posting.
+- `add-procurement` — Ta'minot: suppliers are clients of kind `supplier` with bank requisites and purchase
+  terms (ADR 0008); purchase request `XS-` (from the hisob-kitob; submit → approve / reject, auto-approve for
+  approvers), purchase order `XB-` per supplier with USD/UZS prices and rate, **send** step (print / email /
+  other, who-when-how in chatter, lines locked after sending, first send moves a confirmed Loyiha to
+  `procurement`), goods receipt `KR-` with partial receipts that posts `Dt 1010 / Dt 4410  Kt 6010` and eats
+  the prepayment; order print page; Loyiha card "Xaridlar" block. Pages `procurement`, `purchase_approve`,
+  `purchase_orders`, `goods_receipts`, `suppliers`. Why: AKFA orders lived in Excel and Telegram.
+- `add-accounting` — Buxgalteriya: double-entry ledger on the NSBU 21 chart of accounts (seeded subset,
+  accounts addressed by roles so a renumbering is a settings change — ADR 0007), immutable journal entries
+  `BX-` with reversals, lock date and VAT settings on Company, exchange rates (manual + `fetch_cbu_rates`),
+  customer / supplier invoices `HF-` posting revenue / expenses with VAT and automatic advance offsets,
+  FX differences on settlement, reports (trial balance, account card, solishtirma dalolatnoma with print),
+  balances as selectors for every other module, Loyiha money block and "Hisob-faktura chiqarish".
+  Pages `accounting`, `accounts`, `invoices`, `accounting_reports`; role "Buxgalter".
+  Why: one source of truth for every balance the ERP shows; the accountant stops keeping 1C on the side.
+- Leaf apps add blocks to the Loyiha detail through `projects/extensions.register_detail_block` from their
+  `AppConfig.ready()`, so `projects` never imports them (ADR 0004).
+- `projects` and `clients` specs: requirements without scenarios got one (archive validation).
+
 ## 2026-10-29
 - `add-crm-full-parity` — The rest of uzbridge's CRM: lead sources (website / ad forms, Yuboraman, amoCRM deals →
   leads), UTeL and Moi Zvonki (webhooks, history pull, Moi Zvonki click-to-call), call recordings copied to Google

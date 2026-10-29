@@ -8,9 +8,9 @@ delivery. Every operational document links back to a Loyiha.
 ## Roadmap — follows the company process map (`docs/process-map.md`)
 1. ✅ Sotuv — Loyihalar, Mijozlar, order card, hisob-kitob (price lists), shartnoma, chertezh
 2. ⏳ CRM — leads, telephony, client map (in progress on separate branches)
-3. Buxgalteriya — ledger on NSBU 21, invoices, reconciliation act (`openspec/changes/add-accounting`, ADR 0007)
-   then Kassa — kassa/bank accounts, PKO/RKO, advance and remainder per Loyiha (`openspec/changes/add-kassa`)
-4. Zakup — request → approval → order → **sent** → kirim, suppliers as clients (`openspec/changes/add-procurement`, ADR 0008)
+3. ✅ Buxgalteriya — ledger on NSBU 21, invoices, reconciliation act (ADR 0007);
+   ✅ Kassa — kassa/bank accounts, PKO/RKO, advance and remainder per Loyiha
+4. ✅ Zakup — request → approval → order → **sent** → kirim, suppliers as clients (ADR 0008)
 5. Sklad — receipts, material issue slips
 6. Ishlab chiqarish — MRP / production jobs, assembler drawings (`openspec/changes/add-mrp`)
 7. O'rnatish — installation, acceptance act, installer drawings

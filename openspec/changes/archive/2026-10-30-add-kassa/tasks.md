@@ -22,4 +22,4 @@
 - [x] nav group Moliya
 
 ## Docs
-- [ ] project.md roadmap, archive, merge spec deltas, CHANGELOG
+- [x] project.md roadmap, archive, merge spec deltas, CHANGELOG

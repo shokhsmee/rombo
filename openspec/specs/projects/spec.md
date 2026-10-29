@@ -6,9 +6,15 @@ A Loyiha is one customer order and the hub of the ERP. Procurement, MRP, product
 ## Requirements
 
 ### Requirement: Header
-Auto code `LY-YY-NNNNN`; name; client (required); manager; object address; region; contract number/date; deadline; amount `Decimal(18,2) ≥ 0`; currency `UZS | USD`; notes.
+A Loyiha SHALL have: auto code `LY-YY-NNNNN`; name; client (required); manager; object address; region; contract number/date; deadline; amount `Decimal(18,2) ≥ 0`; currency `UZS | USD`; notes.
+
+#### Scenario: Code on create
+- WHEN a Loyiha is created in 2026
+- THEN its code is `LY-26-NNNNN` and its status is `draft`
 
 ### Requirement: Status workflow
+Allowed moves SHALL be:
+
 | From | To |
 |---|---|
 | draft | confirmed, cancelled |
@@ -20,7 +26,9 @@ Auto code `LY-YY-NNNNN`; name; client (required); manager; object address; regio
 | cancelled | draft |
 | closed | — |
 
-`POST /projects/{id}/status/ {status, comment}`. Detail returns `allowed_statuses`. The row is locked (`select_for_update`) during the check.
+`POST /projects/{id}/status/ {status, comment}`. Detail returns `allowed_statuses`. The row is locked
+(`select_for_update`) during the check. The move `confirmed → procurement` is also made by the system when
+the first purchase order holding the Loyiha's lines is sent (see `procurement`).
 
 #### Scenario: Invalid jump
 - WHEN draft → ready
@@ -29,6 +37,10 @@ Auto code `LY-YY-NNNNN`; name; client (required); manager; object address; regio
 #### Scenario: Cancel needs a reason
 - WHEN → cancelled without comment
 - THEN 400 on field `comment`
+
+#### Scenario: First order sent
+- WHEN a `confirmed` Loyiha's lines are on an order that is sent
+- THEN the Loyiha is `procurement`
 
 ### Requirement: History
 Status and header changes SHALL be written to the record's chatter (see `chatter`). A status change is one
@@ -54,11 +66,19 @@ editable — advances and debt change while the order is in the factory.
 ### Requirement: Order card fields
 A project SHALL also hold the sales order card fields: sale date, service amount, advance amount, phone,
 partner (client of kind dealer/partner), sales channel, brand and product name, location (map link or
-coordinates), mosquito net, dismantling. `№ заказа` is the project code.
+coordinates), mosquito net, dismantling. `№ заказа` is the project code. Once the Loyiha has at least one
+posted customer payment (kassa), `advance_amount` SHALL be derived — Σ posted customer kirim − refunds for
+the Loyiha, in the Loyiha currency at each order's rate — and `advance_date` is the first payment's date;
+sent values are ignored. Without payments both stay manual.
 
 #### Scenario: Debt
 - WHEN amount = 10 000 000, service = 1 500 000, advance = 4 000 000
 - THEN `debt_amount` = 7 500 000 and `total_amount` = 11 500 000 (computed, never stored)
+
+#### Scenario: Advance from payments
+- WHEN two kirim of 3 000 000 and 1 000 000 are posted for the Loyiha
+- THEN `advance_amount = 4 000 000`, `advance_date` = the first kirim's date, and a PATCH with
+  `advance_amount = 9 000 000` leaves it at 4 000 000
 
 ### Requirement: Order lines
 A project SHALL have lines `(product_type, area_m2 > 0, quantity ≥ 1)`. Saving `items` replaces all lines.
@@ -98,6 +118,10 @@ text, filled with the Loyiha (number, date, product spec block, sums in so'm wit
 (name, passport, address, phone) and the company requisites. Product spec fields on the Loyiha: profile colour,
 door and window accessories, windowsill, glass, shotlandka; plus `advance_date` and `usd_rate`.
 
+#### Scenario: Contract print
+- WHEN `/print/projects/{id}/contract` is opened for a Loyiha with a client and company requisites
+- THEN the contract text is filled with the Loyiha number, date, spec block, sums and both parties
+
 ### Requirement: Drawings
 Users with `projects.update` SHALL upload files (pdf, images, dwg, dxf, zip; ≤ 25 MB) and delete them;
 users with `projects.view` SHALL download them through the API, never a public URL. Uploads and deletes
@@ -108,7 +132,43 @@ go to chatter.
 - THEN 400 on field `file`
 
 ### Requirement: Delete only drafts
-Only drafts are (soft) deleted; others must be cancelled.
+Only drafts SHALL be (soft) deleted; others must be cancelled.
+
+#### Scenario: Delete a confirmed Loyiha
+- WHEN DELETE on a `confirmed` Loyiha
+- THEN 409
 
 ### Requirement: Search and filters
-Search code, name, contract number, object address, client name, client phone. Filters: `status` (multi), `client`, `manager`, `currency`, `overdue`, `deadline_from/to`. `GET /projects/summary/` returns counts per status.
+The list SHALL search code, name, contract number, object address, client name, client phone (every word must match). Filters: `status` (multi), `client`, `manager`, `currency`, `overdue`, `deadline_from/to`. `GET /projects/summary/` returns counts per status.
+
+#### Scenario: Every word matches
+- WHEN `q = "valiyev qidiruv"`
+- THEN only Loyihalar matching both words (across name and client) are returned
+
+### Requirement: Money from the ledger
+The Loyiha detail SHALL return `money: {invoiced, paid, debt}` computed by `accounting.project_money`
+(customer invoices confirmed, customer payments posted, invoiced − paid) and the card shows them next to
+the typed amounts. A smart button "Hisob-fakturalar" opens the Loyiha's invoices; "Hisob-faktura chiqarish"
+drafts one (needs `invoices.create`).
+
+#### Scenario: Nothing posted yet
+- WHEN a Loyiha has no invoices or payments
+- THEN `money = {invoiced: 0, paid: 0, debt: 0}` and the card still shows the typed advance and debt
+
+### Requirement: Payments on the card
+The Loyiha detail SHALL return `payments: {count, paid, last_date}` and the card shows a smart button
+"To'lovlar" (the Loyiha's cash orders) and a button "To'lov qo'shish" that opens a kirim pre-filled with
+the client, the Loyiha and the remaining debt (needs `cash_orders.create`).
+
+#### Scenario: Prefilled kirim
+- WHEN "To'lov qo'shish" is used on a Loyiha with debt 7 500 000
+- THEN the new order form has the client, the Loyiha, purpose "Mijozdan to'lov" and amount 7 500 000
+
+### Requirement: Procurement on the card
+The Loyiha detail SHALL return `procurement: {requests, orders, received_pct}` (counts, and the share of
+ordered quantity already received) and the card shows a smart button "Xaridlar" opening the requests and
+orders filtered by the Loyiha.
+
+#### Scenario: Smart button counts
+- WHEN a Loyiha has one approved request and two orders, one fully received
+- THEN `procurement = {requests: 1, orders: 2, received_pct: 50}`

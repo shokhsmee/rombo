@@ -27,4 +27,4 @@
 - [x] nav group Ta'minot; `useCan` on every button
 
 ## Docs
-- [ ] project.md roadmap, archive, merge spec deltas, CHANGELOG
+- [x] project.md roadmap, archive, merge spec deltas, CHANGELOG

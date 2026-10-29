@@ -29,4 +29,4 @@
 - [x] nav group Buxgalteriya
 
 ## Docs
-- [ ] project.md roadmap, archive, merge spec deltas, CHANGELOG, ADR 0007 referenced
+- [x] project.md roadmap, archive, merge spec deltas, CHANGELOG, ADR 0007 referenced
