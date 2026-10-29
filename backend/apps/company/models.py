@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 
 from apps.core.models import TimeStampedModel
@@ -19,6 +21,11 @@ class Company(TimeStampedModel):
     phone = models.CharField("Telefon", max_length=40, blank=True, default="")
     delivery_days = models.PositiveSmallIntegerField("Topshirish muddati, bank kuni", default=25)
     prepay_percent = models.PositiveSmallIntegerField("Oldindan to'lov, %", default=50)
+    # Buxgalteriya (add-accounting): VAT status decides whether invoices carry QQS; lock_date closes periods
+    vat_payer = models.BooleanField("QQS to'lovchi", default=False)
+    vat_code = models.CharField("QQS ro'yxat kodi", max_length=20, blank=True, default="")
+    vat_rate = models.DecimalField("QQS stavkasi, %", max_digits=5, decimal_places=2, default=Decimal("12"))
+    lock_date = models.DateField("Davr yopilgan sana", null=True, blank=True)
 
     class Meta:
         verbose_name = "Kompaniya"

@@ -16,6 +16,10 @@ export type Company = {
   phone: string;
   delivery_days: number;
   prepay_percent: number;
+  vat_payer: boolean;
+  vat_code: string;
+  vat_rate: string;
+  lock_date: string | null;
   updated_at: string;
 };
 

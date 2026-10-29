@@ -127,7 +127,7 @@ class ProjectSerializer(ProjectListSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        for key, fn in DETAIL_BLOCKS.items():  # e.g. "procurement": {requests, orders, received_pct}
+        for key, fn in DETAIL_BLOCKS.items():  # "procurement": {requests, orders, received_pct}; "money": ledger
             data[key] = fn(instance)
         return data
 

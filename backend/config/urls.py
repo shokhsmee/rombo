@@ -8,8 +8,11 @@ api_v1 = [
     path("users/", include("apps.users.urls")),
     path("employees/", include("apps.employees.urls")),
     path("clients/", include("apps.clients.urls")),
+    # accounting adds /projects/{id}/invoice/ without projects importing it (ADR 0007): first match wins
+    path("projects/", include("apps.accounting.urls_projects")),
     path("projects/", include("apps.projects.urls")),
     path("procurement/", include("apps.procurement.urls")),
+    path("accounting/", include("apps.accounting.urls")),
     path("crm/", include("apps.crm.urls")),
     path("telephony/", include("apps.crm.urls_telephony")),
     path("telegram/", include("apps.telegram.urls")),

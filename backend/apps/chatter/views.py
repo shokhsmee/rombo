@@ -21,6 +21,8 @@ CHATTER_PAGES = {
     "procurement.purchaserequest": Pages.PROCUREMENT,
     "procurement.purchaseorder": Pages.PURCHASE_ORDERS,
     "procurement.goodsreceipt": Pages.GOODS_RECEIPTS,
+    "accounting.invoice": Pages.INVOICES,
+    "accounting.account": Pages.ACCOUNTS,
 }
 
 
