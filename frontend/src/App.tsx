@@ -32,6 +32,13 @@ const TelephonySettingsPage = lazy(() => import("@/modules/telephony/SettingsPag
 const BoardPage = lazy(() => import("@/modules/crm/BoardPage").then((m) => ({ default: m.BoardPage })));
 const LeadFormPage = lazy(() => import("@/modules/crm/LeadFormPage").then((m) => ({ default: m.LeadFormPage })));
 const CallsPage = lazy(() => import("@/modules/telephony/CallsPage").then((m) => ({ default: m.CallsPage })));
+const JournalListPage = lazy(() => import("@/modules/accounting/JournalListPage").then((m) => ({ default: m.JournalListPage })));
+const EntryPage = lazy(() => import("@/modules/accounting/EntryPage").then((m) => ({ default: m.EntryPage })));
+const AccountsPage = lazy(() => import("@/modules/accounting/AccountsPage").then((m) => ({ default: m.AccountsPage })));
+const InvoicesListPage = lazy(() => import("@/modules/accounting/InvoicesListPage").then((m) => ({ default: m.InvoicesListPage })));
+const InvoiceFormPage = lazy(() => import("@/modules/accounting/InvoiceFormPage").then((m) => ({ default: m.InvoiceFormPage })));
+const ReportsPage = lazy(() => import("@/modules/accounting/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const ReconciliationPrint = lazy(() => import("@/modules/accounting/print/ReconciliationPrint").then((m) => ({ default: m.ReconciliationPrint })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
 export function App() {
@@ -41,6 +48,7 @@ export function App() {
       {/* paper documents: no app chrome, opened in a new tab and printed to PDF */}
       <Route path="/print/projects/:id/calcs/:calcId" element={<RequireAuth><RequirePage page="projects"><InvoicePrint /></RequirePage></RequireAuth>} />
       <Route path="/print/projects/:id/contract" element={<RequireAuth><RequirePage page="projects"><ContractPrint /></RequirePage></RequireAuth>} />
+      <Route path="/print/accounting/reconciliation" element={<RequireAuth><RequirePage page="accounting_reports"><Later><ReconciliationPrint /></Later></RequirePage></RequireAuth>} />
       <Route element={<RequireAuth><Shell /></RequireAuth>}>
         <Route index element={<DashboardPage />} />
 
@@ -60,6 +68,13 @@ export function App() {
         <Route path="telephony" element={<RequirePage page="telephony"><Later><CallsPage /></Later></RequirePage>} />
         <Route path="telephony/settings" element={<RequirePage page="telephony"><Later><TelephonySettingsPage /></Later></RequirePage>} />
         <Route path="crm/map" element={<RequirePage page="client_map"><RequirePage page="clients"><ClientMapPage /></RequirePage></RequirePage>} />
+
+        <Route path="accounting" element={<RequirePage page="accounting"><Later><JournalListPage /></Later></RequirePage>} />
+        <Route path="accounting/entries/:id" element={<RequirePage page="accounting"><Later><EntryPage /></Later></RequirePage>} />
+        <Route path="accounting/invoices" element={<RequirePage page="invoices"><Later><InvoicesListPage /></Later></RequirePage>} />
+        <Route path="accounting/invoices/:id" element={<RequirePage page="invoices"><Later><InvoiceFormPage /></Later></RequirePage>} />
+        <Route path="accounting/reports" element={<RequirePage page="accounting_reports"><Later><ReportsPage /></Later></RequirePage>} />
+        <Route path="accounting/accounts" element={<RequirePage page="accounts"><Later><AccountsPage /></Later></RequirePage>} />
 
         <Route path="employees" element={<RequirePage page="employees"><EmployeesListPage /></RequirePage>} />
         <Route path="employees/:id" element={<RequirePage page="employees"><EmployeeFormPage /></RequirePage>} />

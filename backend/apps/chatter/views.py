@@ -18,6 +18,8 @@ CHATTER_PAGES = {
     "users.user": Pages.USERS,
     "access.role": Pages.ROLES,
     "pricing.pricelist": Pages.PRICING,
+    "accounting.invoice": Pages.INVOICES,
+    "accounting.account": Pages.ACCOUNTS,
 }
 
 
