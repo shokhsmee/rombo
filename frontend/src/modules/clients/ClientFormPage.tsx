@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { Banknote, FileText } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
@@ -9,6 +9,7 @@ import { Input, Pill, Segmented, Select, Smart, Textarea, Toggle } from "@/compo
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDate, fmtMoney } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
+import { useOrdersOf } from "@/modules/kassa/api";
 import { projectsApi } from "@/modules/projects/api";
 import { RefSelect } from "@/modules/references/RefSelect";
 import { STATUS } from "@/modules/projects/statuses";
@@ -35,6 +36,7 @@ export function ClientFormPage() {
   const navigate = useNavigate();
   const can = useCan("clients");
   const canProjects = useCan("projects");
+  const canCash = useCan("cash_orders");
   const detail = clientsApi.useDetail(isNew ? undefined : id);
   const save = clientsApi.useSave();
   const remove = clientsApi.useRemove();
@@ -91,9 +93,14 @@ export function ClientFormPage() {
           <SheetTitle
             eyebrow={c ? `${KIND_LABEL[c.kind]} · ${c.code}` : "Mijoz"}
             title={isNew ? "Yangi mijoz" : c!.name}
-            smart={c && canProjects.view && (
-              <Smart icon={<FileText className="size-4" />} value={c.projects_count} label="Loyihalar"
-                onClick={() => navigate(`/projects?client=${c.id}`)} />
+            smart={c && (
+              <>
+                {canProjects.view && (
+                  <Smart icon={<FileText className="size-4" />} value={c.projects_count} label="Loyihalar"
+                    onClick={() => navigate(`/projects?client=${c.id}`)} />
+                )}
+                {canCash.view && <PaymentsSmart clientId={c.id} />}
+              </>
             )}
           />
           <fieldset disabled={!editable} className="grid gap-6">
@@ -145,6 +152,13 @@ export function ClientFormPage() {
       </RecordPage>
     </form>
   );
+}
+
+/** "To'lovlar": the partner's cash orders (as a client or as a supplier), opens the filtered list. */
+function PaymentsSmart({ clientId }: { clientId: number }) {
+  const navigate = useNavigate();
+  const list = useOrdersOf({ partner: clientId, size: 1 });
+  return <Smart icon={<Banknote className="size-4" />} value={list.data?.total ?? "…"} label="To'lovlar" onClick={() => navigate(`/kassa/orders?partner=${clientId}`)} />;
 }
 
 function ClientProjects({ clientId, total }: { clientId: number; total: number }) {

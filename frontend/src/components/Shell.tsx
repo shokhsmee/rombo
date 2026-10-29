@@ -1,8 +1,10 @@
 // App frame in uzbridge's layout: a 236px sidebar (sticky), a translucent top bar, the page.
 import {
+  ArrowLeftRight,
   Building,
   Building2,
   BookOpen,
+  NotebookText,
   ChevronDown,
   FileSpreadsheet,
   Factory,
@@ -26,6 +28,7 @@ import {
   UserRound,
   Users,
   UsersRound,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -64,6 +67,14 @@ const NAV: NavGroup[] = [
     items: [
       { page: "procurement", label: "Xaridlar", to: "/procurement", icon: ShoppingCart, planned: true },
       { page: "mrp", label: "MRP", to: "/mrp", icon: Factory, planned: true },
+    ],
+  },
+  {
+    title: "Moliya",
+    items: [
+      { page: "kassa", label: "Kassa va bank", to: "/kassa", icon: Wallet },
+      { page: "cash_orders", label: "Kirim / chiqim", to: "/kassa/orders", icon: ArrowLeftRight },
+      { page: "cash_book", label: "Kassa kitobi", to: "/kassa/book", icon: NotebookText },
     ],
   },
   {

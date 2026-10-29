@@ -69,6 +69,8 @@ export type Project = ProjectListItem & {
   notes: string;
   allowed_statuses: ProjectStatus[];
   money: { invoiced: string; paid: string; debt: string };
+  payments: { count: string; paid: string; last_date: string | null };
+  advance_derived: boolean;
   updated_at: string;
 };
 
