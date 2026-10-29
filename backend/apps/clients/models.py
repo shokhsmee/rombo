@@ -8,6 +8,12 @@ class ClientKind(models.TextChoices):
     INDIVIDUAL = "individual", "Jismoniy shaxs"
     COMPANY = "company", "Yuridik shaxs"
     DEALER = "dealer", "Diler / hamkor"
+    SUPPLIER = "supplier", "Yetkazib beruvchi"  # ADR 0008: suppliers are clients, shown under Ta'minot
+
+
+class PriceCurrency(models.TextChoices):
+    UZS = "UZS", "so'm"
+    USD = "USD", "USD"
 
 
 # Loyiha statuses that are done with the client — mirrors projects.models.FINISHED_STATUSES
@@ -21,7 +27,9 @@ class Client(AuditModel, SoftDeleteModel):
     TRACK = {
         "name": "Nomi", "kind": "Turi", "tin": "STIR", "phone": "Telefon", "contact_person": "Aloqa shaxsi",
         "region": "Hudud", "manager": "Menejer", "is_active": "Faol", "segment": "Segment", "passport": "Pasport",
-        "latitude": "Kenglik", "longitude": "Uzunlik",
+        "latitude": "Kenglik", "longitude": "Uzunlik", "bank_account": "Hisob raqami", "bank_name": "Bank",
+        "mfo": "MFO", "price_currency": "Narx valyutasi", "prepay_percent": "Oldindan to'lov %",
+        "credit_days": "Kredit kunlari",
     }
     CHATTER_NAME = "Mijoz"
 
@@ -46,6 +54,17 @@ class Client(AuditModel, SoftDeleteModel):
                                    validators=[MinValueValidator(-90), MaxValueValidator(90)])
     longitude = models.DecimalField("Uzunlik", max_digits=9, decimal_places=6, null=True, blank=True,
                                     validators=[MinValueValidator(-180), MaxValueValidator(180)])
+
+    # requisites of companies, dealers and suppliers; printed on orders and reconciliation acts
+    bank_account = models.CharField("Hisob raqami", max_length=40, blank=True, default="")
+    bank_name = models.CharField("Bank", max_length=150, blank=True, default="")
+    mfo = models.CharField("MFO", max_length=10, blank=True, default="")
+    # supplier terms (kind = supplier): the currency of their price list, prepayment share, credit days
+    price_currency = models.CharField("Narx valyutasi", max_length=3, choices=PriceCurrency.choices,
+                                      default=PriceCurrency.UZS)
+    prepay_percent = models.PositiveSmallIntegerField("Oldindan to'lov, %", null=True, blank=True,
+                                                      validators=[MaxValueValidator(100)])
+    credit_days = models.PositiveSmallIntegerField("Kredit kunlari", null=True, blank=True)
 
     manager = models.ForeignKey("employees.Employee", null=True, blank=True, on_delete=models.SET_NULL,
                                 related_name="clients")

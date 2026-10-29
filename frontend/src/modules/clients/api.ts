@@ -1,12 +1,13 @@
 import type { Ref } from "@/lib/api";
 import { crudResource } from "@/lib/crud";
 
-export type ClientKind = "individual" | "company" | "dealer";
+export type ClientKind = "individual" | "company" | "dealer" | "supplier";
 
 export const KIND_LABEL: Record<ClientKind, string> = {
   individual: "Jismoniy shaxs",
   company: "Yuridik shaxs",
   dealer: "Diler / hamkor",
+  supplier: "Yetkazib beruvchi",
 };
 
 export type ClientListItem = {
@@ -34,6 +35,12 @@ export type Client = ClientListItem & {
   manager_id: number | null;
   segment_id: number | null;
   passport: string;
+  bank_account: string;
+  bank_name: string;
+  mfo: string;
+  price_currency: "UZS" | "USD";
+  prepay_percent: number | null;
+  credit_days: number | null;
   projects_count: number;
   created_at: string;
   updated_at: string;
