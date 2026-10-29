@@ -4,6 +4,7 @@ from apps.clients.models import Client, ClientKind
 from apps.core.serializers import RefSerializer
 from apps.employees.models import Employee
 from apps.pricing.models import PriceList
+from apps.projects.extensions import DETAIL_BLOCKS
 from apps.projects.models import Project, ProjectCalc, ProjectCalcLine, ProjectFile, ProjectItem, ProjectStatus
 from apps.references.models import RefItem, RefKind
 from apps.references.serializers import RefShortSerializer
@@ -123,6 +124,12 @@ class ProjectSerializer(ProjectListSerializer):
                   "files", "notes", "allowed_statuses", "updated_at", "calcs", "usd_rate", "advance_date",
                   "profile_color", "door_accessory", "window_accessory", "windowsill", "glass", "shotlandka",
                   "client_address", "client_passport"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        for key, fn in DETAIL_BLOCKS.items():  # e.g. "procurement": {requests, orders, received_pct}
+            data[key] = fn(instance)
+        return data
 
 
 class StatusChangeSerializer(serializers.Serializer):

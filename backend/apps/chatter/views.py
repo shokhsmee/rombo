@@ -18,6 +18,9 @@ CHATTER_PAGES = {
     "users.user": Pages.USERS,
     "access.role": Pages.ROLES,
     "pricing.pricelist": Pages.PRICING,
+    "procurement.purchaserequest": Pages.PROCUREMENT,
+    "procurement.purchaseorder": Pages.PURCHASE_ORDERS,
+    "procurement.goodsreceipt": Pages.GOODS_RECEIPTS,
 }
 
 
