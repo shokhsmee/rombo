@@ -173,6 +173,18 @@ export async function downloadProjectFile(projectId: number, f: ProjectFile) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** The file as a blob URL for the viewer (images, PDF). The caller revokes it. */
+export async function projectFileUrl(projectId: number, f: ProjectFile): Promise<string> {
+  const { data } = await api.get<Blob>(`/projects/${projectId}/files/${f.id}/`, { responseType: "blob" });
+  const type = data.type && data.type !== "application/octet-stream" ? data.type : mimeOf(f.name);
+  return URL.createObjectURL(type === data.type ? data : new Blob([data], { type }));
+}
+
+const MIME: Record<string, string> = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
+export const mimeOf = (name: string) => MIME[name.split(".").pop()?.toLowerCase() ?? ""] ?? "application/octet-stream";
+/** Files the viewer can show: images and PDF. */
+export const viewable = (name: string) => mimeOf(name) !== "application/octet-stream";
+
 // ---- hisob-kitob
 
 const calcKey = (projectId: number, calcId?: number) => ["projects", "calc", projectId, calcId ?? "all"];

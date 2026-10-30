@@ -3,6 +3,9 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- feat(projects) — Chizma files open in a viewer on the Loyiha card: images (click to zoom) and PDF (the
+  browser's PDF viewer), ‹ › and arrow keys between files, "Yangi oynada ochish" and download; DWG / DXF /
+  ZIP still download. Why: every drawing had to be downloaded to be seen.
 - `guard-usd-rate` — A Loyiha's USD rate must be 1 000 – 50 000 so'm (API 400 and a form message), so a typo
   like 119 990 for 11 999 can't turn 48 000 000 so'm into 400$; contract amounts no longer break inside a
   number. LY-26-00008's rate corrected to 11 999.
