@@ -18,11 +18,13 @@ export function ContractPrint() {
   if (!p || !c) return null;
 
   const soum = p.currency === "UZS";
+  // numbers keep their thousands together on paper: "4 003$" must not break into "4 / 003$"
+  const nb = (x: number) => n0(x).replace(/ /g, "\u00a0");
   const money = (v: string | number) => {
     const amount = Number(v);
-    if (!soum) return `${n0(amount)} ${p.currency}`;
-    const usd = p.usd_rate ? ` (${n0(amount / Number(p.usd_rate))}$)` : "";
-    return `${n0(amount)} сўм${usd}`;
+    if (!soum) return `${nb(amount)}\u00a0${p.currency}`;
+    const usd = p.usd_rate ? ` (${nb(amount / Number(p.usd_rate))}$)` : "";
+    return `${nb(amount)}\u00a0сўм${usd}`;
   };
   const date = d(p.contract_date ?? p.sale_date) || "__________";
   const profile = p.calcs.map((x) => x.title).join(", ")

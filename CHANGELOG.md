@@ -3,6 +3,9 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- `guard-usd-rate` — A Loyiha's USD rate must be 1 000 – 50 000 so'm (API 400 and a form message), so a typo
+  like 119 990 for 11 999 can't turn 48 000 000 so'm into 400$; contract amounts no longer break inside a
+  number. LY-26-00008's rate corrected to 11 999.
 - fix(projects) — Contract payment row: "Umumiy summa" is the Loyiha total (goods + services), and "Qoldiq" is
   total − advance, so the row always adds up (it showed the goods amount only: 40 000 000 − 48 000 000 = 0).
 - brand — The Rombo mark in the ERP (sidebar, login, favicon) is brand red (`--color-brand`, light and dark

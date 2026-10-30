@@ -35,6 +35,8 @@ TRANSITIONS: dict[str, set[str]] = {
 # From procurement on, the fields production depends on are locked (MRP plans are computed from them).
 # Money, contacts, dates and notes stay editable: advances and debt change while the order is in the factory.
 EDITABLE_STATUSES = {S.DRAFT, S.CONFIRMED}
+# so'm per USD a Loyiha may carry: outside this a typo is far likelier than a real rate (119 990 for 11 999)
+USD_RATE_RANGE = (Decimal("1000"), Decimal("50000"))
 PRODUCTION_FIELDS = {
     "name", "client", "items", "brand", "product_name", "mosquito_net", "dismantling",
     "profile_color", "door_accessory", "window_accessory", "windowsill", "glass", "shotlandka",

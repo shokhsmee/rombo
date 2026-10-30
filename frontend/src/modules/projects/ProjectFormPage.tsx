@@ -123,7 +123,8 @@ export function ProjectFormPage() {
       name: (v) => (v.trim().length >= 2 ? null : "Kamida 2 ta belgi"),
       client_id: (v) => (v ? null : "Mijozni tanlang"),
       amount: money, service_amount: money, advance_amount: money,
-      usd_rate: (x) => (!x || toNum(x) >= 1 ? null : "Kurs noto'g'ri"),
+      // same range as the backend (projects.models.USD_RATE_RANGE): catches 119 990 typed for 11 999
+      usd_rate: (x) => (!x || (toNum(x) >= 1000 && toNum(x) <= 50000) ? null : "USD kursi 1 000 – 50 000 so'm oralig'ida bo'lsin, masalan 12 000"),
       items: (rows) => itemsError(rows),
     },
   });

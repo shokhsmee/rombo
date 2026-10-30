@@ -217,3 +217,11 @@ Loyiha). The card shows a smart button "Ombor" (moves filtered by the Loyiha) an
 #### Scenario: Card shows what went into the order
 - WHEN 2 issues worth 1 500 000 in total are posted for a Loyiha
 - THEN its `stock.issued` is "1500000.00", `stock.wip` is "1500000.00" and `stock.moves` is 2
+
+### Requirement: Plausible USD rate
+A Loyiha's `usd_rate` SHALL be empty or within 1 000 – 50 000 so'm per dollar; anything else is refused with
+400 on `usd_rate`.
+
+#### Scenario: Extra digit refused
+- WHEN a Loyiha is saved with USD rate 119 990
+- THEN 400 on `usd_rate` with a hint like "masalan 12 000"

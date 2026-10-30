@@ -11,6 +11,7 @@ from apps.projects.models import (
     EDITABLE_STATUSES,
     PRODUCTION_FIELDS,
     TRANSITIONS,
+    USD_RATE_RANGE,
     Project,
     ProjectFile,
     ProjectItem,
@@ -48,8 +49,17 @@ def _set_items(project: Project, items: list[dict], *, actor) -> None:
 # ------------------------------------------------------------------ project
 
 
+def _check_usd_rate(fields: dict) -> None:
+    rate = fields.get("usd_rate")
+    lo, hi = USD_RATE_RANGE
+    if rate is not None and not lo <= rate <= hi:
+        raise ValidationFailed(f"USD kursi {lo:,.0f} – {hi:,.0f} so'm oralig'ida bo'lsin, masalan 12 000 "
+                               f"(kiritilgan: {rate:,.0f})".replace(",", " "), field="usd_rate")
+
+
 @transaction.atomic
 def project_create(*, actor, items: list[dict] | None = None, **fields) -> Project:
+    _check_usd_rate(fields)
     project = Project(**fields)
     project.stamp(actor, created=True)
     project.save()  # chatter: "Loyiha yaratildi"
@@ -76,6 +86,7 @@ def _locked_changes(project: Project, fields: dict, items: list[dict] | None) ->
 
 @transaction.atomic
 def project_update(project: Project, *, actor, items: list[dict] | None = None, **fields) -> Project:
+    _check_usd_rate(fields)
     if project.calcs.exists():
         fields.pop("amount", None)  # derived from the hisob-kitob; see recompute_amount
     if extensions.derived_advance(project) is not None:

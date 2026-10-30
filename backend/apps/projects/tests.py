@@ -140,3 +140,13 @@ def test_drawings_upload_download_delete(admin, settings, tmp_path):
     assert admin.delete(f"{API}/projects/{p['id']}/files/{fid}/").status_code == 204
     bodies = [m["body"] for m in admin.get(f"{API}/chatter/", {"model": "projects.project", "res_id": p["id"]}).json()]
     assert "Chizma yuklandi: chizma.pdf" in bodies and "Chizma o'chirildi: chizma.pdf" in bodies
+
+
+def test_usd_rate_typo_is_refused(admin):
+    c = admin.post(f"{API}/clients/", {"name": "Ali Valiyev"}, format="json").json()
+    r = admin.post(f"{API}/projects/", {"name": "Uy", "client_id": c["id"], "usd_rate": "119990"}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "usd_rate"
+    p = admin.post(f"{API}/projects/", {"name": "Uy", "client_id": c["id"], "usd_rate": "11999"}, format="json")
+    assert p.status_code == 201, p.content
+    r = admin.patch(f"{API}/projects/{p.json()['id']}/", {"usd_rate": "120"}, format="json")
+    assert r.status_code == 400 and "12 000" in r.json()["error"]["message"]
