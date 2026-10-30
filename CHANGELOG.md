@@ -3,6 +3,9 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- fix(ui) — Picker lists (`EntitySelect`) open at page level, so a table, scroll box or dialog around the
+  field no longer cuts them off; they open upwards when there is no room below. Why: on the Loyiha
+  "Materiallar" table only the first product was visible.
 - `add-bom`, `add-project-materials`, `add-mrp` — Ishlab chiqarish: BOMs (Tarkib, `BM-`) per finished or
   semi-finished product with per-piece / per-m² quantities and waste, multi-level explosion, cycle check,
   versions when a confirmed Loyiha uses the BOM, planned cost per piece and per m²; BOM-lines Excel import.

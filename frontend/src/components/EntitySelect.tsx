@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { api, type Page } from "@/lib/api";
 
@@ -48,9 +49,32 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
     return () => clearTimeout(t);
   }, [q]);
 
+  // The list floats at page level (portal): tables, scroll boxes and dialogs around the field never clip it.
+  const list = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<CSSProperties>({});
+  useLayoutEffect(() => {
+    if (!open) return;
+    const at = () => {
+      const r = box.current?.getBoundingClientRect();
+      if (!r) return;
+      const width = Math.max(r.width, 260);
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+      const below = window.innerHeight - r.bottom;
+      const up = below < 280 && r.top > below;  // not enough room under the field: open upwards
+      setPlace(up ? { left, width, bottom: window.innerHeight - r.top + 4 } : { left, width, top: r.bottom + 4 });
+    };
+    at();
+    window.addEventListener("scroll", at, true);
+    window.addEventListener("resize", at);
+    return () => { window.removeEventListener("scroll", at, true); window.removeEventListener("resize", at); };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const down = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const down = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!box.current?.contains(t) && !list.current?.contains(t)) setOpen(false);
+    };
     document.addEventListener("mousedown", down);
     return () => document.removeEventListener("mousedown", down);
   }, [open]);
@@ -133,8 +157,8 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
           <ChevronsUpDown className="mr-1 size-3.5 text-faint" />
         )}
       </div>
-      {open && !disabled && (
-        <div className="pop anim-pop absolute left-0 right-0 z-40 mt-1 max-h-64 origin-top overflow-y-auto py-1">
+      {open && !disabled && createPortal(
+        <div ref={list} style={{ position: "fixed", ...place }} className="pop anim-pop z-[60] max-h-64 origin-top overflow-y-auto py-1">
           {items.map((o, i) => (
             <button key={o.id} type="button" onMouseEnter={() => setActive(i)} onClick={() => choose(o)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${i === active ? "bg-ground" : ""}`}>
@@ -161,7 +185,8 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
               })}
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
