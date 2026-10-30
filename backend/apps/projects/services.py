@@ -119,6 +119,10 @@ def project_change_status(project: Project, *, actor, status: str, comment: str 
     with muted():  # one history line with the comment, not a bare tracked change + a separate note
         project.save(update_fields=["status", "updated_by", "updated_at"])
     post(project, comment, kind="track", changes=diff(project, before, {"status": "Holat"}), actor=actor)
+    from apps.projects.extensions import STATUS_LISTENERS
+
+    for listener in STATUS_LISTENERS:  # leaf apps react (mrp freezes the materials on confirm)
+        listener(project, current, status, actor)
     return project
 
 

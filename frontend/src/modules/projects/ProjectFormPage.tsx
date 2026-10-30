@@ -14,6 +14,7 @@ import { useInvoiceFromProject, useInvoicesOf } from "@/modules/accounting/api";
 import { clientsApi, type Client } from "@/modules/clients/api";
 import { QuickCreateClient } from "@/modules/clients/QuickCreateClient";
 import { useOrdersOf } from "@/modules/kassa/api";
+import { MaterialsPanel } from "@/modules/mrp/MaterialsPanel";
 import { pricingApi } from "@/modules/pricing/api";
 import { useRequestFromProject } from "@/modules/procurement/api";
 import { RefSelect } from "@/modules/references/RefSelect";
@@ -83,6 +84,9 @@ export function ProjectFormPage() {
   const canInvoice = useCan("invoices");
   const canCash = useCan("cash_orders");
   const canMoves = useCan("inventory");
+  const canBom = useCan("bom");
+  const canMrp = useCan("mrp");
+  const canMaterials = canBom.view || canMrp.view;
   const canClients = useCan("clients");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
   const save = projectsApi.useSave();
@@ -347,6 +351,8 @@ export function ProjectFormPage() {
               <Row label="Izoh" wide><Textarea {...form.text("notes")} placeholder="Masalan: 2-qavat, lift yo'q" /></Row>
             </FieldGrid>
           </fieldset>
+
+          {p && canMaterials && <MaterialsPanel projectId={p.id} calcs={p.calcs} canEdit={can.update} />}
 
           <FieldGrid title="Chizma">
             <Row label="Fayllar" wide>

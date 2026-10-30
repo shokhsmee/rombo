@@ -62,6 +62,9 @@ const StockPage = lazy(() => import("@/modules/inventory/StockPage").then((m) =>
 const ProductsListPage = lazy(() => import("@/modules/inventory/ProductsListPage").then((m) => ({ default: m.ProductsListPage })));
 const ProductFormPage = lazy(() => import("@/modules/inventory/ProductFormPage").then((m) => ({ default: m.ProductFormPage })));
 const WarehousesPage = lazy(() => import("@/modules/inventory/WarehousesPage").then((m) => ({ default: m.WarehousesPage })));
+const BomsListPage = lazy(() => import("@/modules/mrp/BomsListPage").then((m) => ({ default: m.BomsListPage })));
+const BomFormPage = lazy(() => import("@/modules/mrp/BomFormPage").then((m) => ({ default: m.BomFormPage })));
+const MrpPage = lazy(() => import("@/modules/mrp/MrpPage").then((m) => ({ default: m.MrpPage })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
 export function App() {
@@ -109,6 +112,9 @@ export function App() {
         <Route path="inventory/products" element={<RequirePage page="products"><Later><ProductsListPage /></Later></RequirePage>} />
         <Route path="inventory/products/:id" element={<RequirePage page="products"><Later><ProductFormPage /></Later></RequirePage>} />
         <Route path="inventory/warehouses" element={<RequirePage page="warehouses"><Later><WarehousesPage /></Later></RequirePage>} />
+        <Route path="mrp" element={<RequirePage page="mrp"><Later><MrpPage /></Later></RequirePage>} />
+        <Route path="mrp/boms" element={<RequirePage page="bom"><Later><BomsListPage /></Later></RequirePage>} />
+        <Route path="mrp/boms/:id" element={<RequirePage page="bom"><Later><BomFormPage /></Later></RequirePage>} />
         <Route path="accounting" element={<RequirePage page="accounting"><Later><JournalListPage /></Later></RequirePage>} />
         <Route path="accounting/entries/:id" element={<RequirePage page="accounting"><Later><EntryPage /></Later></RequirePage>} />
         <Route path="accounting/invoices" element={<RequirePage page="invoices"><Later><InvoicesListPage /></Later></RequirePage>} />

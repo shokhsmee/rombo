@@ -15,6 +15,14 @@ DETAIL_BLOCKS: dict[str, Callable[[object], dict]] = {}
 
 _ADVANCE_SOURCE: list[Callable[[object], dict | None]] = []
 
+# called after a Loyiha changes status: fn(project, old_status, new_status, actor) — mrp freezes materials
+STATUS_LISTENERS: list[Callable[..., None]] = []
+
+
+def register_status_listener(fn: Callable[..., None]) -> None:
+    if fn not in STATUS_LISTENERS:
+        STATUS_LISTENERS.append(fn)
+
 
 def register_detail_block(key: str, fn: Callable[[object], dict]) -> None:
     DETAIL_BLOCKS[key] = fn

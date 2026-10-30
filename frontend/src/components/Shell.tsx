@@ -15,6 +15,7 @@ import {
   Factory,
   FileText,
   LayoutDashboard,
+  Layers,
   LogOut,
   MapPinned,
   Monitor,
@@ -80,7 +81,13 @@ const NAV: NavGroup[] = [
       { page: "purchase_orders", label: "Buyurtmalar", to: "/procurement/orders", icon: ShoppingCart },
       { page: "goods_receipts", label: "Kirim", to: "/procurement/receipts", icon: PackageCheck },
       { page: "suppliers", label: "Yetkazib beruvchilar", to: "/procurement/suppliers", icon: Truck },
-      { page: "mrp", label: "MRP", to: "/mrp", icon: Factory, planned: true },
+    ],
+  },
+  {
+    title: "Ishlab chiqarish",
+    items: [
+      { page: "bom", label: "Tarkiblar (BOM)", to: "/mrp/boms", icon: Layers },
+      { page: "mrp", label: "MRP", to: "/mrp", icon: Factory },
     ],
   },
   {

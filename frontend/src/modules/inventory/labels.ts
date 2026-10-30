@@ -26,7 +26,7 @@ export const MOVE_HINT: Record<MoveType, string> = {
 export const SIGN: Record<MoveType, 1 | -1 | 0> = { receipt: 1, output: 1, issue: -1, delivery: -1, transfer: 0, adjust: 0 };
 
 export const CATEGORY: Record<Category, string> = {
-  profil: "Profil", oyna: "Oyna", furnitura: "Furnitura", material: "Boshqa material", tayyor: "Tayyor mahsulot",
+  profil: "Profil", oyna: "Oyna", furnitura: "Furnitura", material: "Boshqa material", yarim: "Yarim tayyor", tayyor: "Tayyor mahsulot",
 };
 
 export const qty = (v: string | number | null | undefined) => {

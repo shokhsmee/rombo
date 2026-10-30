@@ -15,6 +15,7 @@ api_v1 = [
     path("accounting/", include("apps.accounting.urls")),
     path("kassa/", include("apps.kassa.urls")),
     path("inventory/", include("apps.inventory.urls")),
+    path("mrp/", include("apps.mrp.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
     path("crm/", include("apps.crm.urls")),
     path("telephony/", include("apps.crm.urls_telephony")),

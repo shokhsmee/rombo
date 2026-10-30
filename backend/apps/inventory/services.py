@@ -221,9 +221,9 @@ def _check_shape(m: StockMove) -> None:
         raise ValidationFailed("Miqdor noldan katta bo'lsin", field="qty")
     if m.type in NEEDS_PROJECT and m.project_id is None:
         raise ValidationFailed("Loyihani tanlang", field="project")
-    if m.type == T.OUTPUT and m.product.category != Category.TAYYOR:
+    if m.type == T.OUTPUT and m.product.category not in (Category.TAYYOR, Category.YARIM):
         raise ValidationFailed(
-            "Ishlab chiqarishga faqat «Tayyor mahsulot» turkumidagi mahsulot kiradi", field="product"
+            "Ishlab chiqarishga faqat tayyor yoki yarim tayyor mahsulot kiradi", field="product"
         )
     if m.type == T.TRANSFER:
         if m.to_warehouse_id is None:
@@ -314,9 +314,9 @@ def _entry_lines(m: StockMove, amount: Decimal) -> list[dict]:
             {"role": "wip", "debit": amount, "project": proj, "memo": memo},
             {"role": role, "credit": amount, "project": proj, "memo": memo},
         ]
-    if m.type == T.OUTPUT:
+    if m.type == T.OUTPUT:  # a finished product to 2810, a semi-finished one to its stock role (1010)
         return [
-            {"role": "finished_goods", "debit": amount, "project": proj, "memo": memo},
+            {"role": role, "debit": amount, "project": proj, "memo": memo},
             {"role": "wip", "credit": amount, "project": proj, "memo": memo},
         ]
     if m.type == T.DELIVERY:

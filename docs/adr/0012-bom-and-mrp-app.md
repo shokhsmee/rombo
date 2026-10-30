@@ -1,6 +1,6 @@
 # ADR 0012 — BOM and MRP live in a leaf app `mrp`
 
-- Status: **proposed** (accept with add-bom)
+- Status: accepted
 - Date: 2026-10-31
 - Relates to: ADR 0004 (Loyiha as hub), ADR 0010 (inventory between accounting and procurement)
 

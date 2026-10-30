@@ -351,6 +351,11 @@ def procurement(months: list[dt.date], today: dt.date) -> dict:
                 tone="bad" if debt > 0 else "",
             )
         )
+    from apps.mrp import selectors as mrp
+
+    short = mrp.plan()["short"]
+    kpis.append(kpi("shortage", "MRP kamomadi", short, unit="ta mahsulot", link="/mrp?only_short=true",
+                    tone="warn" if short else ""))
     top = sorted(suppliers.values(), key=lambda s: s["amount"], reverse=True)[:5]
     return {
         "key": "procurement",

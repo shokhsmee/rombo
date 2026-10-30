@@ -23,6 +23,7 @@ DEFAULT_ROLES = {
         Pages.PAYMENT_REQUESTS: FULL, Pages.PAYMENT_APPROVE: dict(can_view=True, can_update=True),
         Pages.APPROVAL_STEPS: FULL,
         Pages.INVENTORY: FULL, Pages.STOCK: VIEW, Pages.PRODUCTS: FULL, Pages.WAREHOUSES: FULL,
+        Pages.BOM: FULL,
     }),
     "Buxgalter": ("Jurnal, hisob-fakturalar, hisoblar rejasi, hisobotlar va kassa", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: VIEW, Pages.COMPANY: dict(can_view=True, can_update=True),
@@ -44,11 +45,12 @@ DEFAULT_ROLES = {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.PROCUREMENT: EDIT, Pages.PURCHASE_ORDERS: EDIT,
         Pages.GOODS_RECEIPTS: EDIT, Pages.SUPPLIERS: EDIT,
         Pages.PAYMENT_REQUESTS: dict(can_view=True, can_create=True),
-        Pages.INVENTORY: VIEW, Pages.STOCK: VIEW, Pages.PRODUCTS: EDIT,
+        Pages.INVENTORY: VIEW, Pages.STOCK: VIEW, Pages.PRODUCTS: EDIT, Pages.MRP: VIEW, Pages.BOM: VIEW,
     }),
     "Omborchi": ("Ombor: kirim, chiqim, yetkazish, qoldiqlar", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.GOODS_RECEIPTS: EDIT, Pages.INVENTORY: FULL,
         Pages.STOCK: VIEW, Pages.PRODUCTS: EDIT, Pages.WAREHOUSES: dict(can_view=True, can_update=True),
+        Pages.MRP: VIEW, Pages.BOM: VIEW,
     }),
 }
 

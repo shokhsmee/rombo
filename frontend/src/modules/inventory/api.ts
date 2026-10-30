@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, cleanParams, type Ref } from "@/lib/api";
 import { crudResource } from "@/lib/crud";
 
-export type Category = "profil" | "oyna" | "furnitura" | "material" | "tayyor";
+export type Category = "profil" | "oyna" | "furnitura" | "material" | "yarim" | "tayyor";
 export type MoveType = "receipt" | "issue" | "output" | "delivery" | "transfer" | "adjust";
 export type MoveStatus = "draft" | "posted" | "cancelled";
 
@@ -43,12 +43,12 @@ export function useWarehouseActions() {
 
 export type ProductRef = { id: number; code: string | null; name: string; sku: string; unit: string; category: Category };
 export type Product = ProductRef & {
-  default_cost: string; price_item_id: number | null; price_item: { id: number; name: string; price_list: number } | null;
+  default_cost: string; order_multiple: string | null; price_item_id: number | null; price_item: { id: number; name: string; price_list: number } | null;
   is_active: boolean; notes: string; qty_on_hand: string; value_on_hand: string; avg_cost: string | null;
   created_at: string; updated_at: string;
 };
 export type ProductInput = Partial<{
-  name: string; sku: string; unit: string; category: Category; default_cost: string; price_item_id: number | null;
+  name: string; sku: string; unit: string; category: Category; default_cost: string; order_multiple: string | null; price_item_id: number | null;
   is_active: boolean; notes: string;
 }>;
 

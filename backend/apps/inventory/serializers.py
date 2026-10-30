@@ -75,6 +75,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "unit",
             "category",
             "default_cost",
+            "order_multiple",
             "price_item_id",
             "price_item",
             "is_active",

@@ -63,6 +63,7 @@ class Category(models.TextChoices):
     OYNA = "oyna", "Oyna"
     FURNITURA = "furnitura", "Furnitura"
     MATERIAL = "material", "Boshqa material"
+    YARIM = "yarim", "Yarim tayyor"
     TAYYOR = "tayyor", "Tayyor mahsulot"
 
 
@@ -73,6 +74,7 @@ class Product(AuditModel, SoftDeleteModel):
         "unit": "Birlik",
         "category": "Turkum",
         "default_cost": "Tannarx",
+        "order_multiple": "Xarid karrasi",
         "is_active": "Faol",
         "notes": "Izoh",
     }
@@ -86,6 +88,8 @@ class Product(AuditModel, SoftDeleteModel):
         max_length=12, choices=Category.choices, default=Category.MATERIAL, db_index=True
     )
     default_cost = models.DecimalField("Tannarx", max_digits=18, decimal_places=2, default=ZERO)
+    # purchase multiple (MRP rounds a shortage up to it): 6.5 for profile bought in 6.5 m bars
+    order_multiple = models.DecimalField("Xarid karrasi", max_digits=14, decimal_places=3, null=True, blank=True)
     # the price-list item a goods receipt line points to; lets the receipt find its product
     price_item = models.ForeignKey(
         "pricing.PriceListItem", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"

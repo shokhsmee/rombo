@@ -29,6 +29,7 @@ CHATTER_PAGES = {
     "inventory.stockmove": Pages.INVENTORY,
     "inventory.product": Pages.PRODUCTS,
     "inventory.warehouse": Pages.WAREHOUSES,
+    "mrp.bom": Pages.BOM,
 }
 
 

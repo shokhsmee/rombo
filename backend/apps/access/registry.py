@@ -47,6 +47,7 @@ class Pages:
     GOODS_RECEIPTS = "goods_receipts"
     SUPPLIERS = "suppliers"
     MRP = "mrp"
+    BOM = "bom"
     EMPLOYEES = "employees"
     USERS = "users"
     ROLES = "roles"
@@ -86,7 +87,8 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.STOCK, "Qoldiqlar", "Ombor", VIEW_ONLY),
     PageDef(Pages.PRODUCTS, "Mahsulotlar", "Ombor"),
     PageDef(Pages.WAREHOUSES, "Omborlar", "Ombor", (Action.VIEW, Action.CREATE, Action.UPDATE, Action.DELETE)),
-    PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", planned=True),
+    PageDef(Pages.BOM, "Tarkiblar (BOM)", "Ishlab chiqarish"),
+    PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", VIEW_ONLY),
     PageDef(Pages.ACCOUNTING, "Jurnal (o'tkazmalar)", "Buxgalteriya", (Action.VIEW, Action.CREATE, Action.UPDATE)),
     PageDef(Pages.INVOICES, "Hisob-fakturalar", "Buxgalteriya"),
     PageDef(Pages.ACCOUNTS, "Hisoblar rejasi, rollar, kurslar", "Buxgalteriya"),

@@ -43,8 +43,8 @@ function useMeta(resource: string) {
 }
 
 /** "Excel ▾": export the filter or the selection, the import template, the import itself. */
-export function ExcelMenu({ resource, query, selection, name }: {
-  resource: string; query: Record<string, unknown>; selection?: Selection; name?: string;
+export function ExcelMenu({ resource, query, selection, name, label = "Excel" }: {
+  resource: string; query: Record<string, unknown>; selection?: Selection; name?: string; label?: string;
 }) {
   const meta = useMeta(resource).data;
   const [importing, setImporting] = useState(false);
@@ -66,7 +66,7 @@ export function ExcelMenu({ resource, query, selection, name }: {
   return (
     <>
       <Menu align="right" items={items}
-        trigger={() => <Button variant="ghost"><FileSpreadsheet className="size-4" strokeWidth={1.75} /> Excel <ChevronDown className="size-3.5" /></Button>} />
+        trigger={() => <Button variant="ghost"><FileSpreadsheet className="size-4" strokeWidth={1.75} /> {label} <ChevronDown className="size-3.5" /></Button>} />
       {importing && meta.import && <ImportDialog resource={resource} columns={meta.import} onClose={() => setImporting(false)} />}
     </>
   );
