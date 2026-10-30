@@ -1,4 +1,4 @@
-# Change: add-inventory  (status: proposed)
+# Change: add-inventory  (status: archived 2026-10-31)
 
 Depends on: `add-accounting` (moves post through the ledger), `add-procurement` (goods receipt `KR`).
 Closes the gap the procurement plan left open: stock and cost of goods sold (`Dt 9110 Kt 2810`).

@@ -2,6 +2,16 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-10-31
+- `add-inventory` — Ombor: every movement of stock is one row of one table (`StockMove`, `OM-`): kirim
+  (written by posting a KR, into the receipt's warehouse), chiqim to a Loyiha (Dt 2010 Kt 1010), ishlab
+  chiqarish (Dt 2810 Kt 2010, valued at the Loyiha's work in progress), yetkazish (Dt 9110 Kt 2810),
+  ko'chirish between warehouses and tuzatish (surplus 9390 / shortage 9430). Stock on hand and value are
+  sums over posted rows at weighted average cost; no negative stock; cancel = storno. Products (`MH-`,
+  created by the first KR that brings them), warehouses, "Qoldiqlar" page, KPI row, Loyiha card "Ombor"
+  button and actions, KR warehouse picker. Form rows no longer overflow with long picker values. ADR 0010.
+  Why: one place where kirim, chiqim and yetkazish live with products and amounts, agreeing with 1010 / 2810.
+
 ## 2026-10-30
 - `add-breadcrumb-trail` — Odoo-style breadcrumbs across apps: following links from a Loyiha to its
   request, order, money request and RKO keeps a clickable trail at the top; a crumb or browser back returns
