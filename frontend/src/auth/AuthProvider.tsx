@@ -8,7 +8,7 @@ export type PageKey =
   | "pricing" | "company" | "crm" | "telephony" | "client_map" | "telegram"
   | "purchase_approve" | "purchase_orders" | "goods_receipts" | "suppliers"
   | "accounting" | "accounts" | "invoices" | "accounting_reports"
-  | "kassa" | "cash_orders" | "cash_book";
+  | "kassa" | "cash_orders" | "cash_book" | "payment_requests" | "payment_approve" | "approval_steps";
 export type PermAction = "view" | "create" | "update" | "delete";
 
 export type Me = {

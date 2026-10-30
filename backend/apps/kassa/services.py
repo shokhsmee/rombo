@@ -24,8 +24,11 @@ from apps.accounting import services as ledger_services
 from apps.accounting.models import Account, EntryStatus
 from apps.chatter.services import event
 from apps.core.exceptions import Conflict, ValidationFailed
+from apps.core.models import assign_code
 from apps.kassa import selectors
 from apps.kassa.models import (
+    PAYABLE,
+    PAYMENT_REQUEST_TRANSITIONS,
     UZS,
     ZERO,
     CashAccount,
@@ -35,6 +38,8 @@ from apps.kassa.models import (
     OrderKind,
     OrderStatus,
     PaymentPurpose,
+    PaymentRequest,
+    PaymentRequestStatus,
     Posting,
     fmt_money,
     q2,
@@ -169,6 +174,17 @@ def _check_shape(order: CashOrder) -> None:
     if order.project_id is not None and order.partner_id is None and order.purpose is not None \
             and order.purpose.posting == Posting.PARTNER_CUSTOMER:
         order.partner = order.project.client
+    if order.payment_request_id is not None:
+        req = order.payment_request
+        if order.kind != OrderKind.OUT:
+            raise ValidationFailed("Pul so'rovi faqat chiqimga bog'lanadi", field="payment_request")
+        if req.status not in PAYABLE:
+            raise ValidationFailed(f"{req.code}: pul so'rovi tasdiqlanmagan "
+                                   f"(«{PaymentRequestStatus(req.status).label}»)", field="payment_request")
+        if order.partner_id is None:
+            order.partner = req.partner
+        if order.project_id is None and req.project_id is not None:
+            order.project = req.project
 
 
 @transaction.atomic
@@ -358,6 +374,8 @@ def cash_order_post(order: CashOrder, *, actor) -> CashOrder:
         unit = "so'm" if order.currency == UZS else order.currency
         event(order.project, f"{verb} {order.code}: {fmt_money(order.amount)} {unit}", actor=actor)
     _sync_project_advance(order, actor=actor)
+    if order.payment_request_id is not None:
+        sync_payment_request(order.payment_request, actor=actor)
     return order
 
 
@@ -393,4 +411,141 @@ def cash_order_cancel(order: CashOrder, *, actor, comment: str = "", date: dt.da
     if order.project_id is not None and order.kind != OrderKind.TRANSFER:
         event(order.project, f"To'lov {order.code} bekor qilindi: {comment}", actor=actor)
     _sync_project_advance(order, actor=actor)
+    if order.payment_request_id is not None:
+        sync_payment_request(order.payment_request, actor=actor)
     return order
+
+
+# ------------------------------------------------------------------ money requests (ADR 0009)
+
+PR_EDITABLE = {"partner", "project", "amount", "currency", "rate", "purpose", "basis", "notes", "needed_by"}
+
+
+def _actor(actor):
+    return actor if getattr(actor, "pk", None) else None
+
+
+def _pr_move(req: PaymentRequest, status: str, *, actor) -> None:
+    if status not in PAYMENT_REQUEST_TRANSITIONS[req.status]:
+        raise ValidationFailed(f"'{PaymentRequestStatus(req.status).label}' holatidan "
+                               f"'{PaymentRequestStatus(status).label}' holatiga o'tib bo'lmaydi", field="status")
+    req.status = status
+    req.stamp(actor)
+    req.save()  # tracked: "Holat: … → …"
+
+
+def _check_request(req: PaymentRequest) -> None:
+    if req.amount is None or req.amount <= 0:
+        raise ValidationFailed("Summa noldan katta bo'lsin", field="amount")
+    if req.currency != UZS and req.rate is not None and req.rate <= 0:
+        raise ValidationFailed("Kurs noldan katta bo'lsin", field="rate")
+    if req.purpose is not None and req.purpose.direction == Direction.IN:
+        raise ValidationFailed(f"«{req.purpose.name}» — kirim uchun", field="purpose_id")
+
+
+@transaction.atomic
+def payment_request_create(*, actor, source=None, **fields) -> PaymentRequest:
+    """`source` = the asking document (any model): kept as source_model / source_id / source_label."""
+    fields.setdefault("currency", UZS)
+    if fields["currency"] == UZS:
+        fields["rate"] = None
+    fields.setdefault("requested_by", _actor(actor))
+    if source is not None:
+        fields.update(source_model=source._meta.label_lower, source_id=source.pk,
+                      source_label=str(getattr(source, "code", "") or source)[:60])
+    req = PaymentRequest(**fields)
+    _check_request(req)
+    req.stamp(actor, created=True)
+    req.save()  # chatter: "Pul so'rovi yaratildi"
+    assign_code(req, "PS")
+    return req
+
+
+@transaction.atomic
+def payment_request_update(req: PaymentRequest, *, actor, **fields) -> PaymentRequest:
+    if req.status != PaymentRequestStatus.DRAFT:
+        raise Conflict("Faqat qoralama pul so'rovi o'zgartiriladi")
+    for k, v in fields.items():
+        if k in PR_EDITABLE:
+            setattr(req, k, v)
+    if req.currency == UZS:
+        req.rate = None
+    _check_request(req)
+    req.stamp(actor)
+    req.save()
+    return req
+
+
+def payment_request_delete(req: PaymentRequest, *, actor) -> None:
+    if req.status != PaymentRequestStatus.DRAFT:
+        raise Conflict("Faqat qoralama pul so'rovini o'chirish mumkin. Boshqalarini bekor qiling.")
+    req.soft_delete()
+
+
+def _lock(req: PaymentRequest) -> PaymentRequest:
+    return PaymentRequest.objects.select_for_update().get(pk=req.pk)
+
+
+@transaction.atomic
+def payment_request_submit(req: PaymentRequest, *, actor) -> PaymentRequest:
+    req = _lock(req)
+    _check_request(req)
+    _pr_move(req, PaymentRequestStatus.SUBMITTED, actor=actor)
+    return req
+
+
+@transaction.atomic
+def payment_request_approve(req: PaymentRequest, *, actor, comment: str = "") -> PaymentRequest:
+    req = _lock(req)
+    comment = (comment or "").strip()
+    _pr_move(req, PaymentRequestStatus.APPROVED, actor=actor)
+    req.decided_by, req.decided_at, req.decision_comment = _actor(actor), timezone.now(), comment
+    req.save(update_fields=["decided_by", "decided_at", "decision_comment"])
+    event(req, f"Tasdiqlandi: {comment}" if comment else "Tasdiqlandi", actor=actor)
+    return req
+
+
+@transaction.atomic
+def payment_request_reject(req: PaymentRequest, *, actor, comment: str = "") -> PaymentRequest:
+    comment = (comment or "").strip()
+    if not comment:
+        raise ValidationFailed("Rad etish sababini yozing", field="comment")
+    req = _lock(req)
+    _pr_move(req, PaymentRequestStatus.REJECTED, actor=actor)
+    req.decided_by, req.decided_at, req.decision_comment = _actor(actor), timezone.now(), comment
+    req.save(update_fields=["decided_by", "decided_at", "decision_comment"])
+    event(req, f"Rad etildi: {comment}", actor=actor)
+    return req
+
+
+@transaction.atomic
+def payment_request_cancel(req: PaymentRequest, *, actor, comment: str = "") -> PaymentRequest:
+    req = _lock(req)
+    if req.status == PaymentRequestStatus.PAID:
+        raise Conflict("Pul so'rovi to'langan — bekor qilib bo'lmaydi")
+    if posted_orders_exist(req):
+        raise Conflict("Pul so'rovi bo'yicha chiqim o'tkazilgan — avval chiqimni bekor qiling")
+    _pr_move(req, PaymentRequestStatus.CANCELLED, actor=actor)
+    comment = (comment or "").strip()
+    if comment:
+        event(req, f"Bekor qilindi: {comment}", actor=actor)
+    return req
+
+
+def posted_orders_exist(req: PaymentRequest) -> bool:
+    return req.cash_orders.filter(status=OrderStatus.POSTED).exists()
+
+
+def paid_amount(req: PaymentRequest) -> Decimal:
+    return selectors.paid_amount(req)
+
+
+def sync_payment_request(req: PaymentRequest, *, actor) -> None:
+    """approved ↔ paid from the posted chiqims linked to the request (same transaction as the order)."""
+    req = _lock(req)
+    if req.status not in PAYABLE:
+        return
+    paid = paid_amount(req)
+    target = PaymentRequestStatus.PAID if paid >= req.amount else PaymentRequestStatus.APPROVED
+    if target != req.status:
+        _pr_move(req, target, actor=actor)

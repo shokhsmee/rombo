@@ -589,3 +589,94 @@ def test_partner_balance_and_client_payments_listing(kas):
 
     assert selectors.partner_payments(partner) == {"count": 2, "last_date": __import__("datetime").date(2026, 10, 10),
                                                    "paid_in": D("300"), "paid_out": 0}
+
+
+# ---------------------------------------------------------------- money requests (ADR 0009)
+
+
+def _ps(kas, partner_id, amount="10000000", submit=True, **extra):
+    r = kas.post(f"{K}/payment-requests/", {"partner_id": partner_id, "amount": amount,
+                                            "purpose_id": purpose_id("Yetkazib beruvchiga to'lov"), **extra},
+                 format="json")
+    assert r.status_code == 201, r.content
+    ps = r.json()
+    if submit:
+        r = kas.post(f"{K}/payment-requests/{ps['id']}/submit/", {}, format="json")
+        assert r.status_code == 200, r.content
+        ps = r.json()
+    return ps
+
+
+def test_money_request_lifecycle_and_paid_in_one_go(kas):
+    _fund(kas, "20000000")
+    s = _client(kas, "AKFA")
+    ps = _ps(kas, s["id"], basis="Profil uchun")
+    assert ps["code"].startswith("PS-") and ps["status"] == "submitted" and ps["requested_by"]
+    assert ps["allowed_statuses"] == ["approved", "cancelled", "rejected"]
+    assert kas.get(f"{K}/summary/").json()["payment_requests"] == 1
+
+    # a chiqim cannot be linked before kassa approves
+    r = kas.post(f"{K}/orders/", {"kind": "out", "amount": "10000000", "account_id": kassa_id(),
+                                  "purpose_id": purpose_id("Yetkazib beruvchiga to'lov"), "partner_id": s["id"],
+                                  "payment_request_id": ps["id"]}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "payment_request"
+
+    r = kas.post(f"{K}/payment-requests/{ps['id']}/reject/", {}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "comment"
+    r = kas.post(f"{K}/payment-requests/{ps['id']}/approve/", {"comment": "OK"}, format="json")
+    assert r.status_code == 200 and r.json()["status"] == "approved" and r.json()["decided_by"]
+    assert kas.patch(f"{K}/payment-requests/{ps['id']}/", {"amount": "1"}, format="json").status_code == 409
+
+    o = _paid(kas, kind="out", purpose="Yetkazib beruvchiga to'lov", amount="10000000", payment_request_id=ps["id"])
+    assert o["partner"]["id"] == s["id"] and o["payment_request_code"] == ps["code"]
+    ps = kas.get(f"{K}/payment-requests/{ps['id']}/").json()
+    assert ps["status"] == "paid" and D(ps["paid"]) == D("10000000")
+    assert [c["code"] for c in ps["cash_orders"]] == [o["code"]]
+    r = kas.post(f"{K}/payment-requests/{ps['id']}/cancel/", {}, format="json")
+    assert r.status_code == 409
+
+    # cancelling the chiqim gives the request back to kassa
+    r = kas.post(f"{K}/orders/{o['id']}/cancel/", {"comment": "Xato"}, format="json")
+    assert r.status_code == 200, r.content
+    ps = kas.get(f"{K}/payment-requests/{ps['id']}/").json()
+    assert ps["status"] == "approved" and D(ps["paid"]) == 0
+    r = kas.post(f"{K}/payment-requests/{ps['id']}/cancel/", {"comment": "Kerak emas"}, format="json")
+    assert r.status_code == 200 and r.json()["status"] == "cancelled"
+    hist = kas.get(f"{API}/chatter/", {"model": "kassa.paymentrequest", "res_id": ps["id"]}).json()
+    assert hist[0]["body"] == "Bekor qilindi: Kerak emas"
+
+
+def test_money_request_paid_in_parts_and_rejected(kas):
+    _fund(kas, "20000000")
+    s = _client(kas, "AKFA")
+    ps = _ps(kas, s["id"])
+    kas.post(f"{K}/payment-requests/{ps['id']}/approve/", {}, format="json")
+    _paid(kas, kind="out", purpose="Yetkazib beruvchiga to'lov", amount="4000000", partner_id=s["id"],
+          payment_request_id=ps["id"])
+    ps = kas.get(f"{K}/payment-requests/{ps['id']}/").json()
+    assert ps["status"] == "approved" and D(ps["paid"]) == D("4000000")
+    _paid(kas, kind="out", purpose="Yetkazib beruvchiga to'lov", amount="6000000", partner_id=s["id"],
+          payment_request_id=ps["id"])
+    assert kas.get(f"{K}/payment-requests/{ps['id']}/").json()["status"] == "paid"
+
+    other = _ps(kas, s["id"], amount="5000000")
+    r = kas.post(f"{K}/payment-requests/{other['id']}/reject/", {"comment": "Qimmat"}, format="json")
+    assert r.status_code == 200 and r.json()["status"] == "rejected" and r.json()["decision_comment"] == "Qimmat"
+    assert kas.get(f"{K}/payment-requests/", {"status": "rejected"}).json()["total"] == 1
+    r = kas.post(f"{K}/orders/", {"kind": "out", "amount": "100", "account_id": kassa_id(),
+                                  "purpose_id": purpose_id("Yetkazib beruvchiga to'lov"), "partner_id": s["id"],
+                                  "payment_request_id": other["id"]}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "payment_request"
+
+
+def test_money_request_permissions(api, kas):
+    s = _client(kas, "AKFA")
+    ps = _ps(kas, s["id"])
+    buyer = _user_with(api, kas, "buyer1", {"payment_requests": ["view", "create", "update"]})
+    assert buyer.get(f"{K}/payment-requests/").json()["total"] == 1
+    assert buyer.post(f"{K}/payment-requests/{ps['id']}/approve/", {}, format="json").status_code == 403
+    assert buyer.post(f"{K}/payment-requests/{ps['id']}/reject/", {"comment": "x"}, format="json").status_code == 403
+    kassir = _user_with(api, kas, "kassir2", {"payment_approve": ["view", "update"]})
+    assert kassir.post(f"{K}/payment-requests/{ps['id']}/approve/", {}, format="json").status_code == 200
+    nobody = _user_with(api, kas, "nobody1", {"cash_orders": ["view"]})
+    assert nobody.get(f"{K}/payment-requests/").status_code == 403

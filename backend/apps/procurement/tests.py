@@ -79,7 +79,28 @@ def _line_input(ln):
             "price": ln["price"], "vat_rate": ln["vat_rate"]}
 
 
+def _request_money(client, order_id, expect=200, **body):
+    r = client.post(f"{API}/procurement/orders/{order_id}/request-money/", body, format="json")
+    assert r.status_code == expect, r.content
+    return r.json()
+
+
+def _money_ok(admin, order_id):
+    """The gate (ADR 0009): ask kassa for the order's money and approve it as kassa."""
+    order = admin.get(f"{API}/procurement/orders/{order_id}/").json()
+    pr = order["payment_request"]
+    if pr is None or pr["status"] in ("rejected", "cancelled"):
+        pr = _request_money(admin, order_id)["payment_request"]
+    if pr["status"] == "submitted":
+        r = admin.post(f"{API}/kassa/payment-requests/{pr['id']}/approve/", {}, format="json")
+        assert r.status_code == 200, r.content
+    return admin.get(f"{API}/procurement/orders/{order_id}/").json()
+
+
 def _send(admin, order_id, via="print", **extra):
+    order = admin.get(f"{API}/procurement/orders/{order_id}/").json()
+    if order["status"] == "draft":
+        _money_ok(admin, order_id)
     r = admin.post(f"{API}/procurement/orders/{order_id}/send/", {"via": via, **extra}, format="json")
     assert r.status_code == 200, r.content
     return r.json()
@@ -492,3 +513,204 @@ def test_default_price_is_the_last_posted_receipt_price(admin):
                                                                 "unit": item.unit,
                                                                 "qty": "5"}]}, format="json").json()
     assert o2["lines"][0]["price"] == "20.00"
+
+
+# ------------------------------------------------------------------ approval steps (add-purchase-approvals-…)
+
+APPROVER_PAGES = {**BUYER_PAGES, "purchase_approve": {"can_view": True, "can_update": True}}
+
+
+def _approver(api, admin, username, pages=APPROVER_PAGES):
+    client = _user_with(api, admin, username, pages)
+    role = next(r for r in admin.get(f"{API}/access/roles/", {"page_size": 100}).json()["items"]
+                if r["name"] == f"Rol {username}")
+    return client, role["id"]
+
+
+def _step(admin, sequence, name, role_id, **extra):
+    body = {"sequence": sequence, "name": name, "role_id": role_id, **extra}
+    r = admin.post(f"{API}/procurement/approval-steps/", body, format="json")
+    assert r.status_code == 201, r.content
+    return r.json()
+
+
+def _two_levels(api, admin):
+    buyer = _user_with(api, admin, "buyer", BUYER_PAGES)
+    tamin, tamin_role = _approver(api, admin, "tamin")
+    director, director_role = _approver(api, admin, "director")
+    _step(admin, 20, "Direktor", director_role)
+    _step(admin, 10, "Ta'minot boshlig'i", tamin_role)
+    p = _project(admin)
+    req = _request(buyer, p["id"])
+    r = buyer.post(f"{API}/procurement/requests/{req['id']}/submit/")
+    assert r.status_code == 200, r.content
+    return buyer, tamin, director, r.json()
+
+
+def _states(req):
+    return [(s["name"], s["state"]) for s in req["steps"]]
+
+
+def test_two_level_approval(api, admin):
+    buyer, tamin, director, req = _two_levels(api, admin)
+    assert req["status"] == "submitted" and req["approval_step"]["name"] == "Ta'minot boshlig'i"
+    assert _states(req) == [("Ta'minot boshlig'i", "current"), ("Direktor", "pending")]
+    assert req["can_approve"] is False
+    url = f"{API}/procurement/requests/{req['id']}"
+
+    # wrong person: the Direktor cannot decide the first step
+    r = director.post(f"{url}/approve/", {}, format="json")
+    assert r.status_code == 409 and r.json()["error"]["message"] == "Bu bosqichni «Rol tamin» tasdiqlaydi"
+    assert director.get(f"{url}/").json()["can_approve"] is False
+    assert admin.get(f"{url}/").json()["approval_step"]["name"] == "Ta'minot boshlig'i"
+
+    assert tamin.get(f"{url}/").json()["can_approve"] is True
+    r = tamin.post(f"{url}/approve/", {"comment": "Kerak"}, format="json")
+    assert r.status_code == 200, r.content
+    req = r.json()
+    assert req["status"] == "submitted" and req["approval_step"]["name"] == "Direktor"
+    assert _states(req) == [("Ta'minot boshlig'i", "done"), ("Direktor", "current")]
+    assert tamin.post(f"{url}/approve/", {}, format="json").status_code == 409
+
+    req = director.post(f"{url}/approve/", {}, format="json").json()
+    assert req["status"] == "approved" and req["approval_step"] is None
+    assert [(a["step_name"], a["decision"]) for a in req["approvals"]] == [
+        ("Ta'minot boshlig'i", "approved"), ("Direktor", "approved")]
+    assert req["approvals"][0]["comment"] == "Kerak" and req["approvals"][0]["user"]["full_name"]
+    assert _states(req) == [("Ta'minot boshlig'i", "done"), ("Direktor", "done")]
+    bodies = [m["body"] for m in _history(admin, "procurement.purchaserequest", req["id"])]
+    assert "Ta'minot boshlig'i: tasdiqlandi — Kerak" in bodies and "Direktor: tasdiqlandi" in bodies
+
+
+def test_reject_at_level_two_restarts_from_step_one(api, admin):
+    buyer, tamin, director, req = _two_levels(api, admin)
+    url = f"{API}/procurement/requests/{req['id']}"
+    tamin.post(f"{url}/approve/", {}, format="json")
+    r = director.post(f"{url}/reject/", {}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "comment"
+    req = director.post(f"{url}/reject/", {"comment": "Qimmat"}, format="json").json()
+    assert req["status"] == "rejected" and req["approval_step"] is None
+    assert (req["approvals"][-1]["step_name"], req["approvals"][-1]["decision"],
+            req["approvals"][-1]["comment"]) == ("Direktor", "rejected", "Qimmat")
+    assert _states(req) == [("Ta'minot boshlig'i", "done"), ("Direktor", "rejected")]
+    last = _history(admin, "procurement.purchaserequest", req["id"])[0]
+    assert last["body"] == "Direktor: rad etildi — Qimmat"
+
+    assert buyer.post(f"{url}/reopen/").json()["status"] == "draft"
+    req = buyer.post(f"{url}/submit/").json()
+    assert req["status"] == "submitted" and req["approval_step"]["name"] == "Ta'minot boshlig'i"
+    assert _states(req) == [("Ta'minot boshlig'i", "current"), ("Direktor", "pending")]
+
+
+def test_steps_switch_off_the_auto_approval_but_a_superuser_decides_any_step(api, admin):
+    _, role_id = _approver(api, admin, "tamin")
+    _step(admin, 10, "Ta'minot boshlig'i", role_id)
+    _step(admin, 20, "Direktor", role_id)
+    p = _project(admin)
+    req = _request(admin, p["id"])
+    req = admin.post(f"{API}/procurement/requests/{req['id']}/submit/").json()
+    assert req["status"] == "submitted" and req["can_approve"] is True
+    admin.post(f"{API}/procurement/requests/{req['id']}/approve/", {}, format="json")
+    req = admin.post(f"{API}/procurement/requests/{req['id']}/approve/", {}, format="json").json()
+    assert req["status"] == "approved" and len(req["approvals"]) == 2
+
+
+def test_no_active_step_keeps_single_level_approval(api, admin):
+    _, role_id = _approver(api, admin, "tamin")
+    step = _step(admin, 10, "Ta'minot boshlig'i", role_id, is_active=False)
+    p = _project(admin)
+    req = _approved_request(admin, p["id"])  # admin holds purchase_approve: approved at once as before
+    assert req["steps"] == [] and req["approval_step"] is None
+    # steps CRUD: list ordered, a step nobody waits at can be deleted
+    steps = admin.get(f"{API}/procurement/approval-steps/").json()
+    assert [s["name"] for s in steps] == ["Ta'minot boshlig'i"]
+    assert admin.delete(f"{API}/procurement/approval-steps/{step['id']}/").status_code == 204
+    buyer = _user_with(api, admin, "buyer", BUYER_PAGES)
+    assert buyer.get(f"{API}/procurement/approval-steps/").status_code == 403
+
+
+# ------------------------------------------------------------------ from the Loyiha
+
+
+def test_request_from_project_takes_the_calc_lines(api, admin):
+    p = _project(admin, status="draft", currency="USD")
+    calc = _calc(admin, p["id"])
+    picked = calc["lines"][:3]
+    r = admin.patch(f"{API}/projects/{p['id']}/calcs/{calc['id']}/", {
+        "lines": [{"id": ln["id"], "qty": "2"} for ln in picked]}, format="json")
+    assert r.status_code == 200, r.content
+    r = admin.post(f"{API}/procurement/requests/from-project/", {"project_id": p["id"]}, format="json")
+    assert r.status_code == 201, r.content
+    req = r.json()
+    assert req["status"] == "draft" and req["project"]["id"] == p["id"]
+    assert [ln["name"] for ln in req["lines"]] == [ln["name"] for ln in picked]
+    assert all(ln["qty"] == "2.00" for ln in req["lines"])
+
+    empty = _project(admin, status="draft")
+    r = admin.post(f"{API}/procurement/requests/from-project/", {"project_id": empty["id"]}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "project_id"
+    viewer = _user_with(api, admin, "viewer", {"procurement": {"can_view": True}})
+    r = viewer.post(f"{API}/procurement/requests/from-project/", {"project_id": p["id"]}, format="json")
+    assert r.status_code == 403
+
+
+# ------------------------------------------------------------------ money request gate (ADR 0009)
+
+
+def test_send_waits_for_kassa_to_approve_the_money(admin):
+    order, req, sup, project = _usd_order(admin)
+    url = f"{API}/procurement/orders/{order['id']}"
+    r = admin.post(f"{url}/send/", {"via": "print"}, format="json")
+    assert r.status_code == 409 and r.json()["error"]["message"] == "Kassa pul so'rovini tasdiqlamagan"
+
+    order = _request_money(admin, order["id"], note="Avans 100%")
+    pr = order["payment_request"]
+    assert pr["status"] == "submitted" and pr["amount"] == "2240.00" and pr["currency"] == "USD"
+    assert pr["code"].startswith("PS-") and pr["paid"] == "0"
+    _request_money(admin, order["id"], expect=409)  # one live request per order
+    r = admin.post(f"{url}/send/", {"via": "print"}, format="json")
+    assert r.status_code == 409 and r.json()["error"]["message"] == "Kassa pul so'rovini tasdiqlamagan"
+
+    ps = admin.get(f"{API}/kassa/payment-requests/{pr['id']}/").json()
+    assert ps["partner"]["id"] == sup["id"] and ps["project"]["id"] == project["id"]
+    assert ps["source_model"] == "procurement.purchaseorder" and ps["source_id"] == order["id"]
+    assert ps["basis"] == f"Buyurtma {order['code']}" and ps["notes"] == "Avans 100%"
+    assert ps["rate"] == "12000.0000"
+    last = _history(admin, "procurement.purchaseorder", order["id"])[0]
+    assert last["body"].startswith("Kassadan pul so'raldi")
+
+    r = admin.post(f"{API}/kassa/payment-requests/{pr['id']}/approve/", {}, format="json")
+    assert r.status_code == 200
+    assert admin.get(f"{url}/").json()["payment_request"]["status"] == "approved"
+    r = admin.post(f"{url}/send/", {"via": "print"}, format="json")
+    assert r.status_code == 200 and r.json()["status"] == "sent"
+
+
+def test_rejected_money_can_be_asked_again_with_another_amount(admin):
+    order, *_ = _usd_order(admin)
+    pr = _request_money(admin, order["id"])["payment_request"]
+    admin.post(f"{API}/kassa/payment-requests/{pr['id']}/reject/", {"comment": "Qimmat"}, format="json")
+    order = admin.get(f"{API}/procurement/orders/{order['id']}/").json()
+    assert order["payment_request"]["status"] == "rejected"
+    pr2 = _request_money(admin, order["id"], amount="1000")["payment_request"]
+    assert pr2["id"] != pr["id"] and pr2["amount"] == "1000.00"
+
+
+def test_cancelling_the_order_cancels_its_money_request(admin):
+    order, *_ = _usd_order(admin)
+    pr = _request_money(admin, order["id"])["payment_request"]
+    r = admin.post(f"{API}/procurement/orders/{order['id']}/cancel/", {"comment": "Kerak emas"},
+                   format="json")
+    assert r.status_code == 200, r.content
+    assert admin.get(f"{API}/kassa/payment-requests/{pr['id']}/").json()["status"] == "cancelled"
+
+
+def test_buyer_asks_money_but_cannot_approve_it(api, admin):
+    buyer = _user_with(api, admin, "buyer", {**BUYER_PAGES, "payment_requests": {"can_view": True,
+                                                                                  "can_create": True}})
+    order, *_ = _usd_order(admin)
+    pr = _request_money(buyer, order["id"])["payment_request"]
+    r = buyer.post(f"{API}/kassa/payment-requests/{pr['id']}/approve/", {}, format="json")
+    assert r.status_code == 403
+    r = buyer.post(f"{API}/procurement/orders/{order['id']}/send/", {"via": "print"}, format="json")
+    assert r.status_code == 409

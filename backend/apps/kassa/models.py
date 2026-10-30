@@ -136,6 +136,80 @@ class CodeSequence(models.Model):
         return f"{self.prefix} {self.last}"
 
 
+class PaymentRequestStatus(models.TextChoices):
+    DRAFT = "draft", "Qoralama"
+    SUBMITTED = "submitted", "Kutilmoqda"
+    APPROVED = "approved", "Tasdiqlandi"
+    REJECTED = "rejected", "Rad etildi"
+    PAID = "paid", "To'langan"
+    CANCELLED = "cancelled", "Bekor qilindi"
+
+
+PRS = PaymentRequestStatus
+# `paid` ↔ `approved` is derived from the posted chiqims linked to the request (services.sync_payment_request)
+PAYMENT_REQUEST_TRANSITIONS: dict[str, set[str]] = {
+    PRS.DRAFT: {PRS.SUBMITTED, PRS.CANCELLED},
+    PRS.SUBMITTED: {PRS.APPROVED, PRS.REJECTED, PRS.CANCELLED},
+    PRS.APPROVED: {PRS.PAID, PRS.CANCELLED},
+    PRS.REJECTED: set(),
+    PRS.PAID: {PRS.APPROVED},
+    PRS.CANCELLED: set(),
+}
+PAYABLE = (PRS.APPROVED, PRS.PAID)
+
+
+class PaymentRequest(AuditModel, SoftDeleteModel):
+    """Pul so'rovi (ADR 0009): somebody asks kassa for money; kassa approves and pays it with chiqims.
+    The asking document is known only generically (`source_model` + `source_id`)."""
+
+    TRACK = {
+        "status": "Holat", "partner": "Kontragent", "project": "Loyiha", "amount": "Summa",
+        "currency": "Valyuta", "rate": "Kurs", "purpose": "Maqsad", "basis": "Asos", "needed_by": "Kerak sana",
+        "notes": "Izoh",
+    }
+    CHATTER_NAME = "Pul so'rovi"
+
+    code = models.CharField(max_length=20, unique=True, null=True, editable=False)  # PS-00001
+    status = models.CharField(max_length=10, choices=PaymentRequestStatus.choices, default=PRS.DRAFT,
+                              db_index=True)
+    partner = models.ForeignKey("clients.Client", on_delete=models.PROTECT, related_name="payment_requests")
+    project = models.ForeignKey("projects.Project", null=True, blank=True, on_delete=models.PROTECT,
+                                related_name="payment_requests")
+    amount = models.DecimalField(max_digits=18, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=UZS)
+    rate = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True)
+    purpose = models.ForeignKey(PaymentPurpose, null=True, blank=True, on_delete=models.PROTECT,
+                                related_name="payment_requests")
+    basis = models.CharField("Asos", max_length=300, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    needed_by = models.DateField("Kerak sana", null=True, blank=True)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                     related_name="+")
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name="+")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decision_comment = models.TextField(blank=True, default="")
+    source_model = models.CharField(max_length=60, blank=True, default="", db_index=True)  # procurement.purchaseorder
+    source_id = models.PositiveIntegerField(null=True, blank=True)
+    source_label = models.CharField(max_length=60, blank=True, default="")  # XB-00012
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Pul so'rovi"
+        verbose_name_plural = "Pul so'rovlari"
+
+    def __str__(self):
+        return self.code or f"PS #{self.pk}"
+
+    @property
+    def allowed_statuses(self) -> list[str]:
+        """Moves people make (paid ↔ approved is derived)."""
+        moves = set(PAYMENT_REQUEST_TRANSITIONS[self.status])
+        if self.status in PAYABLE:
+            moves -= {PRS.PAID, PRS.APPROVED}
+        return sorted(moves)
+
+
 class CashOrder(AuditModel, SoftDeleteModel):
     """PKO / RKO / BK / BT / OT. Numbered when posted; posting writes one journal entry (`entry`);
     cancelling reverses it. A posted order is immutable."""
@@ -172,6 +246,8 @@ class CashOrder(AuditModel, SoftDeleteModel):
     received_from = models.CharField("Kimdan qabul qilindi", max_length=200, blank=True, default="")
     issued_to = models.CharField("Kimga berildi", max_length=200, blank=True, default="")
     notes = models.TextField(blank=True, default="")
+    payment_request = models.ForeignKey(PaymentRequest, null=True, blank=True, on_delete=models.PROTECT,
+                                        related_name="cash_orders")
     entry = models.ForeignKey("accounting.JournalEntry", null=True, blank=True, on_delete=models.SET_NULL,
                               related_name="+")
     posted_at = models.DateTimeField(null=True, blank=True)

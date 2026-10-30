@@ -13,6 +13,7 @@ from apps.clients.models import Client, ClientKind
 from apps.core.views import ServiceModelViewSet
 from apps.procurement import services
 from apps.procurement.models import (
+    ApprovalStep,
     GoodsReceipt,
     OrderStatus,
     PurchaseOrder,
@@ -21,14 +22,17 @@ from apps.procurement.models import (
     RequestStatus,
 )
 from apps.procurement.serializers import (
+    ApprovalStepSerializer,
     CommentSerializer,
     FromCalcSerializer,
+    FromProjectSerializer,
     FromRequestsSerializer,
     OrderListSerializer,
     OrderSerializer,
     ReceiptListSerializer,
     ReceiptSerializer,
     RequestListSerializer,
+    RequestMoneySerializer,
     RequestSerializer,
     SendSerializer,
     SupplierSerializer,
@@ -65,7 +69,8 @@ class PurchaseRequestViewSet(ServiceModelViewSet):
     ordering_fields = ["code", "status", "needed_by", "created_at"]
     ordering = ["-created_at"]
     permission_action_map = {"submit": Action.UPDATE, "reopen": Action.UPDATE, "cancel": Action.UPDATE,
-                             "from_calc": Action.UPDATE, "summary": Action.VIEW}
+                             "from_calc": Action.UPDATE, "from_project": Action.CREATE,
+                             "summary": Action.VIEW}
 
     service_create = services.request_create
     service_update = services.request_update
@@ -75,11 +80,13 @@ class PurchaseRequestViewSet(ServiceModelViewSet):
         qs = (PurchaseRequest.objects.select_related("project", "requester")
               .annotate(lines_count=Count("lines", distinct=True)))
         if self.action != "list":
-            qs = qs.select_related("approved_by").prefetch_related("lines__item")
+            qs = (qs.select_related("approved_by", "approval_step__role")
+                  .prefetch_related("lines__item", "approvals__user"))
         return qs
 
-    def _respond(self, req):
-        return Response(RequestSerializer(self._reload(req)).data)
+    def _respond(self, req, status=http.HTTP_200_OK):
+        return Response(RequestSerializer(self._reload(req), context=self.get_serializer_context()).data,
+                        status=status)
 
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
@@ -117,6 +124,13 @@ class PurchaseRequestViewSet(ServiceModelViewSet):
         return self._respond(services.request_from_calc(self.get_object(), actor=request.user,
                                                         **s.validated_data))
 
+    @action(detail=False, methods=["post"], url_path="from-project")
+    def from_project(self, request):
+        s = FromProjectSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        req = services.request_from_project(actor=request.user, **s.validated_data)
+        return self._respond(req, status=http.HTTP_201_CREATED)
+
     @action(detail=False, methods=["get"])
     def summary(self, request):
         rows = PurchaseRequest.objects.values("status").annotate(count=Count("id")).order_by("status")
@@ -152,7 +166,7 @@ class PurchaseOrderViewSet(ServiceModelViewSet):
     ordering_fields = ["code", "status", "date", "expected_date", "created_at"]
     ordering = ["-created_at"]
     permission_action_map = {"send": Action.UPDATE, "cancel": Action.UPDATE, "from_requests": Action.CREATE,
-                             "summary": Action.VIEW, "html": Action.VIEW}
+                             "summary": Action.VIEW, "html": Action.VIEW, "request_money": Action.UPDATE}
 
     service_create = services.order_create
     service_update = services.order_update
@@ -161,7 +175,7 @@ class PurchaseOrderViewSet(ServiceModelViewSet):
     def get_queryset(self):
         qs = PurchaseOrder.objects.select_related("supplier", "project").prefetch_related("lines")
         if self.action != "list":
-            qs = qs.select_related("sent_by").prefetch_related("lines__project",
+            qs = qs.select_related("sent_by", "payment_request").prefetch_related("lines__project",
                                                                "lines__request_line__request",
                                                                "receipts")
         return qs
@@ -174,6 +188,13 @@ class PurchaseOrderViewSet(ServiceModelViewSet):
         s = SendSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         return self._respond(services.order_send(self.get_object(), actor=request.user, **s.validated_data))
+
+    @action(detail=True, methods=["post"], url_path="request-money")
+    def request_money(self, request, pk=None):
+        s = RequestMoneySerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        return self._respond(services.order_request_money(self.get_object(), actor=request.user,
+                                                          **s.validated_data))
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
@@ -290,3 +311,23 @@ class SupplierViewSet(ServiceModelViewSet):
                 .annotate(orders_count=Count("purchase_orders",
                                              filter=Q(purchase_orders__deleted_at__isnull=True),
                                              distinct=True)))
+
+
+# ------------------------------------------------------------------ approval steps
+
+
+class ApprovalStepViewSet(ServiceModelViewSet):
+    """Sozlamalar → Tasdiqlash bosqichlari: ordered levels of request approval."""
+
+    page_key = Pages.APPROVAL_STEPS
+    serializer_class = ApprovalStepSerializer
+    pagination_class = None
+    filterset_fields = ["is_active", "role"]
+    ordering = ["sequence", "id"]
+
+    service_create = services.approval_step_create
+    service_update = services.approval_step_update
+    service_delete = services.approval_step_delete
+
+    def get_queryset(self):
+        return ApprovalStep.objects.select_related("role").order_by("sequence", "id")

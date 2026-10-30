@@ -8,13 +8,24 @@ from apps.access.permissions import page_required
 from apps.access.registry import Action, Pages
 from apps.core.views import ServiceModelViewSet
 from apps.kassa import selectors, services
-from apps.kassa.models import CashAccount, CashOrder, OrderKind, OrderStatus, PaymentPurpose
+from apps.kassa.models import (
+    CashAccount,
+    CashOrder,
+    OrderKind,
+    OrderStatus,
+    PaymentPurpose,
+    PaymentRequest,
+    PaymentRequestStatus,
+)
 from apps.kassa.serializers import (
     BookQuerySerializer,
     CancelSerializer,
     CashAccountSerializer,
     CashOrderListSerializer,
     CashOrderSerializer,
+    DecisionSerializer,
+    PaymentRequestListSerializer,
+    PaymentRequestSerializer,
     PurposeSerializer,
 )
 
@@ -136,3 +147,70 @@ def cash_book_view(request):
 @permission_classes([IsAuthenticated, page_required(Pages.KASSA)])
 def summary_view(request):
     return Response(selectors.summary())
+
+
+# ------------------------------------------------------------------ money requests (ADR 0009)
+
+
+class PaymentRequestFilter(django_filters.FilterSet):
+    status = django_filters.MultipleChoiceFilter(choices=PaymentRequestStatus.choices)
+    partner = django_filters.NumberFilter(field_name="partner_id")
+    project = django_filters.NumberFilter(field_name="project_id")
+    source_model = django_filters.CharFilter(field_name="source_model")
+    source_id = django_filters.NumberFilter(field_name="source_id")
+    date_from = django_filters.DateFilter(field_name="created_at", lookup_expr="date__gte")
+    date_to = django_filters.DateFilter(field_name="created_at", lookup_expr="date__lte")
+
+    class Meta:
+        model = PaymentRequest
+        fields = ["status", "partner", "project", "currency", "source_model", "source_id"]
+
+
+PAY_APPROVER = [IsAuthenticated, page_required(Pages.PAYMENT_APPROVE, Action.UPDATE)]
+
+
+class PaymentRequestViewSet(ServiceModelViewSet):
+    page_key = Pages.PAYMENT_REQUESTS
+    serializer_class = PaymentRequestSerializer
+    list_serializer_class = PaymentRequestListSerializer
+    filterset_class = PaymentRequestFilter
+    search_fields = ["code", "basis", "partner__name", "project__code", "project__name", "source_label"]
+    ordering_fields = ["code", "status", "amount", "needed_by", "created_at"]
+    ordering = ["-created_at"]
+    permission_action_map = {"submit": Action.UPDATE, "cancel": Action.UPDATE}
+
+    service_create = services.payment_request_create
+    service_update = services.payment_request_update
+    service_delete = services.payment_request_delete
+
+    def get_queryset(self):
+        return PaymentRequest.objects.select_related("partner", "project", "purpose", "requested_by",
+                                                     "decided_by")
+
+    def _respond(self, req):
+        return Response(PaymentRequestSerializer(self._reload(req)).data)
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        return self._respond(services.payment_request_submit(self.get_object(), actor=request.user))
+
+    @action(detail=True, methods=["post"], permission_classes=PAY_APPROVER)
+    def approve(self, request, pk=None):
+        s = DecisionSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        return self._respond(services.payment_request_approve(self.get_object(), actor=request.user,
+                                                              **s.validated_data))
+
+    @action(detail=True, methods=["post"], permission_classes=PAY_APPROVER)
+    def reject(self, request, pk=None):
+        s = DecisionSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        return self._respond(services.payment_request_reject(self.get_object(), actor=request.user,
+                                                             **s.validated_data))
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        s = DecisionSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        return self._respond(services.payment_request_cancel(self.get_object(), actor=request.user,
+                                                             **s.validated_data))

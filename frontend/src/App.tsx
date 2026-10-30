@@ -52,6 +52,9 @@ const KassaPage = lazy(() => import("@/modules/kassa/KassaPage").then((m) => ({ 
 const CashOrdersListPage = lazy(() => import("@/modules/kassa/CashOrdersListPage").then((m) => ({ default: m.CashOrdersListPage })));
 const CashOrderFormPage = lazy(() => import("@/modules/kassa/CashOrderFormPage").then((m) => ({ default: m.CashOrderFormPage })));
 const CashBookPage = lazy(() => import("@/modules/kassa/CashBookPage").then((m) => ({ default: m.CashBookPage })));
+const PaymentRequestsListPage = lazy(() => import("@/modules/kassa/PaymentRequestsListPage").then((m) => ({ default: m.PaymentRequestsListPage })));
+const PaymentRequestFormPage = lazy(() => import("@/modules/kassa/PaymentRequestFormPage").then((m) => ({ default: m.PaymentRequestFormPage })));
+const ApprovalStepsPage = lazy(() => import("@/modules/procurement/ApprovalStepsPage").then((m) => ({ default: m.ApprovalStepsPage })));
 const CashOrderPrint = lazy(() => import("@/modules/kassa/print/CashOrderPrint").then((m) => ({ default: m.CashOrderPrint })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
@@ -104,6 +107,8 @@ export function App() {
         <Route path="kassa/orders" element={<RequirePage page="cash_orders"><Later><CashOrdersListPage /></Later></RequirePage>} />
         <Route path="kassa/orders/:id" element={<RequirePage page="cash_orders"><Later><CashOrderFormPage /></Later></RequirePage>} />
         <Route path="kassa/book" element={<RequirePage page="cash_book"><Later><CashBookPage /></Later></RequirePage>} />
+        <Route path="kassa/payment-requests" element={<RequirePage page="payment_requests"><Later><PaymentRequestsListPage /></Later></RequirePage>} />
+        <Route path="kassa/payment-requests/:id" element={<RequirePage page="payment_requests"><Later><PaymentRequestFormPage /></Later></RequirePage>} />
 
         <Route path="employees" element={<RequirePage page="employees"><EmployeesListPage /></RequirePage>} />
         <Route path="employees/:id" element={<RequirePage page="employees"><EmployeeFormPage /></RequirePage>} />
@@ -117,6 +122,7 @@ export function App() {
         <Route path="settings/pricing" element={<RequirePage page="pricing"><PriceListsPage /></RequirePage>} />
         <Route path="settings/pricing/:id" element={<RequirePage page="pricing"><PriceListFormPage /></RequirePage>} />
         <Route path="settings/company" element={<RequirePage page="company"><CompanyPage /></RequirePage>} />
+        <Route path="settings/approval-steps" element={<RequirePage page="approval_steps"><Later><ApprovalStepsPage /></Later></RequirePage>} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

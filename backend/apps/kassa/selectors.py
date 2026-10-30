@@ -18,7 +18,17 @@ from django.db.models import Count, F, Max, Q, Sum
 
 from apps.accounting import selectors as ledger
 from apps.accounting.models import ZERO, InvoiceKind, q2
-from apps.kassa.models import UZS, AccountKind, CashAccount, CashOrder, OrderKind, OrderStatus, Posting
+from apps.kassa.models import (
+    UZS,
+    AccountKind,
+    CashAccount,
+    CashOrder,
+    OrderKind,
+    OrderStatus,
+    PaymentRequest,
+    PaymentRequestStatus,
+    Posting,
+)
 
 # ------------------------------------------------------------------ balances
 
@@ -68,6 +78,7 @@ def summary() -> dict:
         "today_in": _uzs_sum(month.filter(kind=OrderKind.IN, date=today)),
         "today_out": _uzs_sum(month.filter(kind=OrderKind.OUT, date=today)),
         "drafts": CashOrder.objects.filter(status=OrderStatus.DRAFT).count(),
+        "payment_requests": PaymentRequest.objects.filter(status=PaymentRequestStatus.SUBMITTED).count(),
         "accounts": accounts,
     }
 
@@ -194,3 +205,41 @@ def invoice_open(invoice, *, currency: str, rate=None) -> Decimal:
     if invoice.currency == UZS:  # USD payment for a so'm invoice
         return q2(open_inv / rate) if rate else ZERO
     return q2(open_inv * rate)  # so'm payment for a USD invoice
+
+
+# ------------------------------------------------------------------ money requests (ADR 0009)
+
+SUPPLIER_PAYMENT = "Yetkazib beruvchiga to'lov"
+
+
+def supplier_payment_purpose():
+    """The seeded purpose a supplier's money request (and its chiqim) uses; None before seeding."""
+    from apps.kassa.models import PaymentPurpose
+
+    return PaymentPurpose.objects.filter(name=SUPPLIER_PAYMENT, is_active=True).first()
+
+
+def _in_request_currency(order: CashOrder, req) -> Decimal:
+    if order.currency == req.currency:
+        return order.amount
+    if req.currency == UZS:  # USD chiqim for a so'm request
+        return q2(order.amount * (order.rate or 1))
+    rate = req.rate or order.rate
+    if not rate:
+        try:
+            rate = ledger.rate_for(order.date, req.currency)
+        except Exception:  # noqa: BLE001 — no rate: the so'm chiqim cannot be converted
+            return ZERO
+    return q2(order.amount / Decimal(rate))
+
+
+def paid_amount(req) -> Decimal:
+    """Σ posted chiqims linked to the request, in the request currency."""
+    orders = posted_orders().filter(payment_request=req, kind=OrderKind.OUT)
+    return sum((_in_request_currency(o, req) for o in orders), ZERO)
+
+
+def payment_request_state(req) -> dict:
+    """What other modules read about a request: {id, code, status, amount, paid, currency}."""
+    return {"id": req.pk, "code": req.code, "status": req.status, "amount": req.amount,
+            "paid": paid_amount(req), "currency": req.currency}

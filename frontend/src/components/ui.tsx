@@ -197,13 +197,14 @@ export function Dialog({ open, onClose, title, children, footer, width = "max-w-
   if (!open) return null;
   return (
     <div className="anim-fade fixed inset-0 z-50 grid place-items-center bg-scrim/35 p-4" onMouseDown={onClose}>
-      <div role="dialog" aria-modal aria-label={title} className={`pop anim-pop w-full ${width}`} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+      {/* tall content scrolls inside; header and footer (the buttons) always stay on screen */}
+      <div role="dialog" aria-modal aria-label={title} className={`pop anim-pop flex max-h-[90dvh] w-full flex-col ${width}`} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <h2 className="t-h2">{title}</h2>
           <IconButton label="Yopish" onClick={onClose}><X className="size-4" /></IconButton>
         </div>
-        <div className="grid gap-4 px-5 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-line bg-ground/50 px-5 py-3">{footer}</div>}
+        <div className="grid min-h-0 gap-4 overflow-y-auto px-5 py-4">{children}</div>
+        {footer && <div className="flex shrink-0 justify-end gap-2 border-t border-line bg-ground/50 px-5 py-3">{footer}</div>}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ from apps.clients.models import Client
 from apps.core.serializers import RefSerializer
 from apps.employees.models import Employee
 from apps.kassa import selectors
-from apps.kassa.models import AccountKind, CashAccount, CashOrder, OrderKind, PaymentPurpose
+from apps.kassa.models import AccountKind, CashAccount, CashOrder, OrderKind, PaymentPurpose, PaymentRequest
 from apps.projects.models import Currency, Project
 
 # ------------------------------------------------------------------ accounts
@@ -110,6 +110,10 @@ class CashOrderSerializer(CashOrderListSerializer):
     invoice_id = serializers.PrimaryKeyRelatedField(source="invoice", queryset=Invoice.objects.all(),
                                                     required=False, allow_null=True)
     invoice = InvoiceRefSerializer(read_only=True)
+    payment_request_id = serializers.PrimaryKeyRelatedField(source="payment_request",
+                                                            queryset=PaymentRequest.objects.all(),
+                                                            required=False, allow_null=True)
+    payment_request_code = serializers.CharField(source="payment_request.code", read_only=True, default=None)
     rate = serializers.DecimalField(max_digits=14, decimal_places=4, required=False, allow_null=True,
                                     min_value=Decimal("0.0001"))
     account_role = serializers.CharField(required=False, allow_blank=True, max_length=40)
@@ -120,7 +124,8 @@ class CashOrderSerializer(CashOrderListSerializer):
 
     class Meta(CashOrderListSerializer.Meta):
         fields = [*CashOrderListSerializer.Meta.fields, "account_id", "to_account_id", "purpose_id", "account_role",
-                  "partner_id", "project_id", "employee_id", "invoice_id", "invoice", "received_from", "issued_to",
+                  "partner_id", "project_id", "employee_id", "invoice_id", "invoice", "payment_request_id",
+                  "payment_request_code", "received_from", "issued_to",
                   "notes", "entry_id", "posted_at", "posted_by", "created_by", "allowed_statuses", "updated_at"]
         read_only_fields = ["status", "currency"]
         extra_kwargs = {"amount": {"min_value": Decimal("0.01")}}
@@ -134,3 +139,50 @@ class CancelSerializer(serializers.Serializer):
 class BookQuerySerializer(serializers.Serializer):
     account = serializers.PrimaryKeyRelatedField(queryset=CashAccount.objects.all())
     date = serializers.DateField()
+
+
+# ------------------------------------------------------------------ money requests (ADR 0009)
+
+
+class PaymentRequestListSerializer(serializers.ModelSerializer):
+    partner = RefSerializer(read_only=True)
+    project = RefSerializer(read_only=True)
+    purpose = PurposeRefSerializer(read_only=True)
+    requested_by = serializers.CharField(source="requested_by.full_name", read_only=True, default="")
+    paid = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PaymentRequest
+        fields = ["id", "code", "status", "partner", "project", "amount", "currency", "rate", "purpose", "basis",
+                  "needed_by", "requested_by", "paid", "source_model", "source_id", "source_label", "created_at"]
+
+    def get_paid(self, obj) -> str:
+        return str(selectors.paid_amount(obj))
+
+
+class PaymentRequestSerializer(PaymentRequestListSerializer):
+    partner_id = serializers.PrimaryKeyRelatedField(source="partner", queryset=Client.objects.all())
+    project_id = serializers.PrimaryKeyRelatedField(source="project", queryset=Project.objects.all(),
+                                                    required=False, allow_null=True)
+    purpose_id = serializers.PrimaryKeyRelatedField(source="purpose", queryset=PaymentPurpose.objects.all(),
+                                                    required=False, allow_null=True)
+    currency = serializers.ChoiceField(choices=Currency.choices, required=False)
+    rate = serializers.DecimalField(max_digits=14, decimal_places=4, required=False, allow_null=True,
+                                    min_value=Decimal("0.0001"))
+    decided_by = serializers.CharField(source="decided_by.full_name", read_only=True, default="")
+    allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
+    cash_orders = serializers.SerializerMethodField()
+
+    class Meta(PaymentRequestListSerializer.Meta):
+        fields = [*PaymentRequestListSerializer.Meta.fields, "partner_id", "project_id", "purpose_id", "notes",
+                  "decided_by", "decided_at", "decision_comment", "allowed_statuses", "cash_orders", "updated_at"]
+        read_only_fields = ["status", "decided_at", "decision_comment", "source_model", "source_id", "source_label"]
+        extra_kwargs = {"amount": {"min_value": Decimal("0.01")}}
+
+    def get_cash_orders(self, obj) -> list[dict]:
+        return [{"id": o.pk, "code": o.code, "status": o.status, "date": o.date, "amount": str(o.amount),
+                 "currency": o.currency} for o in obj.cash_orders.order_by("date", "id")]
+
+
+class DecisionSerializer(serializers.Serializer):
+    comment = serializers.CharField(required=False, allow_blank=True, default="", max_length=1000)

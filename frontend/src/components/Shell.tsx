@@ -15,6 +15,8 @@ import {
   Monitor,
   PackageCheck,
   ClipboardList,
+  HandCoins,
+  ListOrdered,
   Truck,
   Moon,
   Plus,
@@ -81,6 +83,7 @@ const NAV: NavGroup[] = [
       { page: "kassa", label: "Kassa va bank", to: "/kassa", icon: Wallet },
       { page: "cash_orders", label: "Kirim / chiqim", to: "/kassa/orders", icon: ArrowLeftRight },
       { page: "cash_book", label: "Kassa kitobi", to: "/kassa/book", icon: NotebookText },
+      { page: "payment_requests", label: "Pul so'rovlari", to: "/kassa/payment-requests", icon: HandCoins },
     ],
   },
   {
@@ -101,6 +104,7 @@ const NAV: NavGroup[] = [
       { page: "references", label: "Ma'lumotnomalar", to: "/settings/references", icon: ListChecks },
       { page: "pricing", label: "Narxlar", to: "/settings/pricing", icon: Tags },
       { page: "company", label: "Kompaniya", to: "/settings/company", icon: Building },
+      { page: "approval_steps", label: "Tasdiqlash bosqichlari", to: "/settings/approval-steps", icon: ListOrdered },
     ],
   },
 ];

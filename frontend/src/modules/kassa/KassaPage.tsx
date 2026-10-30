@@ -25,6 +25,7 @@ type Tab = "accounts" | "purposes";
 export function KassaPage() {
   const can = useCan("kassa");
   const canOrders = useCan("cash_orders");
+  const canRequests = useCan("payment_requests");
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const tab = (sp.get("tab") as Tab | null) ?? "accounts";
@@ -45,13 +46,17 @@ export function KassaPage() {
           {canOrders.create && <Button variant="ghost" onClick={() => navigate("/kassa/orders/new?kind=transfer")}><ArrowLeftRight className="size-4" strokeWidth={1.75} /> O'tkazma</Button>}
         </>} />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Kpi label="Jami pul, so'm" value={money(s?.total_uzs)} />
         <Kpi label="Kassalarda" value={money(s?.cash_uzs)} />
         <Kpi label="Bankda" value={money(s?.bank_uzs)} />
         <Kpi label="Shu oy kirim" value={money(s?.month_in)} tone="text-ok" sub={s && Number(s.today_in) ? `bugun ${money(s.today_in)}` : undefined} />
         <Kpi label="Shu oy chiqim" value={money(s?.month_out)} tone="text-bad" sub={s && Number(s.today_out) ? `bugun ${money(s.today_out)}` : undefined} />
         <Kpi label="Qoralamalar" value={s?.drafts ?? "—"} onClick={canOrders.view ? () => navigate("/kassa/orders?status=draft") : undefined} />
+        {canRequests.view && (
+          <Kpi label="Pul so'rovlari" value={s?.payment_requests ?? "—"} tone={s?.payment_requests ? "text-warn" : ""} sub="kutilmoqda"
+            onClick={() => navigate("/kassa/payment-requests?status=submitted")} />
+        )}
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">

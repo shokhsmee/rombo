@@ -22,6 +22,7 @@ type Values = {
   kind: OrderKind; date: string; account_id: number | null; to_account_id: number | null; amount: string; rate: string;
   purpose_id: number | null; account_role: string; partner_id: number | null; project_id: number | null;
   employee_id: number | null; invoice_id: number | null; basis: string; received_from: string; issued_to: string; notes: string;
+  payment_request_id: number | null;
 };
 
 const EXPENSE_ROLES = ["admin_expense", "selling_expense", "other_op_expense"];
@@ -48,6 +49,7 @@ export function CashOrderFormPage() {
     purpose_id: sp.get("purpose") ? Number(sp.get("purpose")) : null, account_role: "",
     partner_id: sp.get("partner") ? Number(sp.get("partner")) : null, project_id: sp.get("project") ? Number(sp.get("project")) : null,
     employee_id: null, invoice_id: null, basis: sp.get("basis") ?? "", received_from: "", issued_to: "", notes: "",
+    payment_request_id: sp.get("payment_request") ? Number(sp.get("payment_request")) : null,
   };
   const form = useServerForm<Values, CashOrder>({
     initial: EMPTY,
@@ -56,7 +58,7 @@ export function CashOrderFormPage() {
       kind: r.kind, date: r.date, account_id: r.account_id, to_account_id: r.to_account_id, amount: String(Number(r.amount)),
       rate: r.rate ? String(Number(r.rate)) : "", purpose_id: r.purpose_id, account_role: r.account_role, partner_id: r.partner_id,
       project_id: r.project_id, employee_id: r.employee_id, invoice_id: r.invoice_id, basis: r.basis, received_from: r.received_from,
-      issued_to: r.issued_to, notes: r.notes,
+      issued_to: r.issued_to, notes: r.notes, payment_request_id: r.payment_request_id,
     }),
     validate: {
       account_id: (v) => (v ? null : "Kassani tanlang"),
@@ -105,8 +107,10 @@ export function CashOrderFormPage() {
   useEffect(() => {
     if (isNew && v.kind !== "transfer" && purposeOptions.length && !purposeOptions.some((p) => p.id === v.purpose_id)) {
       // from a Loyiha / client card: the customer purpose; a plain chiqim: the first expense-like purpose
-      const wanted = sp.get("partner") || sp.get("project") ? purposeOptions.find((p) => p.posting === "partner_customer")
-        : v.kind === "out" ? purposeOptions.find((p) => p.posting === "account") : null;
+      // paying a money request (pul so'rovi): the supplier payment purpose
+      const wanted = sp.get("payment_request") ? purposeOptions.find((p) => p.posting === "partner_supplier")
+        : sp.get("partner") || sp.get("project") ? purposeOptions.find((p) => p.posting === "partner_customer")
+          : v.kind === "out" ? purposeOptions.find((p) => p.posting === "account") : null;
       form.set("purpose_id", (wanted ?? purposeOptions[0]).id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,7 +126,7 @@ export function CashOrderFormPage() {
     };
     save.mutate({ id, data }, {
       onSuccess: (saved) => { notifyOk("Saqlandi"); form.commit(); if (isNew) navigate(`/kassa/orders/${saved.id}`, { replace: true }); },
-      onError: (err) => applyServerErrors(form, err, { partner: "partner_id", employee: "employee_id", to_account: "to_account_id" }),
+      onError: (err) => applyServerErrors(form, err, { partner: "partner_id", employee: "employee_id", to_account: "to_account_id", payment_request: "payment_request_id" }),
     });
   };
 
@@ -251,6 +255,13 @@ export function CashOrderFormPage() {
 
             <FieldGrid title="Hujjat">
               <Row label="Asos" wide><Input placeholder="Shartnoma № …, hisob-faktura, avans…" {...form.text("basis")} /></Row>
+              {v.payment_request_id && (
+                <Row label="Pul so'rovi" error={form.errors.payment_request_id}>
+                  <Link to={`/kassa/payment-requests/${v.payment_request_id}`} className="pt-2 font-mono text-sm text-accent-ink hover:underline">
+                    {o?.payment_request_code ?? `#${v.payment_request_id}`}
+                  </Link>
+                </Row>
+              )}
               {v.kind === "in" && <Row label="Kimdan qabul qilindi"><Input placeholder="F.I.O. (bo'sh — kontragent nomi)" {...form.text("received_from")} /></Row>}
               {v.kind === "out" && <Row label="Kimga berildi"><Input placeholder="F.I.O. (bo'sh — kontragent / xodim)" {...form.text("issued_to")} /></Row>}
               <Row label="Izoh" wide><Textarea rows={2} {...form.text("notes")} /></Row>

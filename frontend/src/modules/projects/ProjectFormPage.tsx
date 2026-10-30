@@ -15,6 +15,7 @@ import { clientsApi, type Client } from "@/modules/clients/api";
 import { QuickCreateClient } from "@/modules/clients/QuickCreateClient";
 import { useOrdersOf } from "@/modules/kassa/api";
 import { pricingApi } from "@/modules/pricing/api";
+import { useRequestFromProject } from "@/modules/procurement/api";
 import { RefSelect } from "@/modules/references/RefSelect";
 
 import { projectsApi, useCalcActions, useChangeStatus, type Currency, type Project, type ProjectStatus } from "./api";
@@ -153,6 +154,7 @@ export function ProjectFormPage() {
           off={p.status === "cancelled" ? STATUS.cancelled.label : undefined} />}>
           {canEdit && <SaveButtons dirty={form.dirty} saving={save.isPending} isNew={isNew} onReset={form.reset} />}
           {p && !form.dirty && <StatusActions project={p} canUpdate={can.update} />}
+          {p && !form.dirty && canProcurement.create && p.calcs.length > 0 && <SendToPurchase projectId={p.id} />}
           {p && !form.dirty && (
             <Menu
               trigger={() => <Button variant="ghost"><Printer className="size-4" strokeWidth={1.75} /> Hujjatlar <ChevronDown className="size-3.5" /></Button>}
@@ -491,5 +493,20 @@ function Calcs({ project, canEdit }: { project: Project; canEdit: boolean }) {
         </Select>
       </Dialog>
     </div>
+  );
+}
+
+/** "Xaridga yuborish": a draft purchase request with the lines of all the Loyiha's calculations. */
+function SendToPurchase({ projectId }: { projectId: number }) {
+  const navigate = useNavigate();
+  const create = useRequestFromProject();
+  return (
+    <Button variant="ghost" busy={create.isPending}
+      onClick={() => create.mutate(projectId, {
+        onSuccess: (r) => { notifyOk(`Xarid so'rovi ${r.code}: ${r.lines.length} qator`); navigate(`/procurement/requests/${r.id}`); },
+        onError: notifyError,
+      })}>
+      <ShoppingCart className="size-4" strokeWidth={1.75} /> Xaridga yuborish
+    </Button>
   );
 }

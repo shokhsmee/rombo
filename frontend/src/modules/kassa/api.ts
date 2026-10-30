@@ -86,6 +86,7 @@ export type CashOrder = CashOrderListItem & {
   account_id: number; to_account_id: number | null; purpose_id: number | null; account_role: string;
   partner_id: number | null; project_id: number | null; employee_id: number | null; invoice_id: number | null;
   invoice: { id: number; code: string; gross: string; currency: Currency } | null;
+  payment_request_id: number | null; payment_request_code: string | null;
   received_from: string; issued_to: string; notes: string; entry_id: number | null; posted_at: string | null;
   posted_by: string; created_by: string; allowed_statuses: OrderStatus[]; updated_at: string;
 };
@@ -93,7 +94,7 @@ export type CashOrderInput = Partial<{
   kind: OrderKind; date: string; account_id: number | null; to_account_id: number | null; amount: string;
   rate: string | null; purpose_id: number | null; account_role: string; partner_id: number | null;
   project_id: number | null; employee_id: number | null; invoice_id: number | null; basis: string;
-  received_from: string; issued_to: string; notes: string;
+  received_from: string; issued_to: string; notes: string; payment_request_id: number | null;
 }>;
 
 export const ordersApi = crudResource<CashOrderListItem, CashOrder, CashOrderInput>("kassa/orders");
@@ -106,6 +107,8 @@ export function useOrderActions(id: number) {
     qc.invalidateQueries({ queryKey: ["accounting"] });
     qc.invalidateQueries({ queryKey: ["chatter"] });
     qc.invalidateQueries({ queryKey: ["projects"] });
+    qc.invalidateQueries({ queryKey: paymentRequestsApi.keys.all });
+    qc.invalidateQueries({ queryKey: ["procurement/orders"] });
   };
   return {
     post: useMutation({ mutationFn: async () => (await api.post<CashOrder>(`/kassa/orders/${id}/post/`, {})).data, onSuccess: done }),
@@ -129,7 +132,7 @@ export function useOrdersOf(params: Record<string, unknown>, enabled = true) {
 
 export type Summary = {
   total_uzs: string; cash_uzs: string; bank_uzs: string; month_in: string; month_out: string; today_in: string; today_out: string;
-  drafts: number; accounts: { id: number; name: string; kind: AccountKind; currency: Currency; balance: string; balance_uzs: string }[];
+  drafts: number; payment_requests: number; accounts: { id: number; name: string; kind: AccountKind; currency: Currency; balance: string; balance_uzs: string }[];
 };
 export function useKassaSummary(enabled = true) {
   return useQuery({ queryKey: ["kassa", "summary"], queryFn: async () => (await api.get<Summary>("/kassa/summary/")).data, enabled });
@@ -151,4 +154,49 @@ export function useCashBook(p: { account: number | null; date: string }) {
     enabled: !!p.account && !!p.date,
     placeholderData: keepPreviousData,
   });
+}
+
+// ---- money requests (pul so'rovlari, ADR 0009)
+
+export type PaymentRequestStatus = "draft" | "submitted" | "approved" | "rejected" | "paid" | "cancelled";
+export type PaymentRequestListItem = {
+  id: number; code: string; status: PaymentRequestStatus; partner: Ref; project: Ref | null; amount: string;
+  currency: Currency; rate: string | null; purpose: PurposeRef | null; basis: string; needed_by: string | null;
+  requested_by: string; paid: string; source_model: string; source_id: number | null; source_label: string; created_at: string;
+};
+export type PaymentRequest = PaymentRequestListItem & {
+  partner_id: number; project_id: number | null; purpose_id: number | null; notes: string; decided_by: string;
+  decided_at: string | null; decision_comment: string; allowed_statuses: PaymentRequestStatus[];
+  cash_orders: { id: number; code: string | null; status: OrderStatus; date: string; amount: string; currency: Currency }[];
+  updated_at: string;
+};
+export type PaymentRequestInput = Partial<{
+  partner_id: number | null; project_id: number | null; amount: string; currency: Currency; rate: string | null;
+  purpose_id: number | null; basis: string; notes: string; needed_by: string | null;
+}>;
+
+export const paymentRequestsApi = crudResource<PaymentRequestListItem, PaymentRequest, PaymentRequestInput>("kassa/payment-requests");
+
+function usePaymentRequestAction(id: number, name: "submit" | "approve" | "reject" | "cancel") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { comment?: string } = {}) =>
+      (await api.post<PaymentRequest>(`/kassa/payment-requests/${id}/${name}/`, body)).data,
+    onSuccess: (r) => {
+      qc.setQueryData(paymentRequestsApi.keys.detail(r.id), r);
+      qc.invalidateQueries({ queryKey: paymentRequestsApi.keys.all });
+      qc.invalidateQueries({ queryKey: ["kassa", "summary"] });
+      qc.invalidateQueries({ queryKey: ["procurement/orders"] });
+      qc.invalidateQueries({ queryKey: ["chatter"] });
+    },
+  });
+}
+
+export function usePaymentRequestActions(id: number) {
+  return {
+    submit: usePaymentRequestAction(id, "submit"),
+    approve: usePaymentRequestAction(id, "approve"),
+    reject: usePaymentRequestAction(id, "reject"),
+    cancel: usePaymentRequestAction(id, "cancel"),
+  };
 }

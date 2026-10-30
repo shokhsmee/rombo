@@ -60,6 +60,9 @@ class Pages:
     KASSA = "kassa"
     CASH_ORDERS = "cash_orders"
     CASH_BOOK = "cash_book"
+    PAYMENT_REQUESTS = "payment_requests"
+    PAYMENT_APPROVE = "payment_approve"
+    APPROVAL_STEPS = "approval_steps"
 
 
 PAGES: tuple[PageDef, ...] = (
@@ -83,12 +86,15 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.KASSA, "Kassa va bank (hisoblar)", "Moliya", (Action.VIEW, Action.CREATE, Action.UPDATE)),
     PageDef(Pages.CASH_ORDERS, "Kirim / chiqim orderlari", "Moliya"),
     PageDef(Pages.CASH_BOOK, "Kassa kitobi", "Moliya", VIEW_ONLY),
+    PageDef(Pages.PAYMENT_REQUESTS, "Pul so'rovlari", "Moliya"),
+    PageDef(Pages.PAYMENT_APPROVE, "Pul so'rovlarini tasdiqlash", "Moliya", (Action.VIEW, Action.UPDATE)),
     PageDef(Pages.EMPLOYEES, "Xodimlar", "Xodimlar"),
     PageDef(Pages.USERS, "Foydalanuvchilar", "Sozlamalar"),
     PageDef(Pages.ROLES, "Rollar va ruxsatlar", "Sozlamalar"),
     PageDef(Pages.REFERENCES, "Ma'lumotnomalar", "Sozlamalar"),
     PageDef(Pages.PRICING, "Narxlar", "Sozlamalar"),
     PageDef(Pages.COMPANY, "Kompaniya rekvizitlari", "Sozlamalar", (Action.VIEW, Action.UPDATE)),
+    PageDef(Pages.APPROVAL_STEPS, "Tasdiqlash bosqichlari", "Sozlamalar"),
 )
 
 PAGE_BY_KEY = {p.key: p for p in PAGES}

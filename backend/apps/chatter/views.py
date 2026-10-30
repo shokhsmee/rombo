@@ -25,6 +25,7 @@ CHATTER_PAGES = {
     "accounting.account": Pages.ACCOUNTS,
     "kassa.cashaccount": Pages.KASSA,
     "kassa.cashorder": Pages.CASH_ORDERS,
+    "kassa.paymentrequest": Pages.PAYMENT_REQUESTS,
 }
 
 

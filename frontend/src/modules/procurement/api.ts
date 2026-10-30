@@ -21,9 +21,16 @@ export type RequestListItem = {
   id: number; code: string; status: RequestStatus; project: Ref; requester: UserRef | null;
   needed_by: string | null; lines_count: number; created_at: string;
 };
+export type StepState = "done" | "current" | "pending" | "rejected";
+export type RequestApproval = {
+  id: number; step_id: number | null; step_name: string; decision: "approved" | "rejected"; user: UserRef | null;
+  comment: string; created_at: string;
+};
 export type PurchaseRequest = RequestListItem & {
   project_id: number; project_status: string; notes: string; lines: RequestLine[];
   submitted_at: string | null; approved_at: string | null; approved_by: UserRef | null;
+  approval_step: { id: number; name: string; role: string } | null; approvals: RequestApproval[];
+  steps: { id: number; name: string; role: string; state: StepState }[]; can_approve: boolean;
   allowed_statuses: RequestStatus[]; updated_at: string;
 };
 export type RequestLineInput = { item_id?: number | null; name: string; unit: string; qty: string; note?: string };
@@ -49,8 +56,10 @@ export type OrderListItem = {
 export type PurchaseOrder = OrderListItem & {
   supplier_id: number; supplier_email: string; supplier_balance: { balance_uzs: string; balance_cur: string | null };
   project_id: number | null; notes: string; lines: OrderLine[]; sent_by: UserRef | null; sent_to: string;
-  receipts: DocRef[]; allowed_statuses: OrderStatus[]; updated_at: string;
+  receipts: DocRef[]; payment_request: MoneyState | null; allowed_statuses: OrderStatus[]; updated_at: string;
 };
+export type MoneyStatus = "draft" | "submitted" | "approved" | "rejected" | "paid" | "cancelled";
+export type MoneyState = { id: number; code: string; status: MoneyStatus; amount: string; paid: string; currency: Currency };
 export type OrderLineInput = {
   request_line_id?: number | null; item_id?: number | null; name: string; unit: string; qty: string;
   price: string | null; vat_rate: string | null;
@@ -134,7 +143,9 @@ export const useOrderActions = () => ({
   send: useDocAction<PurchaseOrder, { via: SentVia; to?: string; note?: string }>(ordersApi, ORD, (id) => `/procurement/orders/${id}/send/`,
     [["projects"], ["procurement/requests"]]),
   cancel: useDocAction<PurchaseOrder, { comment?: string }>(ordersApi, ORD, (id) => `/procurement/orders/${id}/cancel/`,
-    [["procurement/requests"]]),
+    [["procurement/requests"], ["kassa/payment-requests"]]),
+  requestMoney: useDocAction<PurchaseOrder, { amount?: string | null; note?: string }>(ordersApi, ORD,
+    (id) => `/procurement/orders/${id}/request-money/`, [["kassa/payment-requests"], ["kassa", "summary"]]),
 });
 
 export const useReceiptActions = () => ({
@@ -165,4 +176,46 @@ export function useStatusSummary(resource: "requests" | "orders" | "receipts") {
     queryKey: [`procurement/${resource}`, "summary"],
     queryFn: async () => (await api.get<{ status: string; count: number }[]>(`/procurement/${resource}/summary/`)).data,
   });
+}
+
+/** "Xaridga yuborish" on the Loyiha card: a draft request with the lines of all its calculations. */
+export function useRequestFromProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (projectId: number) =>
+      (await api.post<PurchaseRequest>("/procurement/requests/from-project/", { project_id: projectId })).data,
+    onSuccess: (req) => {
+      qc.setQueryData(requestsApi.keys.detail(req.id), req);
+      qc.invalidateQueries({ queryKey: requestsApi.keys.all });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+// ---- approval steps (Sozlamalar)
+
+export type ApprovalStep = { id: number; sequence: number; name: string; role_id: number; role: Ref; is_active: boolean; updated_at: string };
+export type ApprovalStepInput = Partial<{ sequence: number; name: string; role_id: number | null; is_active: boolean }>;
+
+const STEPS = ["procurement/approval-steps"];
+
+export function useApprovalSteps() {
+  return useQuery({
+    queryKey: STEPS,
+    queryFn: async () => (await api.get<ApprovalStep[]>("/procurement/approval-steps/")).data,
+  });
+}
+
+export function useApprovalStepActions() {
+  const qc = useQueryClient();
+  const done = () => { qc.invalidateQueries({ queryKey: STEPS }); qc.invalidateQueries({ queryKey: requestsApi.keys.all }); };
+  return {
+    save: useMutation({
+      mutationFn: async ({ id, data }: { id?: number; data: ApprovalStepInput }) =>
+        id ? (await api.patch<ApprovalStep>(`/procurement/approval-steps/${id}/`, data)).data
+          : (await api.post<ApprovalStep>("/procurement/approval-steps/", data)).data,
+      onSuccess: done,
+    }),
+    remove: useMutation({ mutationFn: async (id: number) => api.delete(`/procurement/approval-steps/${id}/`), onSuccess: done }),
+  };
 }

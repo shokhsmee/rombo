@@ -1,15 +1,16 @@
 import dayjs from "dayjs";
-import { Building2, FileText, Lock, PackageCheck, Plus, Printer, Send, Wallet, X } from "lucide-react";
+import { Building2, FileText, HandCoins, Lock, PackageCheck, Plus, Printer, Send, Wallet, X } from "lucide-react";
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { EntitySelect } from "@/components/EntitySelect";
 import { ActionBar, DeleteButton, FieldGrid, RecordNav, RecordPage, Row, SaveButtons, Sheet, SheetTitle, StatusTrack } from "@/components/Record";
-import { Button, Dialog, IconButton, Input, Segmented, Select, Smart, Textarea } from "@/components/ui";
+import { Button, Dialog, IconButton, Input, Pill, Segmented, Select, Smart, Textarea } from "@/components/ui";
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDateTime, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
+import { PAYMENT_REQUEST_STATUS } from "@/modules/kassa/labels";
 
 import { ordersApi, receiptsApi, useOrderActions, type Currency, type OrderLine, type PurchaseOrder, type SentVia } from "./api";
 import { ORDER_PIPELINE, ORDER_STATUS, VIA_LABEL } from "./statuses";
@@ -255,7 +256,9 @@ function Actions({ order: o, canUpdate, canReceive }: { order: PurchaseOrder; ca
   const navigate = useNavigate();
   const a = useOrderActions();
   const createReceipt = receiptsApi.useSave();
-  const [dialog, setDialog] = useState<"send" | "cancel" | null>(null);
+  const canMoney = useCan("payment_requests");
+  const [dialog, setDialog] = useState<"send" | "cancel" | "money" | null>(null);
+  const [amount, setAmount] = useState("");
   const [via, setVia] = useState<SentVia>("print");
   const [to, setTo] = useState("");
   const [note, setNote] = useState("");
@@ -265,6 +268,16 @@ function Actions({ order: o, canUpdate, canReceive }: { order: PurchaseOrder; ca
   const pickVia = (x: SentVia) => { setVia(x); setTo(x === "email" ? o.supplier_email : ""); };
 
   const canSend = canUpdate && (o.status === "draft" || o.status === "sent") && o.lines.length > 0;
+  // the gate (ADR 0009): a draft goes to the supplier only after kassa approved the money
+  const pr = o.payment_request;
+  const moneyOk = !!pr && (pr.status === "approved" || pr.status === "paid");
+  const moneyLive = !!pr && (pr.status === "submitted" || moneyOk);
+  const sendBlocked = o.status === "draft" && !moneyOk;
+  const canAsk = canUpdate && o.status === "draft" && o.lines.length > 0 && !moneyLive;
+  const askMoney = () => a.requestMoney.mutate({ id: o.id, body: { amount: toNum(amount) > 0 ? String(toNum(amount)) : null, note } }, {
+    onSuccess: (x) => { close(); notifyOk(`Kassaga so'rov: ${x.payment_request?.code ?? ""}`); },
+    onError: notifyError,
+  });
   const canReceipt = canReceive && (o.status === "sent" || o.status === "partially_received");
 
   const send = () => a.send.mutate({ id: o.id, body: { via, to, note } }, {
@@ -283,11 +296,25 @@ function Actions({ order: o, canUpdate, canReceive }: { order: PurchaseOrder; ca
 
   return (
     <>
+      {canAsk && (
+        <Button onClick={() => { setAmount(String(Number(o.totals.gross))); setDialog("money"); }}>
+          <HandCoins className="size-4" strokeWidth={1.75} /> Pul so'rash
+        </Button>
+      )}
       {canSend && (
-        <Button onClick={() => { pickVia("print"); setDialog("send"); }}>
+        <Button variant={canAsk ? "ghost" : "primary"} disabled={sendBlocked} title={sendBlocked ? "Avval kassa pulni tasdiqlasin" : undefined}
+          onClick={() => { pickVia("print"); setDialog("send"); }}>
           <Send className="size-4" /> {o.status === "draft" ? "Yuborish" : "Qayta yuborish"}
         </Button>
       )}
+      {pr && (
+        canMoney.view ? (
+          <Link to={`/kassa/payment-requests/${pr.id}`} className="press inline-flex items-center gap-1.5" title={`Pul so'rovi ${pr.code}`}>
+            <Pill tone={PAYMENT_REQUEST_STATUS[pr.status].tone}>Pul: {PAYMENT_REQUEST_STATUS[pr.status].label} · {pr.code}</Pill>
+          </Link>
+        ) : <Pill tone={PAYMENT_REQUEST_STATUS[pr.status].tone}>Pul: {PAYMENT_REQUEST_STATUS[pr.status].label}</Pill>
+      )}
+      {canSend && sendBlocked && <span className="text-xs text-muted">Avval kassa pulni tasdiqlasin</span>}
       {canReceipt && <Button variant={canSend ? "soft" : "primary"} busy={createReceipt.isPending} onClick={receipt}><PackageCheck className="size-4" /> Kirim qilish</Button>}
       {canUpdate && o.allowed_statuses.includes("cancelled") && (
         <Button variant="ghost" className="text-bad" onClick={() => setDialog("cancel")}>Bekor qilish</Button>
@@ -315,6 +342,23 @@ function Actions({ order: o, canUpdate, canReceive }: { order: PurchaseOrder; ca
           </label>
         )}
         <Textarea rows={2} placeholder="Izoh (ixtiyoriy)" value={note} onChange={(e) => setNote(e.target.value)} />
+      </Dialog>
+
+      <Dialog open={dialog === "money"} onClose={close} title={`Buyurtma ${o.code} — kassadan pul so'rash`}
+        footer={<>
+          <Button variant="ghost" onClick={close}>Yopish</Button>
+          <Button busy={a.requestMoney.isPending} disabled={!(toNum(amount) > 0)} onClick={askMoney}>Kassaga yuborish</Button>
+        </>}>
+        <p className="text-sm text-muted">Kassa tasdiqlagandan keyin buyurtmani yetkazib beruvchiga yuborish mumkin bo'ladi.</p>
+        <label className="grid gap-1 text-sm">
+          <span className="font-medium">Summa</span>
+          <div className="flex gap-2">
+            <Input autoFocus inputMode="decimal" className="tabular text-lg font-semibold" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <span className="flex h-9 shrink-0 items-center rounded-lg border border-line bg-ground px-3 text-sm text-muted">{o.currency === "UZS" ? "so'm" : o.currency}</span>
+          </div>
+          <span className="text-xs text-muted">Buyurtma jami: {fmtMoney(o.totals.gross, o.currency)}</span>
+        </label>
+        <Textarea rows={2} placeholder="Izoh (ixtiyoriy): avans 50%, muddat…" value={note} onChange={(e) => setNote(e.target.value)} />
       </Dialog>
 
       <Dialog open={dialog === "cancel"} onClose={close} title="Buyurtmani bekor qilish"

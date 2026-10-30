@@ -3,6 +3,14 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-30
+- `add-purchase-approvals-and-money-requests` — Multi-level approval of purchase requests: ordered steps,
+  each decided by members of a role (Sozlamalar → Tasdiqlash bosqichlari), every decision stored and shown on
+  the request; no steps = the old single approval. Money requests (Pul so'rovi `PS-`) in kassa: the buyer
+  asks from the order ("Pul so'rash"), kassa approves or rejects, "Pul berish" opens a linked RKO and the
+  request becomes paid when posted chiqims reach the amount. A purchase order is sent only after kassa
+  approves its money (409 otherwise). "Xaridga yuborish" on the Loyiha card drafts a request from its
+  hisob-kitob. Kassa now sits under procurement (ADR 0009). Dialogs scroll inside and keep their buttons
+  on screen. Why: control before money leaves, and one click from the order to purchasing.
 - `fix-currency-display` — Money on a USD Loyiha reads in USD first: the Buxgalteriya block shows
   "8 500 USD · 101 447 500 so'm" (converted at the Loyiha's `usd_rate`, else today's rate; `project_money`
   returns `currency`, `rate`, `*_cur`), every figure carries its currency, and `fmtMoney` keeps the decimal

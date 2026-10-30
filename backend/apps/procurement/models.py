@@ -25,6 +25,35 @@ class Currency(models.TextChoices):
     USD = "USD", "USD"
 
 
+# ------------------------------------------------------------------ approval steps
+
+
+class ApprovalStep(AuditModel):
+    """One level of request approval (add-purchase-approvals-and-money-requests). Any active member of
+    `role` (or a superuser) decides it; steps run in `sequence` order. No active step → single level."""
+
+    TRACK = {"sequence": "Tartib", "name": "Nomi", "role": "Rol", "is_active": "Faol"}
+    CHATTER_NAME = "Tasdiqlash bosqichi"
+
+    sequence = models.PositiveSmallIntegerField("Tartib", default=10, db_index=True)
+    name = models.CharField("Nomi", max_length=100)
+    role = models.ForeignKey("access.Role", on_delete=models.PROTECT, related_name="approval_steps")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["sequence", "id"]
+        verbose_name = "Tasdiqlash bosqichi"
+        verbose_name_plural = "Tasdiqlash bosqichlari"
+
+    def __str__(self):
+        return self.name
+
+
+class Decision(models.TextChoices):
+    APPROVED = "approved", "Tasdiqlandi"
+    REJECTED = "rejected", "Rad etildi"
+
+
 # ------------------------------------------------------------------ purchase request
 
 
@@ -71,6 +100,9 @@ class PurchaseRequest(AuditModel, SoftDeleteModel):
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
                                     on_delete=models.SET_NULL,
                                     related_name="+")
+    # the step a submitted request waits at (multi-level approval); null otherwise
+    approval_step = models.ForeignKey(ApprovalStep, null=True, blank=True, on_delete=models.SET_NULL,
+                                      related_name="waiting_requests")
 
     class Meta:
         ordering = ["-created_at"]
@@ -83,6 +115,25 @@ class PurchaseRequest(AuditModel, SoftDeleteModel):
     @property
     def allowed_statuses(self) -> list[str]:
         return sorted(REQUEST_TRANSITIONS[self.status] - {RS.ORDERED})
+
+
+class RequestApproval(models.Model):
+    """One decision on a request: which step, who, approved / rejected, why, when."""
+
+    request = models.ForeignKey(PurchaseRequest, on_delete=models.CASCADE, related_name="approvals")
+    step = models.ForeignKey(ApprovalStep, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    step_name = models.CharField(max_length=100, blank=True, default="")  # kept when the step is deleted
+    decision = models.CharField(max_length=10, choices=Decision.choices)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name="+")
+    comment = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    def __str__(self):
+        return f"{self.step_name or '—'}: {self.decision}"
 
 
 class PurchaseRequestLine(models.Model):
@@ -163,6 +214,9 @@ class PurchaseOrder(AuditModel, SoftDeleteModel):
                                 related_name="+")
     sent_via = models.CharField(max_length=10, choices=SentVia.choices, blank=True, default="")
     sent_to = models.CharField(max_length=200, blank=True, default="")
+    # kassa money request (ADR 0009): the order is sent only when it is approved or paid
+    payment_request = models.ForeignKey("kassa.PaymentRequest", null=True, blank=True,
+                                        on_delete=models.SET_NULL, related_name="+")
 
     class Meta:
         ordering = ["-created_at"]

@@ -2,18 +2,25 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from apps.access.models import Role
+from apps.access.registry import Action, Pages
+from apps.access.services import has_permission
 from apps.clients.models import Client, ClientKind
 from apps.core.serializers import RefSerializer, UserRefSerializer
 from apps.pricing.models import PriceListItem
-from apps.procurement import selectors
+from apps.procurement import selectors, services
 from apps.procurement.models import (
+    ApprovalStep,
     Currency,
+    Decision,
     GoodsReceipt,
     GoodsReceiptLine,
     PurchaseOrder,
     PurchaseOrderLine,
     PurchaseRequest,
     PurchaseRequestLine,
+    RequestApproval,
+    RequestStatus,
     SentVia,
 )
 from apps.projects.models import Project, ProjectCalc
@@ -67,20 +74,87 @@ class RequestListSerializer(serializers.ModelSerializer):
         fields = ["id", "code", "status", "project", "requester", "needed_by", "lines_count", "created_at"]
 
 
+class ApprovalSerializer(serializers.ModelSerializer):
+    user = UserRefSerializer(read_only=True)
+
+    class Meta:
+        model = RequestApproval
+        fields = ["id", "step_id", "step_name", "decision", "user", "comment", "created_at"]
+
+
 class RequestSerializer(RequestListSerializer):
     project_id = serializers.PrimaryKeyRelatedField(source="project", queryset=Project.objects.all())
     lines = RequestLineSerializer(many=True, required=False)
     approved_by = UserRefSerializer(read_only=True)
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
     project_status = serializers.CharField(source="project.status", read_only=True)
+    approval_step = serializers.SerializerMethodField()
+    approvals = ApprovalSerializer(many=True, read_only=True)
+    steps = serializers.SerializerMethodField()
+    can_approve = serializers.SerializerMethodField()
 
     class Meta(RequestListSerializer.Meta):
         fields = [*RequestListSerializer.Meta.fields, "project_id", "project_status", "notes", "lines",
-                  "submitted_at", "approved_at", "approved_by", "allowed_statuses", "updated_at"]
+                  "submitted_at", "approved_at", "approved_by", "approval_step", "approvals", "steps",
+                  "can_approve", "allowed_statuses", "updated_at"]
+
+    def get_approval_step(self, obj) -> dict | None:
+        s = obj.approval_step
+        return {"id": s.pk, "name": s.name, "role": s.role.name} if s else None
+
+    def get_steps(self, obj) -> list[dict]:
+        """All active steps with their state for this request's latest round: done / current / pending
+        (rejected for the step that turned it down)."""
+        since = obj.submitted_at
+        decided = {}
+        if since is not None:
+            for a in obj.approvals.all():
+                if a.step_id and a.created_at >= since:
+                    decided[a.step_id] = a.decision
+        out = []
+        for s in services.active_steps():
+            if obj.approval_step_id == s.pk:
+                state = "current"
+            elif decided.get(s.pk) == Decision.REJECTED:
+                state = "rejected"
+            elif decided.get(s.pk) == Decision.APPROVED:
+                state = "done"
+            else:
+                state = "pending"
+            out.append({"id": s.pk, "name": s.name, "role": s.role.name, "state": state})
+        return out
+
+    def get_can_approve(self, obj) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if obj.status != RequestStatus.SUBMITTED or user is None:
+            return False
+        if not has_permission(user, Pages.PURCHASE_APPROVE, Action.UPDATE):
+            return False
+        return obj.approval_step is None or services.can_decide_step(user, obj.approval_step)
 
 
 class FromCalcSerializer(serializers.Serializer):
     calc_id = serializers.PrimaryKeyRelatedField(source="calc", queryset=ProjectCalc.objects.all())
+
+
+class FromProjectSerializer(serializers.Serializer):
+    project_id = serializers.PrimaryKeyRelatedField(source="project", queryset=Project.objects.all())
+
+
+class ApprovalStepSerializer(serializers.ModelSerializer):
+    role_id = serializers.PrimaryKeyRelatedField(source="role", queryset=Role.objects.all())
+    role = RefSerializer(read_only=True)
+
+    class Meta:
+        model = ApprovalStep
+        fields = ["id", "sequence", "name", "role_id", "role", "is_active", "updated_at"]
+
+
+class RequestMoneySerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2, min_value=Decimal("0.01"),
+                                      required=False, allow_null=True)
+    note = serializers.CharField(required=False, allow_blank=True, default="", max_length=1000)
 
 
 # ------------------------------------------------------------------ purchase order
@@ -141,11 +215,18 @@ class OrderSerializer(OrderListSerializer):
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
     receipts = DocRefSerializer(many=True, read_only=True)
     date = serializers.DateField(required=False)
+    payment_request = serializers.SerializerMethodField()
 
     class Meta(OrderListSerializer.Meta):
         fields = [*OrderListSerializer.Meta.fields, "supplier_id", "supplier_email", "supplier_balance",
-                  "project_id", "notes", "lines", "sent_by", "sent_to", "receipts", "allowed_statuses",
-                  "updated_at"]
+                  "project_id", "notes", "lines", "sent_by", "sent_to", "receipts", "payment_request",
+                  "allowed_statuses", "updated_at"]
+
+    def get_payment_request(self, obj) -> dict | None:
+        state = services.money_state(obj)
+        if state is None:
+            return None
+        return {**state, "amount": str(state["amount"]), "paid": str(state["paid"])}
 
     def get_supplier_balance(self, obj) -> dict:
         b = selectors.supplier_balance(obj.supplier)

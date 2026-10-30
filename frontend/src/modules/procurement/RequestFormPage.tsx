@@ -1,11 +1,11 @@
-import { Calculator, ChevronDown, FileText, Plus, ShoppingCart, X } from "lucide-react";
+import { Calculator, Check, ChevronDown, Circle, FileText, Plus, ShoppingCart, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { EntitySelect } from "@/components/EntitySelect";
 import { ActionBar, DeleteButton, FieldGrid, RecordNav, RecordPage, Row, SaveButtons, Sheet, SheetTitle, StatusTrack } from "@/components/Record";
-import { Button, Dialog, IconButton, Input, Menu, Smart, Textarea } from "@/components/ui";
+import { Button, Dialog, IconButton, Input, Menu, Pill, Smart, Textarea } from "@/components/ui";
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDateTime, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
@@ -34,7 +34,6 @@ export function RequestFormPage() {
   const isNew = id === "new";
   const navigate = useNavigate();
   const can = useCan("procurement");
-  const canApprove = useCan("purchase_approve");
   const canOrders = useCan("purchase_orders");
   const detail = requestsApi.useDetail(isNew ? undefined : id);
   const save = requestsApi.useSave();
@@ -83,7 +82,7 @@ export function RequestFormPage() {
         <ActionBar right={r && <StatusTrack steps={REQUEST_PIPELINE.map((s) => [s, REQUEST_STATUS[s].label])} current={r.status}
           off={r.status === "cancelled" || r.status === "rejected" ? REQUEST_STATUS[r.status].label : undefined} />}>
           {editable && <SaveButtons dirty={form.dirty} saving={save.isPending} isNew={isNew} onReset={form.reset} />}
-          {r && !form.dirty && <Actions request={r} canUpdate={can.update} canApprove={canApprove.update} canOrder={canOrders.create} />}
+          {r && !form.dirty && <Actions request={r} canUpdate={can.update} canOrder={canOrders.create} />}
           {r?.status === "draft" && can.delete && !form.dirty && (
             <DeleteButton busy={remove.isPending}
               onConfirm={() => remove.mutate(r.id, { onSuccess: () => navigate("/procurement/requests"), onError: notifyError })} />
@@ -125,6 +124,7 @@ export function RequestFormPage() {
               </Row>
             </FieldGrid>
           </fieldset>
+          {r && (r.steps.length > 0 || r.approvals.length > 0) && <Approvals request={r} />}
         </Sheet>
       </RecordPage>
     </form>
@@ -216,7 +216,7 @@ function FromCalc({ request }: { request: PurchaseRequest }) {
   );
 }
 
-function Actions({ request: r, canUpdate, canApprove, canOrder }: { request: PurchaseRequest; canUpdate: boolean; canApprove: boolean; canOrder: boolean }) {
+function Actions({ request: r, canUpdate, canOrder }: { request: PurchaseRequest; canUpdate: boolean; canOrder: boolean }) {
   const a = useRequestActions();
   const [dialog, setDialog] = useState<"reject" | "cancel" | "order" | null>(null);
   const [comment, setComment] = useState("");
@@ -227,9 +227,11 @@ function Actions({ request: r, canUpdate, canApprove, canOrder }: { request: Pur
   return (
     <>
       {canUpdate && r.status === "draft" && <Button busy={a.submit.isPending} onClick={() => run(a.submit, undefined, "Tasdiqlashga yuborildi")}>Tasdiqlashga yuborish</Button>}
-      {canApprove && r.status === "submitted" && (
+      {r.can_approve && (
         <>
-          <Button busy={a.approve.isPending} onClick={() => run(a.approve, {}, "Tasdiqlandi")}>Tasdiqlash</Button>
+          <Button busy={a.approve.isPending} onClick={() => run(a.approve, {}, "Tasdiqlandi")}>
+            <Check className="size-4" strokeWidth={1.75} /> {r.approval_step ? `Tasdiqlash · ${r.approval_step.name}` : "Tasdiqlash"}
+          </Button>
           <Button variant="danger" onClick={() => setDialog("reject")}>Rad etish</Button>
         </>
       )}
@@ -328,5 +330,47 @@ function OrderDialog({ request, onClose }: { request: PurchaseRequest; onClose: 
       </div>
       {missing > 0 && <p className="text-xs text-warn">{missing} ta qatorda yetkazib beruvchi tanlanmagan.</p>}
     </Dialog>
+  );
+}
+
+const STEP_TONE = {
+  done: "border-ok/30 bg-ok-soft text-ok",
+  current: "border-accent bg-accent text-white",
+  pending: "border-line bg-surface text-muted",
+  rejected: "border-bad/30 bg-bad-soft text-bad",
+} as const;
+
+/** Multi-level approval: the steps of the latest round and every decision ever made on the request. */
+function Approvals({ request: r }: { request: PurchaseRequest }) {
+  return (
+    <div className="grid gap-3">
+      <p className="t-label border-b border-line pb-2">Tasdiqlash</p>
+      {r.steps.length > 0 && (
+        <ol className="flex flex-wrap items-center gap-2" aria-label="Tasdiqlash bosqichlari">
+          {r.steps.map((s, i) => (
+            <li key={s.id} className="flex items-center gap-2">
+              {i > 0 && <span className="h-px w-4 bg-line-strong" aria-hidden />}
+              <span className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium ${STEP_TONE[s.state]}`}>
+                {s.state === "done" ? <Check className="size-3.5" strokeWidth={1.75} /> : s.state === "rejected" ? <X className="size-3.5" strokeWidth={1.75} /> : <Circle className="size-3" strokeWidth={1.75} />}
+                {s.name}
+                <span className={s.state === "current" ? "text-white/80" : "text-faint"}>· {s.role}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {r.approvals.length > 0 && (
+        <ul className="grid gap-1.5 text-sm">
+          {r.approvals.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+              <Pill tone={a.decision === "approved" ? "ok" : "bad"}>{a.decision === "approved" ? "Tasdiqlandi" : "Rad etildi"}</Pill>
+              <span className="font-medium">{a.step_name || "Tasdiqlash"}</span>
+              <span className="text-muted">{a.user?.full_name ?? "—"} · {fmtDateTime(a.created_at)}</span>
+              {a.comment && <span className="text-muted">— {a.comment}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

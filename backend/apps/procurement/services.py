@@ -22,7 +22,9 @@ from apps.procurement.models import (
     RECEIPT_TRANSITIONS,
     RECEIVING_STATUSES,
     REQUEST_TRANSITIONS,
+    ApprovalStep,
     Currency,
+    Decision,
     GoodsReceipt,
     GoodsReceiptLine,
     OrderStatus,
@@ -31,6 +33,7 @@ from apps.procurement.models import (
     PurchaseRequest,
     PurchaseRequestLine,
     ReceiptStatus,
+    RequestApproval,
     RequestStatus,
     SentVia,
     money,
@@ -124,16 +127,92 @@ def request_from_calc(req: PurchaseRequest, *, actor, calc) -> PurchaseRequest:
     _check_request_draft(req)
     if calc.project_id != req.project_id:
         raise ValidationFailed("Hisob-kitob boshqa loyihaniki", field="calc_id")
-    start = req.lines.count()
-    rows = [ln for ln in calc.lines.select_related("item") if ln.qty > 0]
+    rows = _calc_rows(calc)
     if not rows:
         raise ValidationFailed("Hisob-kitobda miqdori bor qator yo'q", field="calc_id")
+    _append_calc_rows(req, rows)
+    event(req, f"Hisob-kitobdan olindi: {calc.title} — {len(rows)} qator", actor=actor)
+    return req
+
+
+def _calc_rows(calc) -> list:
+    return [ln for ln in calc.lines.select_related("item") if ln.qty > 0]
+
+
+def _append_calc_rows(req: PurchaseRequest, rows: list) -> None:
+    start = req.lines.count()
     PurchaseRequestLine.objects.bulk_create(
         PurchaseRequestLine(request=req, item=ln.item, sort_order=start + i, name=ln.name, unit=ln.unit,
                             qty=ln.qty)
         for i, ln in enumerate(rows))
-    event(req, f"Hisob-kitobdan olindi: {calc.title} — {len(rows)} qator", actor=actor)
+
+
+@transaction.atomic
+def request_from_project(*, actor, project) -> PurchaseRequest:
+    """"Xaridga yuborish" on the Loyiha card: a draft request with the lines of all its calculations."""
+    calcs = list(project.calcs.all())
+    rows = [ln for calc in calcs for ln in _calc_rows(calc)]
+    if not rows:
+        raise ValidationFailed("Loyiha hisob-kitobida miqdori bor qator yo'q", field="project_id")
+    req = request_create(actor=actor, project=project)
+    _append_calc_rows(req, rows)
+    titles = ", ".join(c.title for c in calcs if c.title) or "hisob-kitob"
+    event(req, f"Loyihadan olindi: {titles} — {len(rows)} qator", actor=actor)
     return req
+
+
+# ------------------------------------------------------------------ approval steps
+
+
+def active_steps() -> list[ApprovalStep]:
+    return list(ApprovalStep.objects.filter(is_active=True).select_related("role").order_by("sequence", "id"))
+
+
+def _next_step(step: ApprovalStep) -> ApprovalStep | None:
+    for s in active_steps():
+        if (s.sequence, s.pk) > (step.sequence, step.pk):
+            return s
+    return None
+
+
+def can_decide_step(user, step: ApprovalStep) -> bool:
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    return bool(user.is_superuser or step.role.users.filter(pk=user.pk, is_active=True).exists())
+
+
+def _check_step_member(step: ApprovalStep, actor) -> None:
+    if not can_decide_step(actor, step):
+        raise Conflict(f"Bu bosqichni «{step.role.name}» tasdiqlaydi")
+
+
+def _record(req: PurchaseRequest, step: ApprovalStep | None, decision: str, *, actor, comment: str) -> None:
+    RequestApproval.objects.create(request=req, step=step, step_name=step.name if step else "",
+                                   decision=decision, user=actor if getattr(actor, "pk", None) else None,
+                                   comment=comment)
+
+
+@transaction.atomic
+def approval_step_create(*, actor, **fields) -> ApprovalStep:
+    step = ApprovalStep(**fields)
+    step.stamp(actor, created=True)
+    step.save()
+    return step
+
+
+@transaction.atomic
+def approval_step_update(step: ApprovalStep, *, actor, **fields) -> ApprovalStep:
+    for k, v in fields.items():
+        setattr(step, k, v)
+    step.stamp(actor)
+    step.save()
+    return step
+
+
+def approval_step_delete(step: ApprovalStep, *, actor) -> None:
+    if step.waiting_requests.filter(status=RequestStatus.SUBMITTED).exists():
+        raise Conflict("Bu bosqichda kutayotgan so'rovlar bor — o'chirish o'rniga nofaol qiling")
+    step.delete()
 
 
 def _derive_request_status(req: PurchaseRequest, *, actor) -> None:
@@ -159,23 +238,52 @@ def request_submit(req: PurchaseRequest, *, actor) -> PurchaseRequest:
         raise ValidationFailed("So'rovda qator yo'q", field="lines")
     _move(req, REQUEST_TRANSITIONS, RequestStatus.SUBMITTED, actor=actor, labels=RequestStatus)
     req.submitted_at = timezone.now()
+    steps = active_steps()
+    req.approval_step = steps[0] if steps else None
     with muted():
-        req.save(update_fields=["submitted_at"])
+        req.save(update_fields=["submitted_at", "approval_step"])
+    if steps:  # multi-level: waits at the first step, nobody skips it (design.md)
+        event(req, f"Tasdiqlashda: {steps[0].name}", actor=actor)
+        return req
     # a buyer who is also the approver does not click twice (design.md)
     if has_permission(actor, Pages.PURCHASE_APPROVE, Action.UPDATE):
         return request_approve(req, actor=actor)
     return req
 
 
-@transaction.atomic
-def request_approve(req: PurchaseRequest, *, actor, comment: str = "") -> PurchaseRequest:
-    req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
+def _finish_approval(req: PurchaseRequest, *, actor, comment: str = "") -> None:
     _move(req, REQUEST_TRANSITIONS, RequestStatus.APPROVED, actor=actor, comment=comment,
           labels=RequestStatus)
     req.approved_at, req.approved_by = timezone.now(), actor if getattr(actor, "pk", None) else None
+    req.approval_step = None
     with muted():
-        req.save(update_fields=["approved_at", "approved_by"])
-    event(req, "Tasdiqlandi", actor=actor)
+        req.save(update_fields=["approved_at", "approved_by", "approval_step"])
+
+
+@transaction.atomic
+def request_approve(req: PurchaseRequest, *, actor, comment: str = "") -> PurchaseRequest:
+    req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
+    comment = (comment or "").strip()
+    step = req.approval_step
+    if step is None:  # single level (no active steps when it was submitted)
+        _finish_approval(req, actor=actor, comment=comment)
+        _record(req, None, Decision.APPROVED, actor=actor, comment=comment)
+        event(req, "Tasdiqlandi", actor=actor)
+        return req
+
+    if req.status != RequestStatus.SUBMITTED:
+        raise Conflict("So'rov tasdiqlashda emas")
+    _check_step_member(step, actor)
+    _record(req, step, Decision.APPROVED, actor=actor, comment=comment)
+    event(req, f"{step.name}: tasdiqlandi" + (f" — {comment}" if comment else ""), actor=actor)
+    nxt = _next_step(step)
+    if nxt is not None:
+        req.approval_step = nxt
+        req.stamp(actor)
+        with muted():
+            req.save(update_fields=["approval_step", "updated_by", "updated_at"])
+        return req
+    _finish_approval(req, actor=actor)
     return req
 
 
@@ -185,16 +293,33 @@ def request_reject(req: PurchaseRequest, *, actor, comment: str = "") -> Purchas
     if not comment:
         raise ValidationFailed("Rad etish sababini yozing", field="comment")
     req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
-    _move(req, REQUEST_TRANSITIONS, RequestStatus.REJECTED, actor=actor, comment=f"Rad etildi: {comment}",
-          labels=RequestStatus)
+    step = req.approval_step
+    if step is None:
+        _move(req, REQUEST_TRANSITIONS, RequestStatus.REJECTED, actor=actor, comment=f"Rad etildi: {comment}",
+              labels=RequestStatus)
+        _record(req, None, Decision.REJECTED, actor=actor, comment=comment)
+        return req
+    if req.status != RequestStatus.SUBMITTED:
+        raise Conflict("So'rov tasdiqlashda emas")
+    _check_step_member(step, actor)
+    _record(req, step, Decision.REJECTED, actor=actor, comment=comment)
+    _move(req, REQUEST_TRANSITIONS, RequestStatus.REJECTED, actor=actor, labels=RequestStatus)
+    event(req, f"{step.name}: rad etildi — {comment}", actor=actor)
+    req.approval_step = None
+    with muted():
+        req.save(update_fields=["approval_step"])
     return req
 
 
 @transaction.atomic
 def request_reopen(req: PurchaseRequest, *, actor) -> PurchaseRequest:
-    """submitted / rejected → draft, to fix the lines and submit again."""
+    """submitted / rejected → draft, to fix the lines and submit again (from step one)."""
     req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
     _move(req, REQUEST_TRANSITIONS, RequestStatus.DRAFT, actor=actor, labels=RequestStatus)
+    if req.approval_step_id is not None:
+        req.approval_step = None
+        with muted():
+            req.save(update_fields=["approval_step"])
     return req
 
 
@@ -418,6 +543,11 @@ def order_send(order: PurchaseOrder, *, actor, via: str, to: str = "", note: str
         if not email_configured():
             raise Conflict("Email sozlanmagan")
 
+    if order.status == OrderStatus.DRAFT:  # the gate (ADR 0009): kassa approved the money first
+        state = money_state(order)
+        if state is None or state["status"] not in MONEY_OK:
+            raise Conflict("Kassa pul so'rovini tasdiqlamagan")
+
     order.sent_at, order.sent_by, order.sent_via, order.sent_to = timezone.now(), actor, via, to[:200]
     order.stamp(actor)
     with muted():
@@ -444,6 +574,7 @@ def order_cancel(order: PurchaseOrder, *, actor, comment: str = "") -> PurchaseO
         raise Conflict("Buyurtma bo'yicha kirim o'tkazilgan — bekor qilib bo'lmaydi")
     _move(order, ORDER_TRANSITIONS, OrderStatus.CANCELLED, actor=actor, comment=comment, labels=OrderStatus)
     _release_request_lines(order.lines.select_related("request_line__request"), actor=actor)
+    _release_money(order, actor=actor)
     return order
 
 
@@ -452,7 +583,74 @@ def order_delete(order: PurchaseOrder, *, actor) -> None:
         raise Conflict("Faqat qoralama buyurtmani o'chirish mumkin. Boshqalarini bekor qiling.")
     with transaction.atomic():
         _release_request_lines(order.lines.select_related("request_line__request"), actor=actor)
+        _release_money(order, actor=actor)
         order.soft_delete()
+
+
+# ------------------------------------------------------------------ money request (ADR 0009)
+
+MONEY_OPEN = ("submitted", "approved", "paid")  # a live request: no second one
+MONEY_OK = ("approved", "paid")  # the order may be sent
+MONEY_RELEASABLE = ("draft", "submitted", "approved")  # cancelled together with the order
+
+
+def _kassa():
+    """kassa write/read API (ADR 0009): procurement imports kassa, never the reverse."""
+    from apps.kassa import selectors as kassa_sel
+    from apps.kassa import services as kassa
+
+    return kassa, kassa_sel
+
+
+def money_state(order: PurchaseOrder) -> dict | None:
+    if order.payment_request_id is None:
+        return None
+    _, kassa_sel = _kassa()
+    return kassa_sel.payment_request_state(order.payment_request)
+
+
+def _release_money(order: PurchaseOrder, *, actor) -> None:
+    if order.payment_request_id is None:
+        return
+    req = order.payment_request
+    if req.status in MONEY_RELEASABLE:
+        kassa, _ = _kassa()
+        kassa.payment_request_cancel(req, actor=actor, comment=f"Buyurtma {order.code} bekor qilindi")
+
+
+@transaction.atomic
+def order_request_money(order: PurchaseOrder, *, actor, amount: Decimal | None = None,
+                        note: str = "") -> PurchaseOrder:
+    """"Pul so'rash": a submitted kassa money request for the order (default: its gross) linked to it."""
+    order = PurchaseOrder.objects.select_related("supplier", "project").select_for_update().get(pk=order.pk)
+    if order.status != OrderStatus.DRAFT:
+        raise Conflict("Pul faqat qoralama buyurtma uchun so'raladi")
+    lines = list(order.lines.select_related("project"))
+    if not lines:
+        raise ValidationFailed("Buyurtmada qator yo'q", field="lines")
+    state = money_state(order)
+    if state is not None and state["status"] in MONEY_OPEN:
+        raise Conflict(f"Pul so'rovi allaqachon bor: {state['code']}")
+    _check_rate(order)
+    amount = order.totals()["gross"] if amount is None else amount
+    if amount <= 0:
+        raise ValidationFailed("Summa noldan katta bo'lsin", field="amount")
+    project = order.project or next((ln.project for ln in lines if ln.project), None)
+    kassa, kassa_sel = _kassa()
+    req = kassa.payment_request_create(
+        actor=actor, source=order, partner=order.supplier, project=project, amount=amount,
+        currency=order.currency, rate=order.rate if order.currency != Currency.UZS else None,
+        purpose=kassa_sel.supplier_payment_purpose(), basis=f"Buyurtma {order.code}",
+        needed_by=order.expected_date, notes=(note or "").strip())
+    kassa.payment_request_submit(req, actor=actor)
+    order.payment_request = req
+    order.stamp(actor)
+    with muted():
+        order.save(update_fields=["payment_request", "updated_by", "updated_at"])
+    unit = "so'm" if order.currency == Currency.UZS else order.currency
+    total = f"{amount:,.2f}".replace(",", " ")
+    event(order, f"Kassadan pul so'raldi: {req.code} — {total} {unit}", actor=actor)
+    return order
 
 
 def _derive_order_status(order: PurchaseOrder, *, actor) -> None:
