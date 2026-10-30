@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api, type Page } from "@/lib/api";
@@ -10,11 +10,15 @@ export type Option = { id: number; code?: string | null; name?: string; username
 
 const nameOf = (o: Option) => o.name ?? o.full_name ?? o.username ?? `#${o.id}`;
 
+type CreateRow = { kind: "create" | "edit"; label: string };
+
 /**
  * Searchable remote picker for any list endpoint (clients, employees, users, roles…).
  * `current` is the selected record so its name shows before anything is fetched.
+ * With `onCreate` / `onCreateEdit` the dropdown ends with Odoo-style rows — "«text» yaratish" and
+ * "Yaratish va to'ldirish…" — whenever the typed text has no exact match.
  */
-export function EntitySelect({ endpoint, value, onChange, current, extraParams, placeholder = "Tanlang…", error, disabled, className = "" }: {
+export function EntitySelect({ endpoint, value, onChange, current, extraParams, placeholder = "Tanlang…", error, disabled, className = "", onCreate, onCreateEdit }: {
   endpoint: string;
   value: number | null;
   onChange: (id: number | null, option: Option | null) => void;
@@ -24,6 +28,10 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
   error?: string;
   disabled?: boolean;
   className?: string;
+  /** Quick create with the typed text (the caller posts and then selects the result). */
+  onCreate?: (query: string) => void | Promise<void>;
+  /** Open a fuller create form pre-filled with the typed text. */
+  onCreateEdit?: (query: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -53,6 +61,17 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
   });
   const items = data?.items ?? [];
 
+  const text = q.trim();
+  const creates: CreateRow[] = useMemo(() => {
+    if (!text || (!onCreate && !onCreateEdit)) return [];
+    if (items.some((o) => nameOf(o).toLowerCase() === text.toLowerCase())) return [];
+    const rows: CreateRow[] = [];
+    if (onCreate) rows.push({ kind: "create", label: `«${text}» yaratish` });
+    if (onCreateEdit) rows.push({ kind: "edit", label: "Yaratish va to'ldirish…" });
+    return rows;
+  }, [text, items, onCreate, onCreateEdit]);
+  const total = items.length + creates.length;
+
   const selected = useMemo(() => {
     if (!value) return null;
     if (picked?.id === value) return picked;
@@ -67,10 +86,24 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
     setQ("");
   };
 
+  const create = (row: CreateRow) => {
+    const typed = text;
+    setOpen(false);
+    setQ("");
+    setPicked(null);
+    if (row.kind === "create") void onCreate?.(typed);
+    else onCreateEdit?.(typed);
+  };
+
+  const pick = (i: number) => {
+    if (i < items.length) choose(items[i]);
+    else if (creates[i - items.length]) create(creates[i - items.length]);
+  };
+
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, items.length - 1)); }
+    if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, total - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-    else if (e.key === "Enter" && open && items[active]) { e.preventDefault(); choose(items[active]); }
+    else if (e.key === "Enter" && open && total) { e.preventDefault(); pick(active); }
     else if (e.key === "Escape") setOpen(false);
   };
 
@@ -110,6 +143,20 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
           ))}
           {!items.length && (
             <p className="flex items-center gap-2 px-3 py-2 text-sm text-muted">{isFetching ? <><Spinner /> Qidirilmoqda…</> : "Topilmadi"}</p>
+          )}
+          {creates.length > 0 && !isFetching && (
+            <div className={items.length ? "mt-1 border-t border-line pt-1" : ""}>
+              {creates.map((row, j) => {
+                const i = items.length + j;
+                return (
+                  <button key={row.kind} type="button" onMouseEnter={() => setActive(i)} onClick={() => create(row)}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-accent-ink ${i === active ? "bg-ground" : ""}`}>
+                    <Plus className="size-3.5 shrink-0" strokeWidth={1.75} />
+                    <span className="min-w-0 flex-1 truncate">{row.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       )}

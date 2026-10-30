@@ -3,6 +3,10 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-30
+- `add-quick-create-client` — Mijoz picker on the Loyiha form creates clients inline, Odoo-style: typing an
+  unknown name offers "«name» yaratish" (bare individual client) and "Yaratish va to'ldirish…" (popup with
+  kind, name, phone, region, address, STIR); the new client is selected and its phone copied. `EntitySelect`
+  gained `onCreate` / `onCreateEdit` for any picker. Why: sales left the order form to create the caller.
 - `add-kassa` — Moliya: kassa and bank accounts (`CashAccount`, balance = ledger balance), one cash-order
   document for PKO / RKO / bank kirim / payment orders / transfers (`PKO-`, `RKO-`, `BK-`, `BT-`, `OT-`
   sequences), seeded payment purposes that decide the posting (customer → 4010 then 6310, supplier → 6010

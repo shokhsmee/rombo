@@ -11,6 +11,8 @@ import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtArea, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
 import { useInvoiceFromProject, useInvoicesOf } from "@/modules/accounting/api";
+import { clientsApi, type Client } from "@/modules/clients/api";
+import { QuickCreateClient } from "@/modules/clients/QuickCreateClient";
 import { useOrdersOf } from "@/modules/kassa/api";
 import { pricingApi } from "@/modules/pricing/api";
 import { RefSelect } from "@/modules/references/RefSelect";
@@ -79,10 +81,16 @@ export function ProjectFormPage() {
   const canProcurement = useCan("procurement");
   const canInvoice = useCan("invoices");
   const canCash = useCan("cash_orders");
+  const canClients = useCan("clients");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
   const save = projectsApi.useSave();
   const remove = projectsApi.useRemove();
   const p = detail.data;
+  // Odoo-style quick create on the Mijoz field: "«name» yaratish" posts a bare client, "Yaratish va
+  // to'ldirish…" opens the short form; the created client is kept so the picker can show its name at once
+  const clientSave = clientsApi.useSave();
+  const [quick, setQuick] = useState<{ open: boolean; name: string }>({ open: false, name: "" });
+  const [createdClient, setCreatedClient] = useState<Client | null>(null);
 
   const canEdit = isNew ? can.create : can.update;
   // from procurement on, only what production depends on is locked; money, contacts and dates stay open
@@ -200,13 +208,21 @@ export function ProjectFormPage() {
               <Row label="Buyurtma №"><Input value={p?.code ?? "saqlanganda beriladi"} disabled className="font-mono" /></Row>
               <Row label="Sotuv sanasi"><Input type="date" {...form.text("sale_date")} /></Row>
               <Row label="Mijoz (F.I.O.)" required error={form.errors.client_id}>
-                <EntitySelect endpoint="clients" current={p?.client} disabled={!canEdit || prodLocked} error={form.errors.client_id}
+                <EntitySelect endpoint="clients" current={createdClient ?? p?.client} disabled={!canEdit || prodLocked} error={form.errors.client_id}
                   value={v.client_id}
                   onChange={(cid, opt) => {
                     form.set("client_id", cid);
                     const phone = (opt as { phone?: string } | null)?.phone;
                     if (phone && !v.phone) form.set("phone", phone);
-                  }} />
+                  }}
+                  onCreate={canClients.create ? (name) =>
+                    clientSave.mutate({ data: { name, kind: "individual" } }, {
+                      onSuccess: (c) => { notifyOk(`Mijoz yaratildi: ${c.name}`); setCreatedClient(c); form.set("client_id", c.id); },
+                      onError: notifyError,
+                    }) : undefined}
+                  onCreateEdit={canClients.create ? (name) => setQuick({ open: true, name }) : undefined} />
+                <QuickCreateClient open={quick.open} initialName={quick.name} onClose={() => setQuick((s) => ({ ...s, open: false }))}
+                  onCreated={(c) => { setCreatedClient(c); form.set("client_id", c.id); if (c.phone && !v.phone) form.set("phone", c.phone); }} />
               </Row>
               <Row label="Telefon"><Input placeholder="+998 __ ___ __ __" {...form.text("phone")} /></Row>
               <Row label="Manzil"><Input {...form.text("object_address")} /></Row>
