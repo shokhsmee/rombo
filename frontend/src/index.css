@@ -49,6 +49,13 @@
   --color-scrim: #0f1722;
   --color-on-ink: #ffffff;
 
+  /* Chart series (dashboard): categorical slots in fixed order, validated for CVD on surface / dark surface.
+     Slots 3–4 are under 3:1 on white, so every chart carries a legend, tooltips and a table view. */
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+  --color-series-3: #1baf7a;
+  --color-series-4: #eda100;
+
   --shadow-card: 0 1px 2px rgb(15 23 34 / 0.04), 0 1px 0 rgb(15 23 34 / 0.02);
   --shadow-pop: 0 12px 32px -12px rgb(15 23 34 / 0.28), 0 2px 6px rgb(15 23 34 / 0.06);
 }
@@ -62,6 +69,7 @@
     --color-ok: #4fd08a; --color-ok-soft: #153a27; --color-warn: #e8a33a; --color-warn-soft: #3a2c14;
     --color-bad: #f0645a; --color-bad-soft: #3a1d1b; --color-done: #b79af5; --color-done-soft: #2b2140;
     --color-info: #7ea2f5; --color-info-soft: #1c2840; --color-scrim: #000000; --color-on-ink: #0e1319;
+    --color-series-1: #3987e5; --color-series-2: #d95926; --color-series-3: #199e70; --color-series-4: #c98500;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3); --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.7), 0 2px 6px rgb(0 0 0 / 0.4);
     color-scheme: dark;
   }
@@ -73,6 +81,7 @@
   --color-ok: #4fd08a; --color-ok-soft: #153a27; --color-warn: #e8a33a; --color-warn-soft: #3a2c14;
   --color-bad: #f0645a; --color-bad-soft: #3a1d1b; --color-done: #b79af5; --color-done-soft: #2b2140;
   --color-info: #7ea2f5; --color-info-soft: #1c2840; --color-scrim: #000000; --color-on-ink: #0e1319;
+  --color-series-1: #3987e5; --color-series-2: #d95926; --color-series-3: #199e70; --color-series-4: #c98500;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3); --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.7), 0 2px 6px rgb(0 0 0 / 0.4);
   color-scheme: dark;
 }

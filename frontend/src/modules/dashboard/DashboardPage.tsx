@@ -1,13 +1,16 @@
 import { AlarmClock, ArrowRight, CalendarClock } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthProvider";
 import { PageHeader } from "@/components/PageHeader";
-import { Kpi, Pill } from "@/components/ui";
+import { Kpi, Pill, Segmented, Spinner } from "@/components/ui";
 import { fmtDate, fmtMoney } from "@/lib/format";
 import { projectsApi, useProjectSummary, type ProjectListItem, type ProjectStatus } from "@/modules/projects/api";
 import { STATUS } from "@/modules/projects/statuses";
+
+import { useDashboard } from "./api";
+import { SectionCard } from "./Sections";
 
 const ACTIVE: ProjectStatus[] = ["confirmed", "procurement", "production", "ready"];
 const TILES: ProjectStatus[] = ["draft", "confirmed", "procurement", "production", "ready", "delivered"];
@@ -19,6 +22,16 @@ export function DashboardPage() {
   const summary = useProjectSummary();
   const overdue = projectsApi.useList({ overdue: "true", size: 6, sort: "deadline" }, { enabled: canProjects });
   const soon = projectsApi.useList({ status: ACTIVE, size: 6, sort: "deadline" }, { enabled: canProjects });
+  const dash = useDashboard(can("dashboard"));
+  const sections = dash.data?.sections ?? [];
+  const [only, setOnly] = useState<string>(() => {
+    try { return localStorage.getItem("rombo.dashboard.section") ?? ""; } catch { return ""; }
+  });
+  const pick = (k: string) => {
+    setOnly(k);
+    try { localStorage.setItem("rombo.dashboard.section", k); } catch { /* private mode */ }
+  };
+  const shown = sections.filter((x) => !only || x.key === only);
   const counts = Object.fromEntries((summary.data ?? []).map((s) => [s.status, s.count])) as Record<string, number>;
 
   const hour = new Date().getHours();
@@ -27,9 +40,20 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader title={`${greet}, ${first}`} lede={canProjects ? "Loyihalar holati va yaqin muddatlar." : undefined} />
-      {canProjects && (
-        <div className="grid gap-5">
+      <PageHeader title={`${greet}, ${first}`}
+        lede={sections.length ? "Har bo'lim bo'yicha asosiy ko'rsatkichlar va oxirgi 12 oy. Raqamni bossangiz — uning ro'yxati." : canProjects ? "Loyihalar holati va yaqin muddatlar." : undefined} />
+      {sections.length > 1 && (
+        <div className="mb-4 overflow-x-auto">
+          <Segmented value={sections.some((x) => x.key === only) ? only : ""} onChange={pick}
+            options={[{ value: "", label: "Hammasi" }, ...sections.map((x) => ({ value: x.key, label: x.title }))]} />
+        </div>
+      )}
+      {dash.isLoading && <div className="grid place-items-center py-10 text-muted"><Spinner className="size-5" /></div>}
+      <div className="grid gap-5">
+        {shown.map((x) => <SectionCard key={x.key} s={x} />)}
+      </div>
+      {canProjects && (!only || only === "sales") && (
+        <div className="mt-5 grid gap-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             {TILES.map((s) => (
               <Kpi key={s} label={<Pill tone={STATUS[s].tone}>{STATUS[s].label}</Pill>} value={counts[s] ?? 0}
