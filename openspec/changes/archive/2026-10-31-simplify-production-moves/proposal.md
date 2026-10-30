@@ -1,4 +1,4 @@
-# Change: simplify-production-moves  (status: proposed)
+# Change: simplify-production-moves  (status: archived 2026-10-31)
 
 ## Why
 On the Loyiha card, "Ombor → Chiqim" opens the generic move form for **one** product: the storekeeper picks

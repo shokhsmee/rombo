@@ -3,6 +3,12 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- `simplify-production-moves` — Loyiha card menu "Ishlab chiqarish" with three one-step dialogs:
+  1) Materiallarni berish — all remaining materials listed with quantity = min(remaining, stock), ticked,
+  editable, extra products addable, one button posts them all; 2) Tayyor mahsulotni qabul qilish — cost from
+  the Loyiha's 2010 split by count; 3) Mijozga yetkazish — finished goods in stock pre-filled. Failed lines
+  are listed, the rest go through. Why: issuing one product at a time through the move form was slow and
+  unclear.
 - fix(ui) — Picker lists (`EntitySelect`) open at page level, so a table, scroll box or dialog around the
   field no longer cuts them off; they open upwards when there is no room below. Why: on the Loyiha
   "Materiallar" table only the first product was visible.
