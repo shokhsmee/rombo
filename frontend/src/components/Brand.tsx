@@ -18,7 +18,7 @@ export function BrandMark({ size = 26, className = "" }: { size?: number; classN
 export function BrandLogo({ size = 26, tagline = false, className = "" }: { size?: number; tagline?: boolean; className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
-      <BrandMark size={size} className="text-accent" />
+      <BrandMark size={size} className="text-brand" />
       <span className="leading-none">
         <b className="block font-semibold tracking-tight text-ink" style={{ fontSize: Math.round(size * 0.62) }}>Rombo</b>
         {tagline && <span className="mt-0.5 block text-2xs text-muted">фабрика сборки окон и дверей</span>}

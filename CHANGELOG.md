@@ -3,6 +3,8 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- brand — The Rombo mark in the ERP (sidebar, login, favicon) is brand red (`--color-brand`, light and dark
+  steps); the interface accent stays blue.
 - brand — The Rombo mark from the company's printed documents (three squares + a slanted block, "фабрика
   сборки окон и дверей") replaces the generic blue diamond: sidebar, login page, favicon, every printed
   document (hisob-kitob, contract, purchase order, PKO / RKO, reconciliation act), README and docs. One
