@@ -3,6 +3,15 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- `add-bom`, `add-project-materials`, `add-mrp` — Ishlab chiqarish: BOMs (Tarkib, `BM-`) per finished or
+  semi-finished product with per-piece / per-m² quantities and waste, multi-level explosion, cycle check,
+  versions when a confirmed Loyiha uses the BOM, planned cost per piece and per m²; BOM-lines Excel import.
+  Products get the `yarim` category and a purchase multiple. A Loyiha item points to a product; its
+  Materiallar (need / issued / remaining / requested / stock) freeze on confirm and drive "BOM'dan
+  hisob-kitobga", a product-linked purchase request and draft chiqim moves. The MRP page nets open needs
+  against stock, open orders and requests, rounds to the purchase multiple, serves the earliest deadline
+  first and creates purchase requests; dashboard shows the shortage count. New app `mrp` (ADR 0012).
+  Why: quantities were typed by hand at every step and purchasing ignored stock.
 - `add-dashboard-analytics` — Bosh sahifa shows one section per module the user may open: Savdo,
   CRM, Ta'minot, Moliya, Buxgalteriya, Ombor, Xodimlar — KPI tiles that open the filtered list, 12-month bar
   charts with tooltips, legend and a table view, and ranked lists (top clients and suppliers, stock by

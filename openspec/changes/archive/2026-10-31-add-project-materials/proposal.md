@@ -1,4 +1,4 @@
-# Change: add-project-materials  (status: proposed — phase 2 of 3, depends on add-bom)
+# Change: add-project-materials  (status: archived 2026-10-31)
 
 ## Why
 With BOMs in place, a Loyiha can know its own material list instead of sales typing it into the hisob-kitob

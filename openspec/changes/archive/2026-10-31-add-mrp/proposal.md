@@ -1,4 +1,4 @@
-# Change: add-mrp  (status: proposed — phase 3 of 3, depends on add-bom and add-project-materials)
+# Change: add-mrp  (status: archived 2026-10-31)
 
 Replaces the earlier stub of this change. Decisions: `openspec/changes/add-bom/design.md`.
 

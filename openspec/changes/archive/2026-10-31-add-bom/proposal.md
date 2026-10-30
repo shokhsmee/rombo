@@ -1,4 +1,4 @@
-# Change: add-bom  (status: proposed — phase 1 of 3, for review)
+# Change: add-bom  (status: archived 2026-10-31)
 
 Phases: **add-bom** → `add-project-materials` → `add-mrp`. The whole plan and its decisions are in
 `design.md` of this change.

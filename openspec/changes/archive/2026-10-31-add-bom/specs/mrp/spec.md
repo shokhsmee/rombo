@@ -16,16 +16,17 @@ active BOM. A component cannot be the BOM's own product, directly or through oth
 - THEN a new active version is created and the old one stays as it was, inactive
 
 ### Requirement: Explosion
-Exploding (product, count, area m²) SHALL return leaf components with quantity = qty × (count for `dona`,
-area × count for `m2`) × (1 + waste / 100), summed per product, recursing through components that have an
+Exploding (product, count, total area m²) SHALL return leaf components with quantity = qty × (count for
+`dona`, the item's total area for `m2`) × (1 + waste / 100), summed per product, recursing through components that have an
 active BOM.
 
-#### Scenario: Window of 2.5 m², 4 pieces
+#### Scenario: Four windows, 10 m² in total
 - WHEN the window's BOM has profile 3.2 m per m² with 5 % waste and 1 handle per piece
-- THEN the explosion gives profile 3.2 × 2.5 × 4 × 1.05 = 33.6 m and 4 handles
+- THEN the explosion gives profile 3.2 × 10 × 1.05 = 33.6 m and 4 handles
 
 #### Scenario: Semi-finished component
-- WHEN the window needs 0.9 m² of steklopaket per m² and the steklopaket's BOM needs 2 m² of glass per m²
+- WHEN the window needs 0.9 m² of steklopaket per m² and the steklopaket's BOM needs 2 m² of glass per m² of
+  steklopaket (component lines count per unit of the component)
 - THEN the explosion lists glass, not the steklopaket
 
 ### Requirement: Planned cost

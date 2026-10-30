@@ -1,6 +1,7 @@
 # Design: BOM, Loyiha materials and MRP (phases add-bom → add-project-materials → add-mrp)
 
-Status: **proposed — for review**. Nothing here is implemented.
+Status: **implemented 2026-10-31** with the recommended answers (per piece / per m², fill-from-BOM button,
+glass units bought unless given a semi-finished BOM, profile in 6.5 m bars via `order_multiple`).
 
 ## Where we are (what the code does today)
 | Piece | Today | Gap |
@@ -63,6 +64,12 @@ services; nothing imports it. The Loyiha card gets its "Materiallar" tab through
 kassa and inventory already do. *Rejected:* a `product` FK on `ProjectItem` — it would make the hub depend on
 inventory (ADR 0004). *Rejected:* BOM inside `inventory` — MRP needs procurement (on-order quantities, creating
 requests), and inventory must not import procurement (ADR 0010).
+
+### D5a. Item choice keyed by position (found while building)
+Loyiha items are deleted and re-created on every edit, so `ItemSpec` stores the item's **position** and its
+product type; a spec whose type no longer matches the item at that position is ignored. The hub gained one
+extension point, `register_status_listener`, so `mrp` freezes materials on confirm without the hub importing it.
+Component lines of a semi-finished product count per unit of that component.
 
 ### D6. MRP is a calculation, not a document
 `need (frozen materials of open Loyihas, by deadline) − free stock − open purchase-order quantity = shortage`,
