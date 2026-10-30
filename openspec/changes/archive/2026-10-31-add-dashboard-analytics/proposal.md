@@ -1,4 +1,4 @@
-# Change: add-dashboard-analytics  (status: proposed)
+# Change: add-dashboard-analytics  (status: archived 2026-10-31)
 
 ## Why
 Bosh sahifa shows only Loyiha counts and deadlines. The director opens six pages to answer "how are we

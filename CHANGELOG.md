@@ -3,6 +3,17 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- `add-dashboard-analytics` — Bosh sahifa shows one section per module the user may open: Savdo,
+  CRM, Ta'minot, Moliya, Buxgalteriya, Ombor, Xodimlar — KPI tiles that open the filtered list, 12-month bar
+  charts with tooltips, legend and a table view, and ranked lists (top clients and suppliers, stock by
+  category, idle stock, lead stages, departments). `GET /dashboard/` reads the ledger and documents only.
+  Why: the director answered "how are we doing" by opening six pages.
+- `add-list-tools` — Every list page gets an Excel menu (export the filter or the selected rows), row
+  checkboxes and a batch bar (post, delete drafts, submit, approve / reject, cancel with a reason, change
+  Loyiha status, archive, (de)activate). Excel import with a template and a dry-run check for Loyihalar,
+  Mijozlar, Yetkazib beruvchilar, Xodimlar, Mahsulotlar, Ombor harakatlari and kassa orders; each row goes
+  through the list's serializer and service (ADR 0011). Qoldiqlar exports too. Why: Excel copies were
+  retyped, and documents were posted one by one.
 - `improve-product-selection` — Purchase lines can be linked to a warehouse product: typing a line name
   on the request or order suggests products with code, category and stock, and the link carries to the
   order and the KR. A draft KR shows where each line will post (chosen, from the order, found by name, or

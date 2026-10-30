@@ -1,4 +1,4 @@
-# Change: add-list-tools  (status: proposed)
+# Change: add-list-tools  (status: archived 2026-10-31)
 
 ## Why
 Lists are read one row at a time. Staff keep Excel copies of clients, products and stock counts, retype
