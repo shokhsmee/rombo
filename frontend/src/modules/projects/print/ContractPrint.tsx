@@ -77,10 +77,11 @@ export function ContractPrint() {
               <td>Умумий сумма</td><td>Сана</td><td>Аванс</td><td>Қолдиқ</td><td>Имзо (иш бажарувчи)</td><td>Имзо (буюртмачи)</td>
             </tr>
             <tr className="h-12">
-              <td className="font-bold">{money(p.amount)}</td>
+              {/* total = goods + services; remainder = total − advance (same numbers, so the row always adds up) */}
+              <td className="font-bold">{money(p.total_amount)}</td>
               <td>{d(p.advance_date) || date}</td>
               <td>{Number(p.advance_amount) ? money(p.advance_amount) : ""}</td>
-              <td>{money(p.debt_amount)}</td>
+              <td>{money(Math.max(Number(p.total_amount) - Number(p.advance_amount), 0))}</td>
               <td /><td />
             </tr>
           </tbody>

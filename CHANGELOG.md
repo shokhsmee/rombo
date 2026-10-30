@@ -3,6 +3,8 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- fix(projects) — Contract payment row: "Umumiy summa" is the Loyiha total (goods + services), and "Qoldiq" is
+  total − advance, so the row always adds up (it showed the goods amount only: 40 000 000 − 48 000 000 = 0).
 - brand — The Rombo mark in the ERP (sidebar, login, favicon) is brand red (`--color-brand`, light and dark
   steps); the interface accent stays blue.
 - brand — The Rombo mark from the company's printed documents (three squares + a slanted block, "фабрика
