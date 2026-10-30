@@ -3,6 +3,8 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- fix(accounting) — Hisob-faktura totals (Summa / QQS / Jami / Avans hisobga olinadi) span the whole footer
+  row, one line each with the currency, instead of wrapping inside the narrow sum column.
 - `simplify-production-moves` — Loyiha card menu "Ishlab chiqarish" with three one-step dialogs:
   1) Materiallarni berish — all remaining materials listed with quantity = min(remaining, stock), ticked,
   editable, extra products addable, one button posts them all; 2) Tayyor mahsulotni qabul qilish — cost from

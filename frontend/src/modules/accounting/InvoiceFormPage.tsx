@@ -177,19 +177,21 @@ export function InvoiceFormPage() {
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-line bg-ground/60 text-sm">
-                      <td colSpan={editable ? (company.data?.vat_payer ? 7 : 6) : (company.data?.vat_payer ? 7 : 6)} className="px-3 py-2">
-                        {editable && (
-                          <button type="button" onClick={() => form.set("lines", [...v.lines, lineRow(v.kind, vatDefault)])} className="inline-flex items-center gap-1 text-sm font-medium text-accent-ink hover:underline">
-                            <Plus className="size-4" /> Qator qo'shish
-                          </button>
-                        )}
-                      </td>
-                      <td colSpan={editable ? 2 : 1} className="px-3 py-2 text-right">
-                        <div className="grid justify-items-end gap-0.5 text-xs text-muted">
-                          <span>Summa: <b className="tabular text-ink">{money(net)}</b></span>
-                          {company.data?.vat_payer && <span>QQS: <b className="tabular text-ink">{money(vat)}</b></span>}
-                          <span className="text-sm">Jami: <b className="tabular text-ink">{money(net + vat)} {cur}</b></span>
-                          {advance > 0 && <span className="text-ok">Avans hisobga olinadi: {money(Math.min(advance, net + vat))}</span>}
+                      {/* one full-width cell: the totals never squeeze into the narrow sum column */}
+                      <td colSpan={(company.data?.vat_payer ? 7 : 6) + (editable ? 2 : 1)} className="px-3 py-2.5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          {editable ? (
+                            <button type="button" onClick={() => form.set("lines", [...v.lines, lineRow(v.kind, vatDefault)])} className="inline-flex items-center gap-1 text-sm font-medium text-accent-ink hover:underline">
+                              <Plus className="size-4" /> Qator qo'shish
+                            </button>
+                          ) : <span />}
+                          <div className="ml-auto grid min-w-72 grid-cols-[1fr_auto] gap-x-4 gap-y-1 whitespace-nowrap text-right text-sm text-muted">
+                            <span>Summa:</span><b className="tabular text-ink">{money(net)} {cur}</b>
+                            {company.data?.vat_payer && <><span>QQS:</span><b className="tabular text-ink">{money(vat)} {cur}</b></>}
+                            <span className="border-t border-line pt-1 font-medium text-ink">Jami:</span>
+                            <b className="border-t border-line pt-1 text-base tabular text-ink">{money(net + vat)} {cur}</b>
+                            {advance > 0 && <><span className="text-ok">Avans hisobga olinadi:</span><b className="tabular text-ok">{money(Math.min(advance, net + vat))} {cur}</b></>}
+                          </div>
                         </div>
                       </td>
                     </tr>
