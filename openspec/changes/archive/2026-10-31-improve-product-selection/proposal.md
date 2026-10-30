@@ -1,4 +1,4 @@
-# Change: improve-product-selection  (status: proposed)
+# Change: improve-product-selection  (status: archived 2026-10-31)
 
 Depends on: `add-inventory`.
 

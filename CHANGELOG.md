@@ -3,6 +3,12 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- `improve-product-selection` — Purchase lines can be linked to a warehouse product: typing a line name
+  on the request or order suggests products with code, category and stock, and the link carries to the
+  order and the KR. A draft KR shows where each line will post (chosen, from the order, found by name, or
+  a new product with a category select), so a wrong category guess is fixed before posting. Chiqim,
+  yetkazish and ko'chirish pickers list only what the chosen warehouse holds, with the quantity.
+  Why: buyers could not pick the product they buy, and finished goods were hard to find for delivery.
 - `add-inventory` — Ombor: every movement of stock is one row of one table (`StockMove`, `OM-`): kirim
   (written by posting a KR, into the receipt's warehouse), chiqim to a Loyiha (Dt 2010 Kt 1010), ishlab
   chiqarish (Dt 2810 Kt 2010, valued at the Loyiha's work in progress), yetkazish (Dt 9110 Kt 2810),
