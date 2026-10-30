@@ -271,3 +271,60 @@ def plan_to_requests(*, actor, product_ids: list[int]) -> list:
         event(req, f"MRP: {len(lines)} qator", actor=actor)
         out.append(req)
     return out
+
+
+# ------------------------------------------------------------------ one-step moves (simplify-production-moves)
+
+
+def _post_each(project, *, actor, type_, warehouse, lines) -> dict:
+    """Create and post one move per line, each in its own savepoint; failures are reported, not raised."""
+    from apps.core.exceptions import DomainError
+    from apps.inventory import services as inventory
+
+    done, failed = [], []
+    for ln in lines:
+        product, qty = ln["product"], Decimal(ln["qty"])
+        if qty <= 0:
+            continue
+        try:
+            with transaction.atomic():
+                m = inventory.move_create(actor=actor, type=type_, product=product, qty=qty, project=project,
+                                          warehouse=warehouse, unit_cost=ln.get("unit_cost"))
+                m = inventory.move_post(m, actor=actor)
+            done.append({"id": m.pk, "code": m.code, "product": product.name, "amount": str(m.amount)})
+        except DomainError as e:
+            failed.append({"product": product.name, "message": e.message})
+    if not done and not failed:
+        raise ValidationFailed("Miqdor kiritilmagan", field="lines")
+    return {"done": done, "failed": failed}
+
+
+def issue(project, *, actor, warehouse=None, lines: list[dict]) -> dict:
+    """"Materiallarni berish": all ticked materials to production at once (Dt 2010 Kt 1010)."""
+    return _post_each(project, actor=actor, type_=MoveType.ISSUE, warehouse=warehouse, lines=lines)
+
+
+def output(project, *, actor, warehouse=None, lines: list[dict]) -> dict:
+    """"Tayyor mahsulotni qabul qilish": the Loyiha's work in progress (2010) split by count; the last line
+    takes what is left, so the 2010 balance closes exactly."""
+    from apps.inventory.selectors import project_wip
+
+    lines = [ln for ln in lines if Decimal(ln["qty"]) > 0]
+    if not lines:
+        raise ValidationFailed("Miqdor kiritilmagan", field="lines")
+    wip, total = project_wip(project), sum((Decimal(ln["qty"]) for ln in lines), ZERO)
+    if wip <= 0:
+        raise Conflict("Loyihaga hali material berilmagan (2010 bo'sh) — avval «Materiallarni berish»")
+    rows = []
+    for i, ln in enumerate(lines):
+        qty = Decimal(ln["qty"])
+        unit = None  # the last line takes the rest of 2010
+        if i < len(lines) - 1:
+            unit = (wip * qty / total / qty).quantize(Decimal("0.01"), rounding="ROUND_DOWN")
+        rows.append({**ln, "unit_cost": unit})
+    return _post_each(project, actor=actor, type_=MoveType.OUTPUT, warehouse=warehouse, lines=rows)
+
+
+def deliver(project, *, actor, warehouse=None, lines: list[dict]) -> dict:
+    """"Mijozga yetkazish": finished goods to the client (Dt 9110 Kt 2810)."""
+    return _post_each(project, actor=actor, type_=MoveType.DELIVERY, warehouse=warehouse, lines=lines)

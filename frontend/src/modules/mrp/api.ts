@@ -49,17 +49,20 @@ export type Materials = {
   frozen: boolean; issued_any: boolean; planned_cost: string; wip: string | null; rows: MaterialRow[];
   items: { position: number; item_id: number; product_type: string; area_m2: string; quantity: number;
     product: { id: number; code: string | null; name: string } | null; has_bom: boolean }[];
+  finished: { product: ProductRef & { category: Category }; planned: number; produced: string; delivered: string; stock: string }[];
+  result?: { done: { id: number; code: string; product: string; amount: string }[]; failed: { product: string; message: string }[] };
   fill?: { filled: number; missing: { id: number; code: string | null; name: string }[] };
   request?: { id: number; code: string };
   moves?: number[];
 };
 
 const matKey = (id: number) => ["mrp", "materials", id];
+export type StepBody = { warehouse_id?: number | null; lines: { product_id: number; qty: string }[] };
 
-export function useMaterials(projectId: number, enabled = true) {
+export function useMaterials(projectId: number, enabled = true, warehouse?: number | null) {
   return useQuery({
-    queryKey: matKey(projectId),
-    queryFn: async () => (await api.get<Materials>(`/mrp/projects/${projectId}/materials/`)).data,
+    queryKey: [...matKey(projectId), warehouse ?? null],
+    queryFn: async () => (await api.get<Materials>(`/mrp/projects/${projectId}/materials/`, { params: warehouse ? { warehouse } : {} })).data,
     enabled,
   });
 }
@@ -68,9 +71,8 @@ function useMaterialAction<B>(projectId: number, path: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: B) => (await api.post<Materials>(`/mrp/projects/${projectId}/${path}/`, body)).data,
-    onSuccess: (m: Materials) => {
-      qc.setQueryData(matKey(projectId), m);
-      qc.invalidateQueries();  // calcs, requests, moves, chatter all may have changed
+    onSuccess: () => {
+      qc.invalidateQueries();  // materials, stock, moves, the ledger and chatter all may have changed
     },
   });
 }
@@ -82,6 +84,9 @@ export function useMaterialActions(projectId: number) {
     fillCalc: useMaterialAction<{ calc_id: number }>(projectId, "fill-calc"),
     toRequest: useMaterialAction<Record<string, never>>(projectId, "to-request"),
     toIssue: useMaterialAction<{ warehouse_id?: number | null }>(projectId, "to-issue"),
+    issue: useMaterialAction<StepBody>(projectId, "issue"),
+    output: useMaterialAction<StepBody>(projectId, "output"),
+    deliver: useMaterialAction<StepBody>(projectId, "deliver"),
   };
 }
 

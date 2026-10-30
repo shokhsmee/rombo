@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { Banknote, Boxes, Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Receipt, Ruler, ShoppingCart, Wallet } from "lucide-react";
+import { Banknote, Boxes, Building2, Calculator, Factory, PackageCheck, PackageMinus, Truck, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Receipt, Ruler, ShoppingCart, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -15,6 +15,7 @@ import { clientsApi, type Client } from "@/modules/clients/api";
 import { QuickCreateClient } from "@/modules/clients/QuickCreateClient";
 import { useOrdersOf } from "@/modules/kassa/api";
 import { MaterialsPanel } from "@/modules/mrp/MaterialsPanel";
+import { ProductionDialog, type Step } from "@/modules/mrp/ProductionDialogs";
 import { pricingApi } from "@/modules/pricing/api";
 import { useRequestFromProject } from "@/modules/procurement/api";
 import { RefSelect } from "@/modules/references/RefSelect";
@@ -87,6 +88,7 @@ export function ProjectFormPage() {
   const canBom = useCan("bom");
   const canMrp = useCan("mrp");
   const canMaterials = canBom.view || canMrp.view;
+  const [step, setStep] = useState<Step | null>(null);
   const canClients = useCan("clients");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
   const save = projectsApi.useSave();
@@ -162,11 +164,11 @@ export function ProjectFormPage() {
           {p && !form.dirty && canProcurement.create && p.calcs.length > 0 && <SendToPurchase projectId={p.id} />}
           {p && !form.dirty && canMoves.create && (
             <Menu
-              trigger={() => <Button variant="ghost"><Boxes className="size-4" strokeWidth={1.75} /> Ombor <ChevronDown className="size-3.5" /></Button>}
+              trigger={() => <Button variant="ghost"><Factory className="size-4" strokeWidth={1.75} /> Ishlab chiqarish <ChevronDown className="size-3.5" /></Button>}
               items={[
-                { label: "Chiqim — materialni ishlab chiqarishga", onClick: () => navigate(`/inventory/moves/new?type=issue&project=${p.id}`) },
-                { label: "Ishlab chiqarish — tayyor mahsulot omborga", onClick: () => navigate(`/inventory/moves/new?type=output&project=${p.id}`) },
-                { label: "Yetkazish — mijozga", onClick: () => navigate(`/inventory/moves/new?type=delivery&project=${p.id}`) },
+                { label: "1. Materiallarni berish (sexga)", icon: <PackageMinus className="size-4 text-muted" />, onClick: () => setStep("issue") },
+                { label: "2. Tayyor mahsulotni qabul qilish", icon: <PackageCheck className="size-4 text-muted" />, onClick: () => setStep("output") },
+                { label: "3. Mijozga yetkazish", icon: <Truck className="size-4 text-muted" />, onClick: () => setStep("deliver") },
               ]}
             />
           )}
@@ -352,7 +354,8 @@ export function ProjectFormPage() {
             </FieldGrid>
           </fieldset>
 
-          {p && canMaterials && <MaterialsPanel projectId={p.id} calcs={p.calcs} canEdit={can.update} />}
+          {p && canMaterials && <MaterialsPanel projectId={p.id} calcs={p.calcs} canEdit={can.update} onIssue={() => setStep("issue")} />}
+          {p && step && <ProductionDialog step={step} projectId={p.id} clientName={p.client.name} onClose={() => setStep(null)} />}
 
           <FieldGrid title="Chizma">
             <Row label="Fayllar" wide>

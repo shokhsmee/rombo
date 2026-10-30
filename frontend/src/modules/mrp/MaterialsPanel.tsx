@@ -14,7 +14,7 @@ import { qty } from "@/modules/inventory/labels";
 import { useMaterialActions, useMaterials, type Materials } from "./api";
 
 /** Loyiha → Materiallar (add-project-materials): what each item is, what it needs, and the documents from it. */
-export function MaterialsPanel({ projectId, calcs, canEdit }: { projectId: number; calcs: { id: number; title: string }[]; canEdit: boolean }) {
+export function MaterialsPanel({ projectId, calcs, canEdit, onIssue }: { projectId: number; calcs: { id: number; title: string }[]; canEdit: boolean; onIssue?: () => void }) {
   const navigate = useNavigate();
   const m = useMaterials(projectId);
   const a = useMaterialActions(projectId);
@@ -109,7 +109,7 @@ export function MaterialsPanel({ projectId, calcs, canEdit }: { projectId: numbe
               </Button>
             )}
             {canIssue && anyRemaining && (
-              <Button size="sm" variant="ghost" onClick={() => setAsk("issue")}><PackageMinus className="size-4" strokeWidth={1.75} /> Chiqim qoralamalari</Button>
+              <Button size="sm" variant="ghost" onClick={() => (onIssue ? onIssue() : setAsk("issue"))}><PackageMinus className="size-4" strokeWidth={1.75} /> Materiallarni berish</Button>
             )}
             {!data.issued_any && data.items.some((it) => it.product) && (
               <Button size="sm" variant="quiet" onClick={() => setAsk("freeze")}><RefreshCw className="size-4" strokeWidth={1.75} /> {data.frozen ? "Qayta hisoblash" : "Qayd etish"}</Button>

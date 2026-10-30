@@ -140,11 +140,40 @@ def requested_of(project) -> dict[int, Decimal]:
     return {r["product_id"]: r["q"] for r in rows}
 
 
-def materials(project) -> dict:
+def _stock(ids, warehouse=None) -> dict[int, Decimal]:
+    """On hand per product: in `warehouse` when given, else in all warehouses."""
+    if warehouse:
+        return inv.warehouse_products(int(warehouse), ids)
+    return {pid: q for pid, (q, _v) in inv.products_on_hand(ids).items()}
+
+
+def finished_of(project, warehouse=None) -> list[dict]:
+    """The Loyiha's finished goods: products of its items plus anything produced for it, with made,
+    delivered and in stock (for "Tayyor mahsulotni qabul qilish" and "Mijozga yetkazish")."""
+    moves = inv.posted().filter(project=project, type__in=[MoveType.OUTPUT, MoveType.DELIVERY])
+    made: dict[int, Decimal] = defaultdict(lambda: ZERO)
+    gone: dict[int, Decimal] = defaultdict(lambda: ZERO)
+    for m in moves.only("product_id", "type", "qty"):
+        (made if m.type == MoveType.OUTPUT else gone)[m.product_id] += m.qty
+    planned: dict[int, int] = defaultdict(int)
+    for r in item_rows(project):
+        if r["product"] is not None:
+            planned[r["product"].pk] += r["item"].quantity
+    ids = set(made) | set(planned)
+    products = {p.pk: p for p in Product.all_objects.filter(pk__in=ids)}
+    stock = _stock(ids, warehouse)
+    return [{"product": {"id": pid, "code": products[pid].code, "name": products[pid].name,
+                         "unit": products[pid].unit, "category": products[pid].category},
+             "planned": planned.get(pid, 0), "produced": str(q3(made.get(pid, ZERO))),
+             "delivered": str(q3(gone.get(pid, ZERO))), "stock": str(q3(stock.get(pid, ZERO)))}
+            for pid in sorted(ids, key=lambda i: products[i].name.lower())]
+
+
+def materials(project, warehouse=None) -> dict:
     need, issued, requested = need_of(project), issued_of(project), requested_of(project)
     ids = set(need) | set(issued)
     products = {p.pk: p for p in Product.all_objects.filter(pk__in=ids)}
-    hand = inv.products_on_hand(ids)
+    stock = _stock(ids, warehouse)
     rows, planned = [], ZERO
     for pid in sorted(ids, key=lambda i: (products[i].category, products[i].name.lower())):
         p = products[pid]
@@ -154,7 +183,7 @@ def materials(project) -> dict:
         rows.append({
             "product": {"id": p.pk, "code": p.code, "name": p.name, "unit": p.unit, "category": p.category},
             "need": str(q3(n)), "issued": str(q3(iss)), "remaining": str(q3(max(n - iss, ZERO))),
-            "requested": str(q3(requested.get(pid, ZERO))), "stock": str(q3(hand.get(pid, (ZERO, ZERO))[0])),
+            "requested": str(q3(requested.get(pid, ZERO))), "stock": str(q3(stock.get(pid, ZERO))),
             "unit_cost": str(q3(cost)), "planned_cost": str((n * cost).quantize(Decimal("0.01"))),
         })
     items = [{"position": r["position"], "item_id": r["item"].pk, "product_type": r["item"].product_type.name,
@@ -168,7 +197,7 @@ def materials(project) -> dict:
         wip = project_wip(project)
     except Exception:  # chart not seeded
         wip = None
-    return {"frozen": frozen(project), "items": items, "rows": rows,
+    return {"frozen": frozen(project), "items": items, "rows": rows, "finished": finished_of(project, warehouse),
             "planned_cost": str(planned.quantize(Decimal("0.01"))),
             "wip": None if wip is None else str(wip),
             "issued_any": bool(issued)}

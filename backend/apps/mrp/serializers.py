@@ -90,3 +90,15 @@ class PlanQuerySerializer(serializers.Serializer):
 
 class ToRequestsSerializer(serializers.Serializer):
     product_ids = serializers.ListField(child=serializers.IntegerField(), min_length=1)
+
+
+class MoveLineSerializer(serializers.Serializer):
+    product_id = serializers.PrimaryKeyRelatedField(source="product", queryset=Product.objects.all())
+    qty = serializers.DecimalField(max_digits=14, decimal_places=3, min_value=Decimal("0"))
+
+
+class MoveLinesSerializer(serializers.Serializer):
+    """Lines of a one-step issue, output or delivery from the Loyiha card."""
+
+    warehouse_id = serializers.IntegerField(required=False, allow_null=True)
+    lines = MoveLineSerializer(many=True, allow_empty=False)

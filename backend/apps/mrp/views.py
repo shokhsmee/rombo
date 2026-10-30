@@ -19,6 +19,7 @@ from apps.mrp.serializers import (
     BomListSerializer,
     BomSerializer,
     FillCalcSerializer,
+    MoveLinesSerializer,
     ItemProductSerializer,
     PlanQuerySerializer,
     ToIssueSerializer,
@@ -145,14 +146,42 @@ class ProjectMaterialsViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated, PagePermission]
     queryset = Project.objects.all()
     permission_action_map = {"materials": Action.VIEW, "item_product": Action.UPDATE, "freeze": Action.UPDATE,
-                             "fill_calc": Action.UPDATE, "to_request": Action.VIEW, "to_issue": Action.VIEW}
+                             "fill_calc": Action.UPDATE, "to_request": Action.VIEW, "to_issue": Action.VIEW,
+                             "issue": Action.VIEW, "output": Action.VIEW, "deliver": Action.VIEW}
 
     def _need(self, page, act=Action.CREATE):
         if not has_permission(self.request.user, page, act):
             raise PermissionDenied("Bu amal uchun ruxsat yo'q")
 
     def _respond(self, project, **extra):
-        return Response({**selectors.materials(project), **extra})
+        wh = self.request.query_params.get("warehouse")
+        if not wh and isinstance(self.request.data, dict):
+            wh = self.request.data.get("warehouse_id")
+        return Response({**selectors.materials(project, wh or None), **extra})
+
+    def _one_step(self, request, fn):
+        """Issue / output / deliver from the Loyiha card: create and post at once (inventory create + update)."""
+        self._need(Pages.INVENTORY, Action.CREATE)
+        self._need(Pages.INVENTORY, Action.UPDATE)
+        s = MoveLinesSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        wid = s.validated_data.get("warehouse_id")
+        project = self.get_object()
+        warehouse = Warehouse.objects.filter(pk=wid).first() if wid else None
+        result = fn(project, actor=request.user, warehouse=warehouse, lines=s.validated_data["lines"])
+        return self._respond(project, result=result)
+
+    @action(detail=True, methods=["post"])
+    def issue(self, request, pk=None):
+        return self._one_step(request, services.issue)
+
+    @action(detail=True, methods=["post"])
+    def output(self, request, pk=None):
+        return self._one_step(request, services.output)
+
+    @action(detail=True, methods=["post"])
+    def deliver(self, request, pk=None):
+        return self._one_step(request, services.deliver)
 
     @action(detail=True, methods=["get"])
     def materials(self, request, pk=None):

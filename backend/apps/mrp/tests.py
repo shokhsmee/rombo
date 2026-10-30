@@ -279,3 +279,64 @@ def test_mrp_needs_its_page(api, admin):
 
     viewer = _user_with(api, admin, "sotuvchi", {"projects": {"can_view": True}})
     assert viewer.get(f"{M}/plan/").status_code == 403
+
+
+# ------------------------------------------------------------------ simplify-production-moves
+
+
+def test_issue_all_materials_at_once(admin):
+    window, profil, ruchka, _ = _window(admin)
+    glass = _product(admin, "Oyna 4 mm", "m2", "oyna")
+    _stock_in(admin, profil, 70, "45000")
+    _stock_in(admin, glass, 22, "120000")
+    p = _project(admin, status="confirmed")
+    r = admin.post(f"{M}/projects/{p['id']}/issue/", {"lines": [
+        {"product_id": profil["id"], "qty": "33.6"}, {"product_id": glass["id"], "qty": "40"}]}, format="json")
+    assert r.status_code == 200, r.content
+    res = r.json()["result"]
+    assert [d["product"] for d in res["done"]] == ["Profil 60"]
+    assert res["failed"][0]["product"] == "Oyna 4 mm" and "Omborda yetarli emas" in res["failed"][0]["message"]
+    assert StockMove.objects.filter(project_id=p["id"], type="issue", status="posted").count() == 1
+
+
+def test_make_and_deliver_in_one_step(admin):
+    window, profil, ruchka, _ = _window(admin)
+    _stock_in(admin, profil, 100, "50000")
+    p = _project(admin, status="confirmed", qty=1)
+    _spec(admin, p, window)
+    admin.post(f"{M}/projects/{p['id']}/issue/", {"lines": [{"product_id": profil["id"], "qty": "40"}]},
+               format="json")
+    out = admin.post(f"{M}/projects/{p['id']}/output/", {"lines": [{"product_id": window["id"], "qty": "1"}]},
+                     format="json")
+    assert out.status_code == 200, out.content
+    assert D(out.json()["result"]["done"][0]["amount"]) == D("2000000")
+    fin = {f["product"]["name"]: f for f in out.json()["finished"]}
+    assert (fin["Termo deraza"]["planned"], D(fin["Termo deraza"]["stock"])) == (1, D("1"))
+    dl = admin.post(f"{M}/projects/{p['id']}/deliver/", {"lines": [{"product_id": window["id"], "qty": "1"}]},
+                    format="json")
+    assert D(dl.json()["result"]["done"][0]["amount"]) == D("2000000")
+    from apps.accounting import selectors as ledger
+
+    assert ledger.account_balance("cogs_products") == D("2000000") and ledger.account_balance("wip") == D("0")
+
+
+def test_output_splits_wip_by_count(admin):
+    profil = _product(admin, "Profil", "m", "profil")
+    a, b = _product(admin, "Deraza A", "dona", "tayyor"), _product(admin, "Eshik B", "dona", "tayyor")
+    _stock_in(admin, profil, 10, "100001")
+    p = _project(admin, status="confirmed")
+    admin.post(f"{M}/projects/{p['id']}/issue/", {"lines": [{"product_id": profil["id"], "qty": "10"}]}, format="json")
+    out = admin.post(f"{M}/projects/{p['id']}/output/", {"lines": [
+        {"product_id": a["id"], "qty": "2"}, {"product_id": b["id"], "qty": "1"}]}, format="json").json()
+    amounts = [D(d["amount"]) for d in out["result"]["done"]]
+    assert len(amounts) == 2 and sum(amounts) == D("1000010")  # 2010 closes exactly
+
+
+def test_one_step_needs_inventory_rights(api, admin):
+    from apps.procurement.tests import _user_with
+
+    p = _project(admin)
+    seller = _user_with(api, admin, "sotuvchi2", {"projects": {"can_view": True, "can_update": True},
+                                                  "inventory": {"can_view": True}})
+    r = seller.post(f"{M}/projects/{p['id']}/issue/", {"lines": [{"product_id": 1, "qty": "1"}]}, format="json")
+    assert r.status_code == 403
