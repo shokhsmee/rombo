@@ -1,6 +1,8 @@
 import { Printer, X } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { BrandMark } from "@/components/Brand";
+
 /**
  * A paper page for browser printing (→ PDF). Always light, A4, no app chrome.
  * The toolbar hides itself in print.
@@ -39,12 +41,7 @@ export function PrintFrame({ title, children }: { title: string; children: React
 export function RomboMark({ size = 34 }: { size?: number }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
-        <rect x="1" y="1" width="13" height="13" rx="3" fill="#222" />
-        <rect x="18" y="1" width="13" height="13" rx="3" fill="#222" />
-        <rect x="1" y="18" width="13" height="13" rx="3" fill="#222" />
-        <path d="M18 18h9l4 13h-9z" fill="#222" />
-      </svg>
+      <BrandMark size={size} className="text-[#222]" />
       <span className="leading-none">
         <b className="block font-sans text-[22px] tracking-tight">Rombo</b>
         <span className="font-sans text-[9px]">фабрика сборки окон и дверей</span>

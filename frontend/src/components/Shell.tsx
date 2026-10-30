@@ -51,6 +51,7 @@ import { resetTrail, useTrail, visit } from "@/lib/trail";
 import { useTheme, type Theme } from "@/lib/theme";
 import { TelephonyLive } from "@/modules/telephony/TelephonyLive";
 
+import { BrandLogo } from "./Brand";
 import { Menu } from "./ui";
 
 type NavItem = { page: PageKey; label: string; to: string; icon: LucideIcon; planned?: boolean };
@@ -186,16 +187,8 @@ function Row({ to, icon: Icon, label, end }: { to: string; icon: LucideIcon; lab
   );
 }
 
-export function Logo() {
-  return (
-    <span className="inline-flex items-center gap-2 font-semibold tracking-tight text-ink">
-      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden>
-        <rect width="32" height="32" rx="8" className="fill-accent" />
-        <path d="M16 7 25 16 16 25 7 16Z" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinejoin="round" />
-      </svg>
-      Rombo
-    </span>
-  );
+export function Logo({ tagline = false }: { tagline?: boolean }) {
+  return <BrandLogo size={26} tagline={tagline} />;
 }
 
 function ThemeSwitch() {

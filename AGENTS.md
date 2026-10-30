@@ -61,6 +61,9 @@ Each business app in `apps/<name>/` has the same files:
 - A record page = `RecordPage chatter={{model, id}}` → RecordNav → ActionBar (+StatusTrack) → Sheet.
   A new model with a page gets `TRACK` on the backend and its label in `apps/chatter/views.CHATTER_PAGES`.
 - Icons: lucide-react, `strokeWidth={1.75}`.
+- Brand: the Rombo mark (three squares + a slanted block) comes only from `components/Brand.tsx`
+  (`BrandMark`, `BrandLogo`; print pages use `RomboMark`). Files for outside use — README, docs, email,
+  favicon — are in `frontend/public/brand/` (`rombo-logo.svg`, `-white`, `rombo-mark.svg`). Never redraw it.
 - Permission checks via `useCan(page, action)`; the backend stays the authority.
 - UI text is Uzbek (Latin). Short labels; ERP users scan, they don't read.
 

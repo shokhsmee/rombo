@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../frontend/public/brand/rombo-logo-white.svg">
+  <img src="../frontend/public/brand/rombo-logo.svg" alt="Rombo — фабрика сборки окон и дверей" height="48">
+</picture>
+
 # Rombo — business process map
 
 Source: the company's process diagram (2026-10-29). This is the order of modules the ERP follows.

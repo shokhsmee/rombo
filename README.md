@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="frontend/public/brand/rombo-logo-white.svg">
+  <img src="frontend/public/brand/rombo-logo.svg" alt="Rombo — фабрика сборки окон и дверей" height="48">
+</picture>
+
 # Rombo ERP
 
 ERP for Rombo (Akfa-profile windows/doors). Every operation hangs off a **Loyiha** (customer order).
@@ -8,6 +13,7 @@ ERP for Rombo (Akfa-profile windows/doors). Every operation hangs off a **Loyiha
 | Frontend | React + TypeScript + Vite + Tailwind v4 (uzbridge design) — `frontend/` |
 | Architecture log | `openspec/` (specs, changes, archive), `docs/adr/`, `CHANGELOG.md` |
 | Rules for contributors / AI agents | [`AGENTS.md`](AGENTS.md) — read before changing code |
+| Brand (logo, mark, favicon) | `frontend/public/brand/` · in code `components/Brand.tsx` |
 
 ## Run locally
 

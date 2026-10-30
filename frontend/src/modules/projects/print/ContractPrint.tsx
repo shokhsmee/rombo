@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import { useCompany } from "@/modules/company/api";
 
 import { projectsApi } from "../api";
-import { d, n0, PrintFrame } from "./PrintFrame";
+import { d, n0, PrintFrame, RomboMark } from "./PrintFrame";
 
 const blank = (v: string | null | undefined, w = "_______________") => (v && v.trim() ? v : w);
 
@@ -47,6 +47,7 @@ export function ContractPrint() {
   return (
     <PrintFrame title={`Shartnoma · ${p.code}`}>
       <div className="text-[13.5px] leading-[1.45]">
+        <div className="mb-3 border-b border-[#222] pb-2"><RomboMark size={30} /></div>
         <h1 className="text-center text-[15px] font-bold">ОЛДИ-СОТДИ ШАРТНОМАСИ № {blank(p.contract_number || p.code, "_______")}</h1>
         <div className="mt-3 flex justify-between font-semibold">
           <span>{c.city ? `${c.city} шаҳар` : ""}</span><span>{date}й</span>

@@ -1,7 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 
 import { useCompany } from "@/modules/company/api";
-import { d, n0, PrintFrame } from "@/modules/projects/print/PrintFrame";
+import { d, n0, PrintFrame, RomboMark } from "@/modules/projects/print/PrintFrame";
 
 import { useReconciliation } from "../api";
 
@@ -23,6 +23,7 @@ export function ReconciliationPrint() {
 
   return (
     <PrintFrame title={`Solishtirma dalolatnoma · ${a.partner.name}`}>
+      <div className="mb-3 border-b border-[#222] pb-2"><RomboMark size={30} /></div>
       <h1 className="text-center text-[18px] font-bold uppercase">Solishtirma dalolatnoma</h1>
       <p className="text-center text-[13px]">
         {c.name}{c.inn && ` (STIR ${c.inn})`} va {a.partner.name}{a.partner.tin && ` (STIR ${a.partner.tin})`} o'rtasidagi

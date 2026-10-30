@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 
 import { useCompany } from "@/modules/company/api";
-import { d, n0, PrintFrame } from "@/modules/projects/print/PrintFrame";
+import { d, n0, PrintFrame, RomboMark } from "@/modules/projects/print/PrintFrame";
 
 import { ordersApi } from "../api";
 import { unit } from "../labels";
@@ -61,6 +61,7 @@ export function CashOrderPrint() {
     <PrintFrame title={`${o.code} · ${who}`}>
       <div className="flex items-start justify-between text-[12px]">
         <div>
+          <div className="mb-1"><RomboMark size={24} /></div>
           <p className="font-bold">{c.name}</p>
           <p>{c.address}{c.inn && ` · STIR ${c.inn}`}</p>
           {!cash && (o.account.name || c.bank_account) && <p>{c.bank_name} MFO {c.mfo} · x/r {c.bank_account}</p>}

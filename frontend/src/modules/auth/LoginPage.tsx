@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { BrandMark } from "@/components/Brand";
 import { Logo } from "@/components/Shell";
 import { Button, ErrorNote, Field, Input } from "@/components/ui";
 import { apiError } from "@/lib/api";
@@ -38,7 +39,7 @@ export function LoginPage() {
     <div className="grid min-h-full lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       <div className="grid place-items-center px-6 py-12">
         <form onSubmit={submit} className="grid w-full max-w-sm gap-5">
-          <Logo />
+          <Logo tagline />
           <div>
             <h1 className="t-title">Tizimga kirish</h1>
             <p className="mt-1 text-muted">Ish hisobingiz bilan kiring.</p>
@@ -64,6 +65,7 @@ export function LoginPage() {
       <div className="relative hidden overflow-hidden bg-accent-ink lg:block">
         <div aria-hidden className="absolute inset-0 opacity-[0.08]"
           style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "56px 56px" }} />
+        <BrandMark size={420} className="pointer-events-none absolute -right-24 -top-16 text-white opacity-[0.06]" />
         <div className="relative flex h-full flex-col justify-end gap-6 p-12 text-white">
           <div className="grid max-w-md gap-3">
             {[

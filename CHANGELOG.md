@@ -3,6 +3,10 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- brand — The Rombo mark from the company's printed documents (three squares + a slanted block, "фабрика
+  сборки окон и дверей") replaces the generic blue diamond: sidebar, login page, favicon, every printed
+  document (hisob-kitob, contract, purchase order, PKO / RKO, reconciliation act), README and docs. One
+  source: `components/Brand.tsx` and `frontend/public/brand/`.
 - fix(accounting) — Hisob-faktura totals (Summa / QQS / Jami / Avans hisobga olinadi) span the whole footer
   row, one line each with the currency, instead of wrapping inside the narrow sum column.
 - `simplify-production-moves` — Loyiha card menu "Ishlab chiqarish" with three one-step dialogs:
