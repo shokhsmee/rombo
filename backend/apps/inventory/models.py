@@ -29,14 +29,20 @@ def q3(value) -> Decimal:
 
 
 class Warehouse(AuditModel):
-    TRACK = {"name": "Nomi", "address": "Manzil", "responsible": "Mas'ul", "is_default": "Asosiy",
-             "is_active": "Faol"}
+    TRACK = {
+        "name": "Nomi",
+        "address": "Manzil",
+        "responsible": "Mas'ul",
+        "is_default": "Asosiy",
+        "is_active": "Faol",
+    }
     CHATTER_NAME = "Ombor"
 
     name = models.CharField("Nomi", max_length=120, unique=True)
     address = models.CharField("Manzil", max_length=250, blank=True, default="")
-    responsible = models.ForeignKey("employees.Employee", null=True, blank=True, on_delete=models.SET_NULL,
-                                    related_name="warehouses")  # omborchi
+    responsible = models.ForeignKey(
+        "employees.Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="warehouses"
+    )  # omborchi
     is_default = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
@@ -61,20 +67,29 @@ class Category(models.TextChoices):
 
 
 class Product(AuditModel, SoftDeleteModel):
-    TRACK = {"name": "Nomi", "sku": "Artikul", "unit": "Birlik", "category": "Turkum",
-             "default_cost": "Tannarx", "is_active": "Faol", "notes": "Izoh"}
+    TRACK = {
+        "name": "Nomi",
+        "sku": "Artikul",
+        "unit": "Birlik",
+        "category": "Turkum",
+        "default_cost": "Tannarx",
+        "is_active": "Faol",
+        "notes": "Izoh",
+    }
     CHATTER_NAME = "Mahsulot"
 
     code = models.CharField(max_length=20, unique=True, null=True, editable=False)  # MH-00001
     name = models.CharField("Nomi", max_length=200)
     sku = models.CharField("Artikul", max_length=60, blank=True, default="", db_index=True)
     unit = models.CharField("O'lchov birligi", max_length=20, default="dona")
-    category = models.CharField(max_length=12, choices=Category.choices, default=Category.MATERIAL,
-                                db_index=True)
+    category = models.CharField(
+        max_length=12, choices=Category.choices, default=Category.MATERIAL, db_index=True
+    )
     default_cost = models.DecimalField("Tannarx", max_digits=18, decimal_places=2, default=ZERO)
     # the price-list item a goods receipt line points to; lets the receipt find its product
-    price_item = models.ForeignKey("pricing.PriceListItem", null=True, blank=True, on_delete=models.SET_NULL,
-                                   related_name="+")
+    price_item = models.ForeignKey(
+        "pricing.PriceListItem", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True, default="")
 
@@ -130,9 +145,17 @@ class StockMove(AuditModel, SoftDeleteModel):
     (negative = shortage). `unit_cost` / `amount` are in UZS."""
 
     TRACK = {
-        "status": "Holat", "type": "Turi", "date": "Sana", "product": "Mahsulot", "warehouse": "Ombor",
-        "to_warehouse": "Qayerga", "qty": "Miqdor", "unit_cost": "Tannarx", "project": "Loyiha",
-        "partner": "Kontragent", "notes": "Izoh",
+        "status": "Holat",
+        "type": "Turi",
+        "date": "Sana",
+        "product": "Mahsulot",
+        "warehouse": "Ombor",
+        "to_warehouse": "Qayerga",
+        "qty": "Miqdor",
+        "unit_cost": "Tannarx",
+        "project": "Loyiha",
+        "partner": "Kontragent",
+        "notes": "Izoh",
     }
     CHATTER_NAME = "Ombor harakati"
 
@@ -142,25 +165,30 @@ class StockMove(AuditModel, SoftDeleteModel):
     date = models.DateField(db_index=True)
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="moves")
     warehouse = models.ForeignKey(Warehouse, on_delete=models.PROTECT, related_name="moves")
-    to_warehouse = models.ForeignKey(Warehouse, null=True, blank=True, on_delete=models.PROTECT,
-                                     related_name="incoming_moves")
+    to_warehouse = models.ForeignKey(
+        Warehouse, null=True, blank=True, on_delete=models.PROTECT, related_name="incoming_moves"
+    )
     qty = models.DecimalField(max_digits=14, decimal_places=3)
     unit_cost = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)  # set when posted
     amount = models.DecimalField(max_digits=18, decimal_places=2, default=ZERO)
-    project = models.ForeignKey("projects.Project", null=True, blank=True, on_delete=models.PROTECT,
-                                related_name="stock_moves")
-    partner = models.ForeignKey("clients.Client", null=True, blank=True, on_delete=models.PROTECT,
-                                related_name="stock_moves")
+    project = models.ForeignKey(
+        "projects.Project", null=True, blank=True, on_delete=models.PROTECT, related_name="stock_moves"
+    )
+    partner = models.ForeignKey(
+        "clients.Client", null=True, blank=True, on_delete=models.PROTECT, related_name="stock_moves"
+    )
     # the document this row came from (procurement.goodsreceipt for kirim), referenced generically
     source_model = models.CharField(max_length=60, blank=True, default="", db_index=True)
     source_id = models.PositiveIntegerField(null=True, blank=True)
     source_label = models.CharField(max_length=60, blank=True, default="")
-    entry = models.ForeignKey("accounting.JournalEntry", null=True, blank=True, on_delete=models.SET_NULL,
-                              related_name="+")  # the move's own entry; receipt rows have none
+    entry = models.ForeignKey(
+        "accounting.JournalEntry", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )  # the move's own entry; receipt rows have none
     notes = models.TextField(blank=True, default="")
     posted_at = models.DateTimeField(null=True, blank=True)
-    posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
-                                  related_name="+")
+    posted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     class Meta:
         ordering = ["-date", "-id"]

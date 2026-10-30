@@ -1,8 +1,8 @@
 """Reads of the inventory. Stock on hand and its value are sums over posted moves (ADR 0010):
 
-    receipt, output, adjust (signed)   → + in `warehouse`
-    issue, delivery                    → − in `warehouse`
-    transfer                           → − in `warehouse`, + in `to_warehouse`
+receipt, output, adjust (signed)   → + in `warehouse`
+issue, delivery                    → − in `warehouse`
+transfer                           → − in `warehouse`, + in `to_warehouse`
 """
 
 from collections import defaultdict
@@ -25,8 +25,10 @@ def posted():
 def _signed(field: str, *, with_transfer: bool):
     """Effect of a row on its `warehouse`; with_transfer=False drops transfers (product-wide totals)."""
     out = F(field) * Value(-1)
-    whens = [When(type__in=[T.RECEIPT, T.OUTPUT, T.ADJUST], then=F(field)),
-             When(type__in=[T.ISSUE, T.DELIVERY], then=out)]
+    whens = [
+        When(type__in=[T.RECEIPT, T.OUTPUT, T.ADJUST], then=F(field)),
+        When(type__in=[T.ISSUE, T.DELIVERY], then=out),
+    ]
     if with_transfer:
         whens.append(When(type=T.TRANSFER, then=out))
     return Case(*whens, default=Value(ZERO), output_field=QTY_F if field == "qty" else MONEY_F)
@@ -43,20 +45,49 @@ def balances(qs=None) -> dict[tuple[int, int], list[Decimal]]:
     """{(product_id, warehouse_id): [qty, value]} over posted rows of `qs` (default: all)."""
     qs = (qs if qs is not None else StockMove.objects.all()).filter(status=MoveStatus.POSTED)
     out: dict[tuple[int, int], list[Decimal]] = defaultdict(lambda: [ZERO, ZERO])
-    rows = (qs.values("product_id", "warehouse_id")
-            .annotate(q=_sum(_signed("qty", with_transfer=True), "qty"),
-                      v=_sum(_signed("amount", with_transfer=True), "amount")))
+    rows = qs.values("product_id", "warehouse_id").annotate(
+        q=_sum(_signed("qty", with_transfer=True), "qty"),
+        v=_sum(_signed("amount", with_transfer=True), "amount"),
+    )
     for r in rows:
         cell = out[(r["product_id"], r["warehouse_id"])]
         cell[0] += r["q"]
         cell[1] += r["v"]
-    rows = (qs.filter(type=T.TRANSFER).values("product_id", "to_warehouse_id")
-            .annotate(q=_sum("qty", "qty"), v=_sum("amount", "amount")))
+    rows = (
+        qs.filter(type=T.TRANSFER)
+        .values("product_id", "to_warehouse_id")
+        .annotate(q=_sum("qty", "qty"), v=_sum("amount", "amount"))
+    )
     for r in rows:
         cell = out[(r["product_id"], r["to_warehouse_id"])]
         cell[0] += r["q"]
         cell[1] += r["v"]
     return out
+
+
+def warehouse_products(warehouse_id: int, product_ids) -> dict[int, Decimal]:
+    """{product_id: qty} in one warehouse, for a page of products."""
+    qs = (
+        posted()
+        .filter(product_id__in=list(product_ids))
+        .filter(Q(warehouse_id=warehouse_id) | Q(to_warehouse_id=warehouse_id))
+    )
+    return {pid: cell[0] for (pid, wid), cell in balances(qs).items() if wid == warehouse_id}
+
+
+def products_in_stock(warehouse_id=None) -> list[int]:
+    """Products with quantity > 0 — in `warehouse_id`, else in any warehouse."""
+    qs = posted()
+    if warehouse_id:
+        qs = qs.filter(Q(warehouse_id=warehouse_id) | Q(to_warehouse_id=warehouse_id))
+    cells = balances(qs)
+    return sorted(
+        {
+            pid
+            for (pid, wid), (q, _) in cells.items()
+            if q > 0 and (not warehouse_id or wid == int(warehouse_id))
+        }
+    )
 
 
 def warehouse_qty(product, warehouse) -> Decimal:
@@ -68,8 +99,14 @@ def warehouse_qty(product, warehouse) -> Decimal:
 
 def product_totals(product) -> tuple[Decimal, Decimal]:
     """(qty, value) of a product over all warehouses — the base of its average cost."""
-    agg = posted().filter(product=product).aggregate(
-        q=_sum(_signed("qty", with_transfer=False), "qty"), v=_sum(_signed("amount", with_transfer=False), "amount"))
+    agg = (
+        posted()
+        .filter(product=product)
+        .aggregate(
+            q=_sum(_signed("qty", with_transfer=False), "qty"),
+            v=_sum(_signed("amount", with_transfer=False), "amount"),
+        )
+    )
     return agg["q"], agg["v"]
 
 
@@ -82,9 +119,15 @@ def average_cost(product) -> Decimal | None:
 
 def products_on_hand(product_ids) -> dict[int, tuple[Decimal, Decimal]]:
     """{product_id: (qty, value)} for a page of the product list."""
-    rows = (posted().filter(product_id__in=list(product_ids)).values("product_id")
-            .annotate(q=_sum(_signed("qty", with_transfer=False), "qty"),
-                      v=_sum(_signed("amount", with_transfer=False), "amount")))
+    rows = (
+        posted()
+        .filter(product_id__in=list(product_ids))
+        .values("product_id")
+        .annotate(
+            q=_sum(_signed("qty", with_transfer=False), "qty"),
+            v=_sum(_signed("amount", with_transfer=False), "amount"),
+        )
+    )
     return {r["product_id"]: (r["q"], r["v"]) for r in rows}
 
 
@@ -96,7 +139,9 @@ def stock(*, warehouse=None, category=None, q: str = "", nonzero: bool = True) -
     if category:
         qs = qs.filter(product__category=category)
     if q:
-        qs = qs.filter(Q(product__name__icontains=q) | Q(product__sku__icontains=q) | Q(product__code__icontains=q))
+        qs = qs.filter(
+            Q(product__name__icontains=q) | Q(product__sku__icontains=q) | Q(product__code__icontains=q)
+        )
     cells = balances(qs)
     products = {p.pk: p for p in Product.all_objects.filter(pk__in={k[0] for k in cells})}
     warehouses = {w.pk: w for w in Warehouse.objects.filter(pk__in={k[1] for k in cells})}
@@ -107,16 +152,29 @@ def stock(*, warehouse=None, category=None, q: str = "", nonzero: bool = True) -
         if nonzero and qty == 0 and value == 0:
             continue
         p, w = products[pid], warehouses[wid]
-        rows.append({
-            "product": {"id": p.pk, "code": p.code, "name": p.name, "sku": p.sku, "unit": p.unit,
-                        "category": p.category},
-            "warehouse": {"id": w.pk, "name": w.name},
-            "qty": str(qty), "value": str(q2(value)),
-            "avg_cost": str(q2(value / qty)) if qty > 0 else None,
-        })
+        rows.append(
+            {
+                "product": {
+                    "id": p.pk,
+                    "code": p.code,
+                    "name": p.name,
+                    "sku": p.sku,
+                    "unit": p.unit,
+                    "category": p.category,
+                },
+                "warehouse": {"id": w.pk, "name": w.name},
+                "qty": str(qty),
+                "value": str(q2(value)),
+                "avg_cost": str(q2(value / qty)) if qty > 0 else None,
+            }
+        )
         total_value += value
     rows.sort(key=lambda r: (r["product"]["name"].lower(), r["warehouse"]["name"]))
-    return {"rows": rows, "total_value": str(q2(total_value)), "products": len({r["product"]["id"] for r in rows})}
+    return {
+        "rows": rows,
+        "total_value": str(q2(total_value)),
+        "products": len({r["product"]["id"] for r in rows}),
+    }
 
 
 def stock_value() -> Decimal:
@@ -132,30 +190,65 @@ def summary(qs) -> dict:
     qs = qs.filter(status=MoveStatus.POSTED)
     agg = qs.aggregate(
         count=Count("id"),
-        kirim=_sum(Case(When(type__in=[T.RECEIPT, T.OUTPUT], then=F("amount")),
-                        When(type=T.ADJUST, amount__gt=0, then=F("amount")), default=Value(ZERO),
-                        output_field=MONEY_F), "amount"),
-        chiqim=_sum(Case(When(type=T.ISSUE, then=F("amount")),
-                         When(type=T.ADJUST, amount__lt=0, then=F("amount") * Value(-1)), default=Value(ZERO),
-                         output_field=MONEY_F), "amount"),
-        yetkazish=_sum(Case(When(type=T.DELIVERY, then=F("amount")), default=Value(ZERO), output_field=MONEY_F),
-                       "amount"),
+        kirim=_sum(
+            Case(
+                When(type__in=[T.RECEIPT, T.OUTPUT], then=F("amount")),
+                When(type=T.ADJUST, amount__gt=0, then=F("amount")),
+                default=Value(ZERO),
+                output_field=MONEY_F,
+            ),
+            "amount",
+        ),
+        chiqim=_sum(
+            Case(
+                When(type=T.ISSUE, then=F("amount")),
+                When(type=T.ADJUST, amount__lt=0, then=F("amount") * Value(-1)),
+                default=Value(ZERO),
+                output_field=MONEY_F,
+            ),
+            "amount",
+        ),
+        yetkazish=_sum(
+            Case(When(type=T.DELIVERY, then=F("amount")), default=Value(ZERO), output_field=MONEY_F), "amount"
+        ),
     )
-    return {"count": agg["count"], "kirim": str(agg["kirim"]), "chiqim": str(agg["chiqim"]),
-            "yetkazish": str(agg["yetkazish"]), "stock_value": str(q2(stock_value()))}
+    return {
+        "count": agg["count"],
+        "kirim": str(agg["kirim"]),
+        "chiqim": str(agg["chiqim"]),
+        "yetkazish": str(agg["yetkazish"]),
+        "stock_value": str(q2(stock_value())),
+    }
 
 
 def project_block(project) -> dict:
     """The Loyiha card's "Ombor" block (projects.extensions)."""
-    agg = posted().filter(project=project).aggregate(
-        moves=Count("id"),
-        issued=_sum(Case(When(type=T.ISSUE, then=F("amount")), default=Value(ZERO), output_field=MONEY_F), "amount"),
-        output=_sum(Case(When(type=T.OUTPUT, then=F("amount")), default=Value(ZERO), output_field=MONEY_F), "amount"),
-        delivered=_sum(Case(When(type=T.DELIVERY, then=F("amount")), default=Value(ZERO), output_field=MONEY_F),
-                       "amount"),
+    agg = (
+        posted()
+        .filter(project=project)
+        .aggregate(
+            moves=Count("id"),
+            issued=_sum(
+                Case(When(type=T.ISSUE, then=F("amount")), default=Value(ZERO), output_field=MONEY_F),
+                "amount",
+            ),
+            output=_sum(
+                Case(When(type=T.OUTPUT, then=F("amount")), default=Value(ZERO), output_field=MONEY_F),
+                "amount",
+            ),
+            delivered=_sum(
+                Case(When(type=T.DELIVERY, then=F("amount")), default=Value(ZERO), output_field=MONEY_F),
+                "amount",
+            ),
+        )
     )
-    return {"moves": agg["moves"], "issued": str(agg["issued"]), "output": str(agg["output"]),
-            "delivered": str(agg["delivered"]), "wip": _wip_or_none(project)}
+    return {
+        "moves": agg["moves"],
+        "issued": str(agg["issued"]),
+        "output": str(agg["output"]),
+        "delivered": str(agg["delivered"]),
+        "wip": _wip_or_none(project),
+    }
 
 
 def project_wip(project) -> Decimal:

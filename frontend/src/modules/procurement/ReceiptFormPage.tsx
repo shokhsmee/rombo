@@ -9,11 +9,22 @@ import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDateTime, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
 import { useWarehouses } from "@/modules/inventory/api";
+import { CATEGORY } from "@/modules/inventory/labels";
+import { EntitySelect } from "@/components/EntitySelect";
 
-import { receiptsApi, useReceiptActions, type GoodsReceipt } from "./api";
+import { receiptsApi, useReceiptActions, type GoodsReceipt, type LineProductRef, type ReceiptLine } from "./api";
 import { RECEIPT_PIPELINE, RECEIPT_STATUS } from "./statuses";
 
-type Values = { date: string; warehouse_id: number | null; invoice_number: string; invoice_date: string; invoice_total: string; notes: string; qty: Record<number, string> };
+type PickedProduct = Pick<LineProductRef, "id" | "code" | "name">;
+type LinePick = { product: PickedProduct | null; new_category: string };
+type Values = {
+  date: string; warehouse_id: number | null; invoice_number: string; invoice_date: string; invoice_total: string; notes: string;
+  qty: Record<number, string>; pick: Record<number, LinePick>;
+};
+
+const SOURCE: Record<ReceiptLine["match"]["source"], string> = {
+  receipt: "tanlangan", order: "buyurtmadan", found: "nomi bo'yicha topildi", new: "yangi mahsulot yaratiladi",
+};
 
 /** A receipt is always made from an order ("Kirim qilish"); this page edits the quantities and the ESF block. */
 export function ReceiptFormPage() {
@@ -30,12 +41,15 @@ export function ReceiptFormPage() {
   const editable = can.update && !!r && r.status !== "cancelled";
 
   const form = useServerForm<Values, GoodsReceipt>({
-    initial: { date: "", warehouse_id: null, invoice_number: "", invoice_date: "", invoice_total: "", notes: "", qty: {} },
+    initial: { date: "", warehouse_id: null, invoice_number: "", invoice_date: "", invoice_total: "", notes: "", qty: {}, pick: {} },
     record: r,
     toForm: (x) => ({
       date: x.date, warehouse_id: x.warehouse_id, invoice_number: x.invoice_number, invoice_date: x.invoice_date ?? "",
       invoice_total: x.invoice_total ? String(Number(x.invoice_total)) : "", notes: x.notes,
       qty: Object.fromEntries(x.lines.map((l) => [l.order_line_id, String(Number(l.qty))])),
+      pick: Object.fromEntries(x.lines.map((l) => [l.order_line_id, {
+        product: l.product, new_category: l.new_category || (l.match.source === "new" ? l.match.category : ""),
+      }])),
     }),
     validate: {
       qty: (q, all) => {
@@ -60,7 +74,10 @@ export function ReceiptFormPage() {
     const data = {
       invoice_number: v.invoice_number, invoice_date: v.invoice_date || null,
       invoice_total: v.invoice_total ? String(toNum(v.invoice_total)) : null, notes: v.notes,
-      ...(draft ? { date: v.date, warehouse_id: v.warehouse_id, lines: r.lines.map((l) => ({ order_line_id: l.order_line_id, qty: String(toNum(v.qty[l.order_line_id])) })) } : {}),
+      ...(draft ? { date: v.date, warehouse_id: v.warehouse_id, lines: r.lines.map((l) => ({
+        order_line_id: l.order_line_id, qty: String(toNum(v.qty[l.order_line_id])),
+        product_id: v.pick[l.order_line_id]?.product?.id ?? null, new_category: v.pick[l.order_line_id]?.new_category ?? "",
+      })) } : {}),
     };
     save.mutate({ id, data }, {
       onSuccess: () => { notifyOk("Saqlandi"); form.commit(); },
@@ -147,6 +164,7 @@ export function ReceiptFormPage() {
                       <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-muted">
                         <th className="px-3 py-2.5 font-medium">Nomi</th>
                         <th className="w-20 px-3 py-2.5 font-medium">Birlik</th>
+                        <th className="w-64 px-3 py-2.5 font-medium">Ombordagi mahsulot</th>
                         <th className="w-24 px-3 py-2.5 text-right font-medium">Buyurtma</th>
                         <th className="w-24 px-3 py-2.5 text-right font-medium">Avval keldi</th>
                         <th className="w-28 px-3 py-2.5 text-right font-medium">Keldi</th>
@@ -162,6 +180,10 @@ export function ReceiptFormPage() {
                           <tr key={l.id} className="border-b border-line last:border-0">
                             <td className="px-3 py-1.5"><div className="font-medium">{l.name}</div>{l.project && <div className="text-2xs text-muted">{l.project.code}</div>}</td>
                             <td className="px-3 py-1.5 text-muted">{l.unit}</td>
+                            <td className="px-2 py-1.5">
+                              <ProductCell line={l} draft={draft} pick={v.pick[l.order_line_id] ?? { product: null, new_category: "" }}
+                                onChange={(pk) => form.set("pick", { ...v.pick, [l.order_line_id]: pk })} />
+                            </td>
                             <td className="px-3 py-1.5 text-right tabular">{Number(l.ordered_qty)}</td>
                             <td className="px-3 py-1.5 text-right tabular text-muted">{Number(l.order_received_qty)}</td>
                             <td className="px-2 py-1.5">
@@ -197,5 +219,32 @@ export function ReceiptFormPage() {
         </Dialog>
       </RecordPage>
     </form>
+  );
+}
+
+/** Where the line's kirim goes: the chosen / order / matched product, or a new one in the chosen category. */
+function ProductCell({ line, draft, pick, onChange }: { line: ReceiptLine; draft: boolean; pick: LinePick; onChange: (p: LinePick) => void }) {
+  const m = line.match;
+  const shown = pick.product ?? m.product;
+  if (!draft) {
+    return shown ? <div className="text-xs"><div className="font-medium">{shown.name}</div><div className="font-mono text-2xs text-muted">{shown.code}</div></div>
+      : <span className="text-xs text-muted">—</span>;
+  }
+  const isNew = !pick.product && m.source === "new";
+  const fromServer = !pick.product && m.product && m.source !== "receipt";
+  return (
+    <div className="grid gap-1">
+      <EntitySelect endpoint="inventory/products" className="min-w-52" value={pick.product?.id ?? null} current={pick.product}
+        placeholder={fromServer ? `${m.product!.name}` : "Yangi mahsulot"}
+        onChange={(id, o) => onChange({ ...pick, product: id && o ? { id, code: o.code ?? null, name: o.name ?? "" } : null })} />
+      {isNew ? (
+        <select value={pick.new_category || m.category} onChange={(e) => onChange({ ...pick, new_category: e.target.value })}
+          className="h-7 rounded-md border border-line bg-surface px-2 text-xs">
+          {Object.entries(CATEGORY).map(([k, label]) => <option key={k} value={k}>Yangi: {label}</option>)}
+        </select>
+      ) : (
+        <span className="px-1 text-2xs text-muted">{pick.product ? SOURCE.receipt : SOURCE[m.source]}{shown?.code ? ` · ${shown.code}` : ""}</span>
+      )}
+    </div>
   );
 }

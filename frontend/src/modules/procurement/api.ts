@@ -13,8 +13,10 @@ export type Totals = { net: string; vat: string; gross: string; net_uzs: string;
 
 export type RequestStatus = "draft" | "submitted" | "approved" | "rejected" | "ordered" | "cancelled";
 
+/** Warehouse product a purchase line is linked to (improve-product-selection). */
+export type LineProductRef = { id: number; code: string | null; name: string; unit: string; category: string };
 export type RequestLine = {
-  id: number; item_id: number | null; name: string; unit: string; qty: string; note: string;
+  id: number; item_id: number | null; product_id: number | null; product: LineProductRef | null; name: string; unit: string; qty: string; note: string;
   ordered_qty: string; remaining_qty: string;
 };
 export type RequestListItem = {
@@ -33,7 +35,7 @@ export type PurchaseRequest = RequestListItem & {
   steps: { id: number; name: string; role: string; state: StepState }[]; can_approve: boolean;
   allowed_statuses: RequestStatus[]; updated_at: string;
 };
-export type RequestLineInput = { item_id?: number | null; name: string; unit: string; qty: string; note?: string };
+export type RequestLineInput = { item_id?: number | null; product_id?: number | null; name: string; unit: string; qty: string; note?: string };
 export type RequestInput = Partial<{ project_id: number | null; needed_by: string | null; notes: string; lines: RequestLineInput[] }>;
 
 export const requestsApi = crudResource<RequestListItem, PurchaseRequest, RequestInput>("procurement/requests");
@@ -45,7 +47,7 @@ export type SentVia = "print" | "email" | "other";
 
 export type OrderLine = {
   id: number; request_line_id: number | null; request_code: string | null; project: Ref | null; item_id: number | null;
-  name: string; unit: string; qty: string; price: string; vat_rate: string; received_qty: string; remaining_qty: string;
+  product_id: number | null; product: LineProductRef | null; name: string; unit: string; qty: string; price: string; vat_rate: string; received_qty: string; remaining_qty: string;
   net: string; vat: string; gross: string;
 };
 export type OrderListItem = {
@@ -61,7 +63,7 @@ export type PurchaseOrder = OrderListItem & {
 export type MoneyStatus = "draft" | "submitted" | "approved" | "rejected" | "paid" | "cancelled";
 export type MoneyState = { id: number; code: string; status: MoneyStatus; amount: string; paid: string; currency: Currency };
 export type OrderLineInput = {
-  request_line_id?: number | null; item_id?: number | null; name: string; unit: string; qty: string;
+  request_line_id?: number | null; item_id?: number | null; product_id?: number | null; name: string; unit: string; qty: string;
   price: string | null; vat_rate: string | null;
 };
 export type OrderInput = Partial<{
@@ -78,6 +80,9 @@ export type ReceiptStatus = "draft" | "posted" | "cancelled";
 export type ReceiptLine = {
   id: number; order_line_id: number; name: string; unit: string; project: Ref | null; ordered_qty: string;
   order_received_qty: string; qty: string; price: string; vat_rate: string; net: string; vat: string; gross: string;
+  product_id: number | null; product: LineProductRef | null; new_category: string;
+  /** what posting will use: chosen on the receipt, the order line's, found by name / price list, or new */
+  match: { source: "receipt" | "order" | "found" | "new"; product: LineProductRef | null; category: string };
 };
 export type ReceiptListItem = {
   id: number; code: string; status: ReceiptStatus; order: DocRef; supplier: Ref; date: string; storekeeper: UserRef | null;
@@ -91,7 +96,7 @@ export type GoodsReceipt = ReceiptListItem & {
 };
 export type ReceiptInput = Partial<{
   order_id: number; date: string; warehouse_id: number | null; invoice_number: string; invoice_date: string | null; invoice_total: string | null;
-  notes: string; lines: { order_line_id: number; qty: string }[];
+  notes: string; lines: { order_line_id: number; qty: string; product_id?: number | null; new_category?: string }[];
 }>;
 
 export const receiptsApi = crudResource<ReceiptListItem, GoodsReceipt, ReceiptInput>("procurement/receipts");

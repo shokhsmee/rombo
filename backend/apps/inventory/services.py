@@ -2,9 +2,12 @@
 
 Public contract — procurement imports these; keep names and keyword-only signatures:
 
-    product_for(*, actor, item=None, name, unit) -> Product
-        The product a goods-receipt line brings: by price-list item, else by name + unit (case-insensitive),
-        else a new product (category guessed from the name).
+    product_match(*, item=None, name, unit) -> Product | None
+        The existing product a purchase line means: by price-list item, else by name + unit
+        (case-insensitive).
+    product_for(*, actor, item=None, name, unit, category=None) -> Product
+        product_match, else a new product (`category`, else guessed from the name).
+    guess_category(name) -> str
     stock_role(product) -> str
         The ledger role holding the product's value: "finished_goods" for `tayyor`, else "materials".
     source_moves_post(*, actor, source, date, warehouse=None, partner=None, rows) -> list[StockMove]
@@ -69,8 +72,10 @@ def fmt_money(value) -> str:
 
 def default_warehouse() -> Warehouse:
     """The default warehouse; "Asosiy ombor" is created the first time one is needed."""
-    w = (Warehouse.objects.filter(is_default=True, is_active=True).first()
-         or Warehouse.objects.filter(is_active=True).first())
+    w = (
+        Warehouse.objects.filter(is_default=True, is_active=True).first()
+        or Warehouse.objects.filter(is_active=True).first()
+    )
     if w is not None:
         return w
     w, _ = Warehouse.objects.get_or_create(name=DEFAULT_WAREHOUSE, defaults={"is_default": True})
@@ -99,8 +104,9 @@ def warehouse_create(*, actor, **fields) -> Warehouse:
 @transaction.atomic
 def warehouse_update(w: Warehouse, *, actor, **fields) -> Warehouse:
     if fields.get("is_active") is False and fields.get("is_default", w.is_default):
-        raise ValidationFailed("Asosiy omborni nofaol qilib bo'lmaydi — avval boshqasini asosiy qiling",
-                               field="is_active")
+        raise ValidationFailed(
+            "Asosiy omborni nofaol qilib bo'lmaydi — avval boshqasini asosiy qiling", field="is_active"
+        )
     if fields.get("is_default") is False and w.is_default:
         raise ValidationFailed("Boshqa omborni asosiy qiling", field="is_default")
     for k, v in fields.items():
@@ -112,7 +118,10 @@ def warehouse_update(w: Warehouse, *, actor, **fields) -> Warehouse:
 
 
 def warehouse_delete(w: Warehouse, *, actor) -> None:
-    if StockMove.all_objects.filter(warehouse=w).exists() or StockMove.all_objects.filter(to_warehouse=w).exists():
+    if (
+        StockMove.all_objects.filter(warehouse=w).exists()
+        or StockMove.all_objects.filter(to_warehouse=w).exists()
+    ):
         raise Conflict("Omborda harakatlar bor — o'chirib bo'lmaydi, nofaol qiling")
     if w.is_default:
         raise Conflict("Asosiy omborni o'chirib bo'lmaydi")
@@ -147,11 +156,16 @@ def product_create(*, actor, **fields) -> Product:
 
 @transaction.atomic
 def product_update(p: Product, *, actor, **fields) -> Product:
-    if "category" in fields and fields["category"] != p.category and p.moves.filter(
-            status=MoveStatus.POSTED).exists():
+    if (
+        "category" in fields
+        and fields["category"] != p.category
+        and p.moves.filter(status=MoveStatus.POSTED).exists()
+    ):
         # the category decides the ledger account holding the value (1010 / 2810)
-        raise Conflict("Harakati bor mahsulotning turkumi o'zgarmaydi — hisob (1010 / 2810) unga bog'liq",
-                       field="category")
+        raise Conflict(
+            "Harakati bor mahsulotning turkumi o'zgarmaydi — hisob (1010 / 2810) unga bog'liq",
+            field="category",
+        )
     for k, v in fields.items():
         setattr(p, k, v)
     p.stamp(actor)
@@ -168,16 +182,25 @@ def product_delete(p: Product, *, actor) -> None:
     p.soft_delete()  # archived: posted rows keep pointing to it
 
 
-def product_for(*, actor, item=None, name: str, unit: str) -> Product:
+def product_match(*, item=None, name: str, unit: str) -> Product | None:
+    """The existing product a purchase line means: by price-list item, else by name + unit."""
     name, unit = (name or "").strip(), (unit or "").strip() or "dona"
     p = None
     if item is not None:
         p = Product.objects.filter(price_item=item).first()
     if p is None:
         p = Product.objects.filter(name__iexact=name, unit__iexact=unit).first()
+    return p
+
+
+def product_for(*, actor, item=None, name: str, unit: str, category: str | None = None) -> Product:
+    p = product_match(item=item, name=name, unit=unit)
     if p is None:
+        name, unit = (name or "").strip(), (unit or "").strip() or "dona"
+        if category not in Category.values:
+            category = guess_category(name)
         # no default cost: price-list prices are often in USD; the receipt gives the real cost
-        p = product_create(actor=actor, name=name, unit=unit, category=guess_category(name), price_item=item)
+        p = product_create(actor=actor, name=name, unit=unit, category=category, price_item=item)
     return p
 
 
@@ -199,7 +222,9 @@ def _check_shape(m: StockMove) -> None:
     if m.type in NEEDS_PROJECT and m.project_id is None:
         raise ValidationFailed("Loyihani tanlang", field="project")
     if m.type == T.OUTPUT and m.product.category != Category.TAYYOR:
-        raise ValidationFailed("Ishlab chiqarishga faqat «Tayyor mahsulot» turkumidagi mahsulot kiradi", field="product")
+        raise ValidationFailed(
+            "Ishlab chiqarishga faqat «Tayyor mahsulot» turkumidagi mahsulot kiradi", field="product"
+        )
     if m.type == T.TRANSFER:
         if m.to_warehouse_id is None:
             raise ValidationFailed("Qaysi omborga ko'chirilishini tanlang", field="to_warehouse")
@@ -263,8 +288,10 @@ def move_delete(m: StockMove, *, actor) -> None:
 
 
 def _not_enough(product: Product, warehouse: Warehouse, have: Decimal) -> Conflict:
-    return Conflict(f"Omborda yetarli emas: {product.name} — «{warehouse.name}»da {fmt_qty(have)} {product.unit} bor",
-                    field="qty")
+    return Conflict(
+        f"Omborda yetarli emas: {product.name} — «{warehouse.name}»da {fmt_qty(have)} {product.unit} bor",
+        field="qty",
+    )
 
 
 def _outgoing_value(product: Product, qty: Decimal) -> Decimal:
@@ -283,27 +310,40 @@ def _entry_lines(m: StockMove, amount: Decimal) -> list[dict]:
     memo = f"{p.name} {fmt_qty(abs(m.qty))} {p.unit}"
     proj = m.project
     if m.type == T.ISSUE:
-        return [{"role": "wip", "debit": amount, "project": proj, "memo": memo},
-                {"role": role, "credit": amount, "project": proj, "memo": memo}]
+        return [
+            {"role": "wip", "debit": amount, "project": proj, "memo": memo},
+            {"role": role, "credit": amount, "project": proj, "memo": memo},
+        ]
     if m.type == T.OUTPUT:
-        return [{"role": "finished_goods", "debit": amount, "project": proj, "memo": memo},
-                {"role": "wip", "credit": amount, "project": proj, "memo": memo}]
+        return [
+            {"role": "finished_goods", "debit": amount, "project": proj, "memo": memo},
+            {"role": "wip", "credit": amount, "project": proj, "memo": memo},
+        ]
     if m.type == T.DELIVERY:
-        return [{"role": "cogs_products", "debit": amount, "project": proj, "partner": m.partner, "memo": memo},
-                {"role": role, "credit": amount, "project": proj, "memo": memo}]
+        return [
+            {"role": "cogs_products", "debit": amount, "project": proj, "partner": m.partner, "memo": memo},
+            {"role": role, "credit": amount, "project": proj, "memo": memo},
+        ]
     if m.type == T.ADJUST and m.qty > 0:
-        return [{"role": role, "debit": amount, "project": proj, "memo": memo},
-                {"role": "other_op_income", "credit": amount, "project": proj, "memo": f"Ortiqcha: {memo}"}]
+        return [
+            {"role": role, "debit": amount, "project": proj, "memo": memo},
+            {"role": "other_op_income", "credit": amount, "project": proj, "memo": f"Ortiqcha: {memo}"},
+        ]
     if m.type == T.ADJUST:
-        return [{"role": "other_op_expense", "debit": amount, "project": proj, "memo": f"Kamomad: {memo}"},
-                {"role": role, "credit": amount, "project": proj, "memo": memo}]
+        return [
+            {"role": "other_op_expense", "debit": amount, "project": proj, "memo": f"Kamomad: {memo}"},
+            {"role": role, "credit": amount, "project": proj, "memo": memo},
+        ]
     return []  # transfer: same account
 
 
 @transaction.atomic
 def move_post(m: StockMove, *, actor) -> StockMove:
-    m = (StockMove.objects.select_for_update()
-         .select_related("product", "warehouse", "to_warehouse", "project", "partner").get(pk=m.pk))
+    m = (
+        StockMove.objects.select_for_update()
+        .select_related("product", "warehouse", "to_warehouse", "project", "partner")
+        .get(pk=m.pk)
+    )
     if m.status != MoveStatus.DRAFT:
         raise Conflict(f"Harakat allaqachon «{MoveStatus(m.status).label}»")
     _normalize(m)
@@ -328,11 +368,15 @@ def move_post(m: StockMove, *, actor) -> StockMove:
         wip = selectors.project_wip(m.project)
         amount = q2(m.unit_cost * qty) if m.unit_cost else wip
         if amount <= 0:
-            raise Conflict("Loyihada tugallanmagan ishlab chiqarish (2010) yo'q — avval materiallarni chiqim qiling",
-                           field="unit_cost")
+            raise Conflict(
+                "Loyihada tugallanmagan ishlab chiqarish (2010) yo'q — avval materiallarni chiqim qiling",
+                field="unit_cost",
+            )
         if amount > wip:
-            raise Conflict(f"Loyihaning 2010 qoldig'i {fmt_money(wip)} so'm — undan ko'p kirim qilib bo'lmaydi",
-                           field="unit_cost")
+            raise Conflict(
+                f"Loyihaning 2010 qoldig'i {fmt_money(wip)} so'm — undan ko'p kirim qilib bo'lmaydi",
+                field="unit_cost",
+            )
     else:  # surplus
         cost = m.unit_cost or selectors.average_cost(product) or product.default_cost
         if not cost or cost <= 0:
@@ -345,8 +389,9 @@ def move_post(m: StockMove, *, actor) -> StockMove:
     entry = None
     if lines and amount > 0:
         label = MoveType(m.type).label
-        entry = acc.entry_post(actor=actor, date=m.date, memo=f"{m.code} · {label} · {product.name}", lines=lines,
-                               source=m)
+        entry = acc.entry_post(
+            actor=actor, date=m.date, memo=f"{m.code} · {label} · {product.name}", lines=lines, source=m
+        )
     m.entry = entry
     m.status = MoveStatus.POSTED
     m.posted_at, m.posted_by = timezone.now(), actor if getattr(actor, "pk", None) else None
@@ -355,8 +400,12 @@ def move_post(m: StockMove, *, actor) -> StockMove:
     if entry is not None:
         event(m, f"Jurnalga o'tkazildi: {entry.code} — {fmt_money(amount)} so'm", actor=actor)
     if m.project_id is not None:
-        event(m.project, f"{MoveType(m.type).label} {m.code}: {product.name} {fmt_qty(qty)} {product.unit}"
-                         f" · {fmt_money(amount)} so'm", actor=actor)
+        event(
+            m.project,
+            f"{MoveType(m.type).label} {m.code}: {product.name} {fmt_qty(qty)} {product.unit}"
+            f" · {fmt_money(amount)} so'm",
+            actor=actor,
+        )
     return m
 
 
@@ -364,18 +413,28 @@ def _cancel_one(m: StockMove, *, actor, comment: str, date: dt.date | None = Non
     product = Product.all_objects.select_for_update().get(pk=m.product_id)
     qty = abs(m.qty)
     # reversing an incoming row takes the goods back out: they must still be there
-    back_from = (m.to_warehouse if m.type == T.TRANSFER
-                 else m.warehouse if m.type in (T.RECEIPT, T.OUTPUT) or (m.type == T.ADJUST and m.qty > 0) else None)
+    back_from = (
+        m.to_warehouse
+        if m.type == T.TRANSFER
+        else m.warehouse
+        if m.type in (T.RECEIPT, T.OUTPUT) or (m.type == T.ADJUST and m.qty > 0)
+        else None
+    )
     if back_from is not None:
         have = selectors.warehouse_qty(product, back_from)
         if have < qty:
-            raise Conflict(f"{m.code}: {product.name} ishlatilgan — «{back_from.name}»da {fmt_qty(have)} "
-                           f"{product.unit} qolgan, {fmt_qty(qty)} kerak", field="status")
+            raise Conflict(
+                f"{m.code}: {product.name} ishlatilgan — «{back_from.name}»da {fmt_qty(have)} "
+                f"{product.unit} qolgan, {fmt_qty(qty)} kerak",
+                field="status",
+            )
     if m.entry_id:
         from apps.accounting.models import EntryStatus
 
         if m.entry.status == EntryStatus.POSTED:
-            mirror = _ledger().entry_reverse(m.entry, actor=actor, date=date, memo=f"Storno {m.entry.code} · {m.code}")
+            mirror = _ledger().entry_reverse(
+                m.entry, actor=actor, date=date, memo=f"Storno {m.entry.code} · {m.code}"
+            )
             event(m, f"O'tkazma storno qilindi: {mirror.code}", actor=actor)
     m.status = MoveStatus.CANCELLED
     m.stamp(actor)
@@ -387,14 +446,19 @@ def _cancel_one(m: StockMove, *, actor, comment: str, date: dt.date | None = Non
 
 @transaction.atomic
 def move_cancel(m: StockMove, *, actor, comment: str = "", date: dt.date | None = None) -> StockMove:
-    m = (StockMove.objects.select_for_update()
-         .select_related("product", "warehouse", "to_warehouse", "entry", "project").get(pk=m.pk))
+    m = (
+        StockMove.objects.select_for_update()
+        .select_related("product", "warehouse", "to_warehouse", "entry", "project")
+        .get(pk=m.pk)
+    )
     if m.status == MoveStatus.CANCELLED:
         raise Conflict("Harakat allaqachon bekor qilingan")
     if m.status != MoveStatus.POSTED:
         raise Conflict("Qoralama bekor qilinmaydi — uni o'chiring")
     if m.source_model:
-        raise Conflict(f"Bu qator {m.source_label or m.source_model} hujjatidan — o'sha hujjatni bekor qiling")
+        raise Conflict(
+            f"Bu qator {m.source_label or m.source_model} hujjatidan — o'sha hujjatni bekor qiling"
+        )
     comment = (comment or "").strip()
     if not comment:
         raise ValidationFailed("Bekor qilish sababini yozing", field="comment")
@@ -407,7 +471,9 @@ def move_cancel(m: StockMove, *, actor, comment: str = "", date: dt.date | None 
 
 
 @transaction.atomic
-def source_moves_post(*, actor, source, date, warehouse=None, partner=None, rows: list[dict]) -> list[StockMove]:
+def source_moves_post(
+    *, actor, source, date, warehouse=None, partner=None, rows: list[dict]
+) -> list[StockMove]:
     warehouse = warehouse or default_warehouse()
     if not warehouse.is_active:
         raise Conflict(f"«{warehouse.name}» ombori nofaol", field="warehouse")
@@ -415,11 +481,24 @@ def source_moves_post(*, actor, source, date, warehouse=None, partner=None, rows
     out = []
     for row in rows:
         qty, amount = Decimal(row["qty"]), q2(row["amount"])
-        m = StockMove(type=T.RECEIPT, status=MoveStatus.POSTED, date=date, product=row["product"],
-                      warehouse=warehouse, qty=qty, unit_cost=q2(amount / qty) if qty else ZERO, amount=amount,
-                      project=row.get("project"), partner=partner, source_model=_label_of(source),
-                      source_id=source.pk, source_label=str(source), notes=row.get("notes", ""),
-                      posted_at=now, posted_by=who)
+        m = StockMove(
+            type=T.RECEIPT,
+            status=MoveStatus.POSTED,
+            date=date,
+            product=row["product"],
+            warehouse=warehouse,
+            qty=qty,
+            unit_cost=q2(amount / qty) if qty else ZERO,
+            amount=amount,
+            project=row.get("project"),
+            partner=partner,
+            source_model=_label_of(source),
+            source_id=source.pk,
+            source_label=str(source),
+            notes=row.get("notes", ""),
+            posted_at=now,
+            posted_by=who,
+        )
         m.stamp(actor, created=True)
         m.save()
         assign_code(m, "OM")
@@ -429,9 +508,11 @@ def source_moves_post(*, actor, source, date, warehouse=None, partner=None, rows
 
 @transaction.atomic
 def source_moves_cancel(*, actor, source, comment: str = "") -> None:
-    moves = (StockMove.objects.select_for_update()
-             .select_related("product", "warehouse", "to_warehouse", "entry", "project")
-             .filter(source_model=_label_of(source), source_id=source.pk, status=MoveStatus.POSTED)
-             .order_by("id"))
+    moves = (
+        StockMove.objects.select_for_update()
+        .select_related("product", "warehouse", "to_warehouse", "entry", "project")
+        .filter(source_model=_label_of(source), source_id=source.pk, status=MoveStatus.POSTED)
+        .order_by("id")
+    )
     for m in moves:
         _cancel_one(m, actor=actor, comment=comment or f"{source} bekor qilindi")

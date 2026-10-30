@@ -10,14 +10,15 @@ import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDateTime, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
 import { projectsApi } from "@/modules/projects/api";
+import { ProductCombo, type LineProduct } from "@/modules/inventory/ProductCombo";
 
 import { requestsApi, useOrdersFromRequests, useRequestActions, type FromRequestsLine, type PurchaseRequest, type RequestLine } from "./api";
 import { REQUEST_PIPELINE, REQUEST_STATUS } from "./statuses";
 
-type LineRow = { item_id: number | null; name: string; unit: string; qty: string; note: string };
+type LineRow = { item_id: number | null; product: LineProduct | null; name: string; unit: string; qty: string; note: string };
 type Values = { project_id: number | null; needed_by: string; notes: string; lines: LineRow[] };
 
-const emptyLine = (): LineRow => ({ item_id: null, name: "", unit: "dona", qty: "", note: "" });
+const emptyLine = (): LineRow => ({ item_id: null, product: null, name: "", unit: "dona", qty: "", note: "" });
 const EMPTY: Values = { project_id: null, needed_by: "", notes: "", lines: [] };
 
 function linesError(rows: LineRow[]) {
@@ -48,7 +49,7 @@ export function RequestFormPage() {
     record: r,
     toForm: (x) => ({
       project_id: x.project_id, needed_by: x.needed_by ?? "", notes: x.notes,
-      lines: x.lines.map((l) => ({ item_id: l.item_id, name: l.name, unit: l.unit, qty: String(Number(l.qty)), note: l.note })),
+      lines: x.lines.map((l) => ({ item_id: l.item_id, product: l.product, name: l.name, unit: l.unit, qty: String(Number(l.qty)), note: l.note })),
     }),
     validate: { project_id: (v) => (v ? null : "Loyihani tanlang"), lines: linesError },
   });
@@ -59,7 +60,7 @@ export function RequestFormPage() {
     if (!form.check()) return;
     const data = {
       project_id: v.project_id, needed_by: v.needed_by || null, notes: v.notes,
-      lines: v.lines.map((l) => ({ item_id: l.item_id, name: l.name.trim(), unit: l.unit.trim() || "dona", qty: String(toNum(l.qty)), note: l.note })),
+      lines: v.lines.map((l) => ({ item_id: l.item_id, product_id: l.product?.id ?? null, name: l.name.trim(), unit: l.unit.trim() || "dona", qty: String(toNum(l.qty)), note: l.note })),
     };
     save.mutate({ id, data }, {
       onSuccess: (saved) => {
@@ -154,7 +155,11 @@ function LinesEditor({ rows, onChange, disabled, error, saved, extra }: {
             {rows.map((l, i) => (
               <tr key={i} className="border-b border-line last:border-0">
                 <td className="px-3 py-1.5 text-xs text-muted">{i + 1}</td>
-                <td className="px-2 py-1.5"><Input value={l.name} disabled={disabled} placeholder="Material" className="min-w-44" onChange={(e) => set(i, { name: e.target.value })} /></td>
+                <td className="px-2 py-1.5">
+                  <ProductCombo name={l.name} product={l.product} disabled={disabled}
+                    onText={(name) => set(i, { name, product: null })}
+                    onPick={(p) => set(i, { product: p, name: p.name, unit: p.unit })} />
+                </td>
                 <td className="px-2 py-1.5"><Input value={l.unit} disabled={disabled} onChange={(e) => set(i, { unit: e.target.value })} /></td>
                 <td className="px-2 py-1.5"><Input inputMode="decimal" className="text-right tabular" value={l.qty} disabled={disabled} placeholder="0" onChange={(e) => set(i, { qty: e.target.value })} /></td>
                 {disabled && saved && (

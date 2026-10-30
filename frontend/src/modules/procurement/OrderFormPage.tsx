@@ -11,11 +11,12 @@ import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDateTime, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
 import { PAYMENT_REQUEST_STATUS } from "@/modules/kassa/labels";
+import { ProductCombo, type LineProduct } from "@/modules/inventory/ProductCombo";
 
 import { ordersApi, receiptsApi, useOrderActions, type Currency, type OrderLine, type PurchaseOrder, type SentVia } from "./api";
 import { ORDER_PIPELINE, ORDER_STATUS, VIA_LABEL } from "./statuses";
 
-type LineRow = { request_line_id: number | null; item_id: number | null; name: string; unit: string; qty: string; price: string; vat_rate: string };
+type LineRow = { request_line_id: number | null; item_id: number | null; product: LineProduct | null; name: string; unit: string; qty: string; price: string; vat_rate: string };
 type Values = {
   supplier_id: number | null; project_id: number | null; date: string; expected_date: string; currency: Currency; rate: string;
   notes: string; lines: LineRow[];
@@ -23,7 +24,7 @@ type Values = {
 
 const today = () => dayjs().format("YYYY-MM-DD");
 const EMPTY: Values = { supplier_id: null, project_id: null, date: today(), expected_date: "", currency: "UZS", rate: "", notes: "", lines: [] };
-const emptyLine = (): LineRow => ({ request_line_id: null, item_id: null, name: "", unit: "dona", qty: "", price: "", vat_rate: "0" });
+const emptyLine = (): LineRow => ({ request_line_id: null, item_id: null, product: null, name: "", unit: "dona", qty: "", price: "", vat_rate: "0" });
 
 const num = (v: string) => toNum(v) || 0;
 const lineGross = (l: LineRow) => num(l.qty) * num(l.price) * (1 + num(l.vat_rate) / 100);
@@ -48,7 +49,7 @@ export function OrderFormPage() {
     toForm: (x) => ({
       supplier_id: x.supplier_id, project_id: x.project_id, date: x.date, expected_date: x.expected_date ?? "",
       currency: x.currency, rate: x.rate ? String(Number(x.rate)) : "", notes: x.notes,
-      lines: x.lines.map((l) => ({ request_line_id: l.request_line_id, item_id: l.item_id, name: l.name, unit: l.unit,
+      lines: x.lines.map((l) => ({ request_line_id: l.request_line_id, item_id: l.item_id, product: l.product, name: l.name, unit: l.unit,
         qty: String(Number(l.qty)), price: String(Number(l.price)), vat_rate: String(Number(l.vat_rate)) })),
     }),
     validate: {
@@ -75,7 +76,7 @@ export function OrderFormPage() {
     const data = draft ? {
       supplier_id: v.supplier_id, project_id: v.project_id, date: v.date || today(), expected_date: v.expected_date || null,
       currency: v.currency, rate: v.currency === "UZS" ? null : String(toNum(v.rate)), notes: v.notes,
-      lines: v.lines.map((l) => ({ request_line_id: l.request_line_id, item_id: l.item_id, name: l.name.trim(), unit: l.unit.trim() || "dona",
+      lines: v.lines.map((l) => ({ request_line_id: l.request_line_id, item_id: l.item_id, product_id: l.product?.id ?? null, name: l.name.trim(), unit: l.unit.trim() || "dona",
         qty: String(num(l.qty)), price: String(num(l.price)), vat_rate: String(num(l.vat_rate)) })),
     } : { expected_date: v.expected_date || null, notes: v.notes };
     save.mutate({ id, data }, {
@@ -212,7 +213,9 @@ function LinesEditor({ rows, onChange, disabled, error, currency, saved }: {
               <tr key={i} className="border-b border-line last:border-0">
                 <td className="px-3 py-1.5 text-xs text-muted">{i + 1}</td>
                 <td className="px-2 py-1.5">
-                  <Input value={l.name} disabled={disabled} placeholder="Material" className="min-w-44" onChange={(e) => set(i, { name: e.target.value })} />
+                  <ProductCombo name={l.name} product={l.product} disabled={disabled}
+                    onText={(name) => set(i, { name, product: null })}
+                    onPick={(p) => set(i, { product: p, name: p.name, unit: p.unit })} />
                   {saved?.[i]?.request_code && <span className="text-2xs text-muted">{saved[i].request_code}{saved[i].project ? ` · ${saved[i].project!.code}` : ""}</span>}
                 </td>
                 <td className="px-2 py-1.5"><Input value={l.unit} disabled={disabled} onChange={(e) => set(i, { unit: e.target.value })} /></td>

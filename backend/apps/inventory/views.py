@@ -20,7 +20,6 @@ from apps.inventory.serializers import (
 )
 
 
-
 def any_page_view(*keys: str) -> type[BasePermission]:
     """Reading a list other pages pick from (the move form, the KR form, the stock page)."""
 
@@ -54,13 +53,20 @@ class WarehouseViewSet(ServiceModelViewSet):
 
     def get_queryset(self):
         has = Q(Exists(StockMove.all_objects.filter(warehouse=OuterRef("pk")))) | Q(
-            Exists(StockMove.all_objects.filter(to_warehouse=OuterRef("pk"))))
-        return Warehouse.objects.select_related("responsible").annotate(has_moves=has).order_by("-is_default", "name")
+            Exists(StockMove.all_objects.filter(to_warehouse=OuterRef("pk")))
+        )
+        return (
+            Warehouse.objects.select_related("responsible")
+            .annotate(has_moves=has)
+            .order_by("-is_default", "name")
+        )
 
     def get_permissions(self):
         if self.action in READ:
-            return [IsAuthenticated(), any_page_view(Pages.WAREHOUSES, Pages.INVENTORY, Pages.STOCK,
-                                                     Pages.GOODS_RECEIPTS)()]
+            return [
+                IsAuthenticated(),
+                any_page_view(Pages.WAREHOUSES, Pages.INVENTORY, Pages.STOCK, Pages.GOODS_RECEIPTS)(),
+            ]
         return super().get_permissions()
 
 
@@ -69,10 +75,21 @@ class WarehouseViewSet(ServiceModelViewSet):
 
 class ProductFilter(django_filters.FilterSet):
     category = django_filters.MultipleChoiceFilter(choices=Category.choices)
+    in_stock = django_filters.BooleanFilter(method="filter_in_stock")
+    warehouse = django_filters.NumberFilter(method="filter_noop")  # read by in_stock and the serializer
 
     class Meta:
         model = Product
-        fields = ["category", "is_active", "unit"]
+        fields = ["category", "is_active", "unit", "in_stock", "warehouse"]
+
+    def filter_noop(self, qs, name, value):
+        return qs
+
+    def filter_in_stock(self, qs, name, value):
+        if value is None:
+            return qs
+        ids = selectors.products_in_stock(self.data.get("warehouse") or None)
+        return qs.filter(pk__in=ids) if value else qs.exclude(pk__in=ids)
 
 
 class ProductViewSet(ServiceModelViewSet):
@@ -92,7 +109,17 @@ class ProductViewSet(ServiceModelViewSet):
 
     def get_permissions(self):
         if self.action in READ:  # the move form picks products
-            return [IsAuthenticated(), any_page_view(Pages.PRODUCTS, Pages.INVENTORY, Pages.STOCK)()]
+            return [
+                IsAuthenticated(),
+                any_page_view(
+                    Pages.PRODUCTS,
+                    Pages.INVENTORY,
+                    Pages.STOCK,
+                    Pages.PROCUREMENT,
+                    Pages.PURCHASE_ORDERS,
+                    Pages.GOODS_RECEIPTS,
+                )(),
+            ]
         return super().get_permissions()
 
     def list(self, request, *args, **kwargs):
@@ -100,6 +127,9 @@ class ProductViewSet(ServiceModelViewSet):
         page = self.paginate_queryset(qs)
         rows = page if page is not None else list(qs)
         ctx = {**self.get_serializer_context(), "on_hand": selectors.products_on_hand(p.pk for p in rows)}
+        wh = request.query_params.get("warehouse")
+        if wh and wh.isdigit():
+            ctx["in_warehouse"] = selectors.warehouse_products(int(wh), [p.pk for p in rows])
         data = ProductSerializer(rows, many=True, context=ctx).data
         return self.get_paginated_response(data) if page is not None else Response(data)
 
@@ -122,8 +152,17 @@ class StockMoveFilter(django_filters.FilterSet):
 
     class Meta:
         model = StockMove
-        fields = ["status", "type", "warehouse", "product", "category", "project", "partner", "source_model",
-                  "source_id"]
+        fields = [
+            "status",
+            "type",
+            "warehouse",
+            "product",
+            "category",
+            "project",
+            "partner",
+            "source_model",
+            "source_id",
+        ]
 
     def filter_warehouse(self, qs, name, value):
         return qs.filter(Q(warehouse_id=value) | Q(to_warehouse_id=value))  # a transfer shows on both
@@ -134,8 +173,16 @@ class StockMoveViewSet(ServiceModelViewSet):
     serializer_class = StockMoveSerializer
     list_serializer_class = StockMoveListSerializer
     filterset_class = StockMoveFilter
-    search_fields = ["code", "product__name", "product__sku", "project__code", "project__name", "partner__name",
-                     "source_label", "notes"]
+    search_fields = [
+        "code",
+        "product__name",
+        "product__sku",
+        "project__code",
+        "project__name",
+        "partner__name",
+        "source_label",
+        "notes",
+    ]
     ordering_fields = ["date", "code", "qty", "amount", "status", "type", "created_at"]
     ordering = ["-date", "-id"]
     permission_action_map = {"post": Action.UPDATE, "cancel": Action.UPDATE}
@@ -145,8 +192,9 @@ class StockMoveViewSet(ServiceModelViewSet):
     service_delete = services.move_delete
 
     def get_queryset(self):
-        return StockMove.objects.select_related("product", "warehouse", "to_warehouse", "project", "partner", "entry",
-                                                "posted_by", "created_by")
+        return StockMove.objects.select_related(
+            "product", "warehouse", "to_warehouse", "project", "partner", "entry", "posted_by", "created_by"
+        )
 
     def filter_queryset(self, queryset):
         qs = super().filter_queryset(queryset)
@@ -179,5 +227,8 @@ def stock_view(request):
     s = StockQuerySerializer(data=request.query_params)
     s.is_valid(raise_exception=True)
     d = s.validated_data
-    return Response(selectors.stock(warehouse=d.get("warehouse"), category=d.get("category") or None, q=d["q"],
-                                    nonzero=d["nonzero"]))
+    return Response(
+        selectors.stock(
+            warehouse=d.get("warehouse"), category=d.get("category") or None, q=d["q"], nonzero=d["nonzero"]
+        )
+    )

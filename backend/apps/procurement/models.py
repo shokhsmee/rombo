@@ -140,6 +140,9 @@ class PurchaseRequestLine(models.Model):
     request = models.ForeignKey(PurchaseRequest, on_delete=models.CASCADE, related_name="lines")
     item = models.ForeignKey("pricing.PriceListItem", null=True, blank=True, on_delete=models.SET_NULL,
                              related_name="+")  # price-list item; null for free text
+    # the warehouse product this line buys (improve-product-selection); null = decided at the receipt
+    product = models.ForeignKey("inventory.Product", null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name="+")
     sort_order = models.PositiveSmallIntegerField(default=0)
     name = models.CharField(max_length=200)
     unit = models.CharField(max_length=20)
@@ -253,6 +256,8 @@ class PurchaseOrderLine(models.Model):
                                 related_name="purchase_order_lines")  # inherited from the request line
     item = models.ForeignKey("pricing.PriceListItem", null=True, blank=True, on_delete=models.SET_NULL,
                              related_name="+")
+    product = models.ForeignKey("inventory.Product", null=True, blank=True, on_delete=models.SET_NULL,
+                                related_name="+")
     sort_order = models.PositiveSmallIntegerField(default=0)
     name = models.CharField(max_length=200)
     unit = models.CharField(max_length=20)
@@ -369,6 +374,10 @@ class GoodsReceiptLine(models.Model):
                               validators=[MinValueValidator(Decimal("0.01"))])
     price = models.DecimalField(max_digits=14, decimal_places=2, default=ZERO)  # copied from the order line
     vat_rate = models.DecimalField(max_digits=5, decimal_places=2, default=ZERO)
+    # the product the kirim row goes to (chosen on the receipt; else the order line's; else matched / new)
+    product = models.ForeignKey("inventory.Product", null=True, blank=True, on_delete=models.PROTECT,
+                                related_name="+")
+    new_category = models.CharField(max_length=12, blank=True, default="")  # category of a product to create
 
     class Meta:
         ordering = ["id"]

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { api, type Page } from "@/lib/api";
 
@@ -18,7 +18,7 @@ type CreateRow = { kind: "create" | "edit"; label: string };
  * With `onCreate` / `onCreateEdit` the dropdown ends with Odoo-style rows — "«text» yaratish" and
  * "Yaratish va to'ldirish…" — whenever the typed text has no exact match.
  */
-export function EntitySelect({ endpoint, value, onChange, current, extraParams, placeholder = "Tanlang…", error, disabled, className = "", onCreate, onCreateEdit }: {
+export function EntitySelect({ endpoint, value, onChange, current, extraParams, placeholder = "Tanlang…", error, disabled, className = "", onCreate, onCreateEdit, describe }: {
   endpoint: string;
   value: number | null;
   onChange: (id: number | null, option: Option | null) => void;
@@ -32,6 +32,8 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
   onCreate?: (query: string) => void | Promise<void>;
   /** Open a fuller create form pre-filled with the typed text. */
   onCreateEdit?: (query: string) => void;
+  /** Right side of an option instead of its code, e.g. "12 dona" for a product picker. */
+  describe?: (option: Option & Record<string, unknown>) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -137,7 +139,8 @@ export function EntitySelect({ endpoint, value, onChange, current, extraParams, 
             <button key={o.id} type="button" onMouseEnter={() => setActive(i)} onClick={() => choose(o)}
               className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${i === active ? "bg-ground" : ""}`}>
               <span className="min-w-0 flex-1 truncate">{nameOf(o)}</span>
-              {o.code && <span className="font-mono text-2xs text-muted">{o.code}</span>}
+              {describe ? <span className="shrink-0 text-2xs text-muted">{describe(o as Option & Record<string, unknown>)}</span>
+                : o.code && <span className="font-mono text-2xs text-muted">{o.code}</span>}
               {o.id === value && <Check className="size-3.5 text-accent-ink" />}
             </button>
           ))}

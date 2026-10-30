@@ -406,6 +406,8 @@ def _prepare_order_lines(order: PurchaseOrder, lines: list[dict]) -> list[dict]:
         rl = row.get("request_line")
         if rl is not None:
             row.setdefault("item", rl.item)
+            if not row.get("product"):
+                row["product"] = rl.product
             row.setdefault("name", rl.name)
             row.setdefault("unit", rl.unit)
             row["project"] = rl.request.project
@@ -687,7 +689,8 @@ def _check_receipt_lines(receipt: GoodsReceipt | None, order: PurchaseOrder, lin
         if ln["qty"] > ol.remaining_qty:
             raise ValidationFailed(f"{ol.name}: buyurtmada {ol.remaining_qty.normalize():f} {ol.unit} qolgan",
                                    field="lines")
-        rows.append({"order_line": ol, "qty": ln["qty"], "price": ol.price, "vat_rate": ol.vat_rate})
+        rows.append({"order_line": ol, "qty": ln["qty"], "price": ol.price, "vat_rate": ol.vat_rate,
+                     "product": ln.get("product"), "new_category": ln.get("new_category") or ""})
     return rows
 
 
@@ -755,7 +758,8 @@ def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
     lines = list(receipt.lines.select_related("order_line__project"))
     if not lines:
         raise ValidationFailed("Kirimda qator yo'q", field="lines")
-    _check_receipt_lines(receipt, order, [{"order_line": ln.order_line, "qty": ln.qty} for ln in lines])
+    _check_receipt_lines(receipt, order, [{"order_line": ln.order_line, "qty": ln.qty, "product": ln.product}
+                                          for ln in lines])
 
     acc, accsel = _ledger()
     acc.check_open(receipt.date)
@@ -773,7 +777,8 @@ def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
         net_uzs, vat_uzs = money(ln.net * rate), money(ln.vat * rate)
         memo = f"{ol.name} {ln.qty.normalize():f} {ol.unit}"
         # the product the line brings decides the stock account (1010 / 2810), so stock value = ledger
-        product = inv.product_for(actor=actor, item=ol.item, name=ol.name, unit=ol.unit)
+        product = ln.product or ol.product or inv.product_for(
+            actor=actor, item=ol.item, name=ol.name, unit=ol.unit, category=ln.new_category or None)
         stock_rows.append({"product": product, "qty": ln.qty, "amount": net_uzs, "project": ol.project})
         entry_lines.append({"role": inv.stock_role(product), "debit": net_uzs, "partner": receipt.supplier,
                             "project": ln.order_line.project, "currency": cur,
@@ -826,7 +831,8 @@ def receipt_cancel(receipt: GoodsReceipt, *, actor, comment: str = "") -> GoodsR
         raise ValidationFailed("Faqat o'tkazilgan kirim bekor qilinadi", field="status")
     acc, _ = _ledger()
     # the goods leave the warehouse first: 409 when some of them were already issued
-    _inventory().source_moves_cancel(actor=actor, source=receipt, comment=comment or f"{receipt.code} bekor qilindi")
+    _inventory().source_moves_cancel(actor=actor, source=receipt,
+                                     comment=comment or f"{receipt.code} bekor qilindi")
     if receipt.entry_id:
         reversal = acc.entry_reverse(receipt.entry, actor=actor, memo=f"Storno {receipt.code}")
         event(receipt, f"Storno: {reversal.code}", actor=actor)

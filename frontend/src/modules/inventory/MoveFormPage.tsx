@@ -24,6 +24,16 @@ type Values = {
 const MANUAL: MoveType[] = ["issue", "output", "delivery", "transfer", "adjust"];
 const NEEDS_PROJECT: MoveType[] = ["issue", "output", "delivery"];
 const num = (v: string) => toNum(v || "0") || 0;
+/** Types that take goods out of the chosen warehouse: their picker lists only what it holds. */
+const FROM_STOCK: MoveType[] = ["issue", "delivery", "transfer"];
+
+function pickerParams(v: Values): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (v.type === "output" || v.type === "delivery") out.category = "tayyor";
+  if (v.warehouse_id) out.warehouse = String(v.warehouse_id);
+  if (FROM_STOCK.includes(v.type)) out.in_stock = "true";
+  return out;
+}
 const idOf = (v: string | null) => (v ? Number(v) : null);
 
 export function MoveFormPage() {
@@ -130,7 +140,8 @@ export function MoveFormPage() {
               <Row label="Sana" required error={form.errors.date}><Input type="date" {...form.text("date")} /></Row>
               <Row label="Mahsulot" required error={form.errors.product_id}>
                 <EntitySelect endpoint="inventory/products" current={m?.product ?? p} disabled={!editable} value={v.product_id}
-                  extraParams={v.type === "output" || v.type === "delivery" ? { category: "tayyor" } : undefined}
+                  extraParams={pickerParams(v)} placeholder={FROM_STOCK.includes(v.type) ? "Omborda bor mahsulotlar…" : "Tanlang…"}
+                  describe={(o) => `${fmtQty(String(o.qty_in_warehouse ?? o.qty_on_hand ?? ""))} ${String(o.unit ?? "")}`}
                   onChange={(pid) => form.set("product_id", pid)} />
                 {p && <span className="text-xs text-muted">{CATEGORY[p.category]} · omborlarda {fmtQty(p.qty_on_hand)} {p.unit}{p.avg_cost && <> · o'rtacha {money(p.avg_cost)} so'm</>}</span>}
               </Row>

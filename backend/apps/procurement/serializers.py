@@ -7,7 +7,7 @@ from apps.access.registry import Action, Pages
 from apps.access.services import has_permission
 from apps.clients.models import Client, ClientKind
 from apps.core.serializers import RefSerializer, UserRefSerializer
-from apps.inventory.models import MoveStatus, StockMove, Warehouse
+from apps.inventory.models import Category, MoveStatus, Product, StockMove, Warehouse
 from apps.pricing.models import PriceListItem
 from apps.procurement import selectors, services
 from apps.procurement.models import (
@@ -28,6 +28,20 @@ from apps.projects.models import Project, ProjectCalc
 
 MONEY = dict(max_digits=18, decimal_places=2, read_only=True)
 QTY = dict(max_digits=12, decimal_places=2, read_only=True)
+
+
+class ProductRefSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    code = serializers.CharField(read_only=True, allow_null=True)
+    name = serializers.CharField(read_only=True)
+    unit = serializers.CharField(read_only=True)
+    category = serializers.CharField(read_only=True)
+
+
+def product_field():
+    """Writable `product_id` of a purchase line (improve-product-selection)."""
+    return serializers.PrimaryKeyRelatedField(source="product", queryset=Product.objects.all(),
+                                              allow_null=True, required=False)
 
 
 class DocRefSerializer(serializers.Serializer):
@@ -57,10 +71,13 @@ class RequestLineSerializer(serializers.ModelSerializer):
     item_id = serializers.PrimaryKeyRelatedField(source="item", queryset=PriceListItem.objects.all(),
                                                  allow_null=True, required=False)
     remaining_qty = serializers.DecimalField(**QTY)
+    product_id = product_field()
+    product = ProductRefSerializer(read_only=True)
 
     class Meta:
         model = PurchaseRequestLine
-        fields = ["id", "item_id", "name", "unit", "qty", "note", "ordered_qty", "remaining_qty"]
+        fields = ["id", "item_id", "product_id", "product", "name", "unit", "qty", "note", "ordered_qty",
+                  "remaining_qty"]
         read_only_fields = ["ordered_qty"]
         extra_kwargs = {"qty": {"min_value": Decimal("0.01")}}
 
@@ -180,10 +197,13 @@ class OrderLineSerializer(serializers.ModelSerializer):
     net = serializers.DecimalField(**MONEY)
     vat = serializers.DecimalField(**MONEY)
     gross = serializers.DecimalField(**MONEY)
+    product_id = product_field()
+    product = ProductRefSerializer(read_only=True)
 
     class Meta:
         model = PurchaseOrderLine
-        fields = ["id", "request_line_id", "request_code", "project", "item_id", "name", "unit", "qty",
+        fields = ["id", "request_line_id", "request_code", "project", "item_id", "product_id", "product",
+                  "name", "unit", "qty",
                   "price",
                   "vat_rate", "received_qty", "remaining_qty", "net", "vat", "gross"]
         read_only_fields = ["received_qty"]
@@ -272,13 +292,33 @@ class ReceiptLineSerializer(serializers.ModelSerializer):
     net = serializers.DecimalField(**MONEY)
     vat = serializers.DecimalField(**MONEY)
     gross = serializers.DecimalField(**MONEY)
+    product_id = product_field()
+    product = ProductRefSerializer(read_only=True)
+    new_category = serializers.ChoiceField(choices=Category.choices, required=False, allow_blank=True)
+    match = serializers.SerializerMethodField()
 
     class Meta:
         model = GoodsReceiptLine
         fields = ["id", "order_line_id", "name", "unit", "project", "ordered_qty", "order_received_qty",
-                  "qty",
-                  "price", "vat_rate", "net", "vat", "gross"]
+                  "qty", "price", "vat_rate", "net", "vat", "gross", "product_id", "product", "new_category",
+                  "match"]
         extra_kwargs = {"qty": {"min_value": Decimal("0.01")}}
+
+    def get_match(self, obj) -> dict:
+        """The product posting will use: chosen here, else the order line's, else found, else a new one."""
+        from apps.inventory import services as inv
+
+        ol = obj.order_line
+        if obj.product_id:
+            source, p = "receipt", obj.product
+        elif ol.product_id:
+            source, p = "order", ol.product
+        else:
+            source, p = "found", inv.product_match(item=ol.item, name=ol.name, unit=ol.unit)
+        if p is None:
+            category = obj.new_category or inv.guess_category(ol.name)
+            return {"source": "new", "product": None, "category": category}
+        return {"source": source, "product": ProductRefSerializer(p).data, "category": p.category}
 
 
 class ReceiptListSerializer(serializers.ModelSerializer):

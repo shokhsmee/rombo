@@ -81,7 +81,7 @@ class PurchaseRequestViewSet(ServiceModelViewSet):
               .annotate(lines_count=Count("lines", distinct=True)))
         if self.action != "list":
             qs = (qs.select_related("approved_by", "approval_step__role")
-                  .prefetch_related("lines__item", "approvals__user"))
+                  .prefetch_related("lines__item", "lines__product", "approvals__user"))
         return qs
 
     def _respond(self, req, status=http.HTTP_200_OK):
@@ -175,9 +175,8 @@ class PurchaseOrderViewSet(ServiceModelViewSet):
     def get_queryset(self):
         qs = PurchaseOrder.objects.select_related("supplier", "project").prefetch_related("lines")
         if self.action != "list":
-            qs = qs.select_related("sent_by", "payment_request").prefetch_related("lines__project",
-                                                               "lines__request_line__request",
-                                                               "receipts")
+            qs = qs.select_related("sent_by", "payment_request").prefetch_related(
+                "lines__project", "lines__product", "lines__request_line__request", "receipts")
         return qs
 
     def _respond(self, order):
@@ -259,10 +258,13 @@ class GoodsReceiptViewSet(ServiceModelViewSet):
     service_delete = services.receipt_delete
 
     def get_queryset(self):
-        qs = GoodsReceipt.objects.select_related("order", "supplier", "storekeeper", "warehouse").prefetch_related("lines")
+        qs = (GoodsReceipt.objects.select_related("order", "supplier", "storekeeper", "warehouse")
+              .prefetch_related("lines"))
         if self.action != "list":
             qs = qs.select_related("order__project",
-                                   "posted_by", "entry").prefetch_related("lines__order_line__project")
+                                   "posted_by", "entry").prefetch_related(
+                "lines__order_line__project", "lines__product", "lines__order_line__product",
+                "lines__order_line__item")
         return qs
 
     def _respond(self, receipt):

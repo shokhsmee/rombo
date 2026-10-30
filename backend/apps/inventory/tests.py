@@ -1,4 +1,5 @@
-"""add-inventory: the scenarios of openspec/changes/add-inventory/specs/{inventory,procurement,projects}/spec.md
+"""add-inventory (+ improve-product-selection): the scenarios of
+openspec/changes/add-inventory/specs/{inventory,procurement,projects}/spec.md
 at API level."""
 
 import datetime as dt
@@ -27,7 +28,9 @@ def _chart(db):
 
 
 def _product(admin, name="Profil 60 mm", unit="m", category="profil", **extra):
-    r = admin.post(f"{INV}/products/", {"name": name, "unit": unit, "category": category, **extra}, format="json")
+    r = admin.post(
+        f"{INV}/products/", {"name": name, "unit": unit, "category": category, **extra}, format="json"
+    )
     assert r.status_code == 201, r.content
     return r.json()
 
@@ -61,21 +64,28 @@ def _stock(admin, **params):
 
 
 def _qty(admin, product, warehouse=None) -> D:
-    rows = [r for r in _stock(admin, nonzero="false")["rows"] if r["product"]["id"] == product["id"]
-            and (warehouse is None or r["warehouse"]["id"] == warehouse)]
+    rows = [
+        r
+        for r in _stock(admin, nonzero="false")["rows"]
+        if r["product"]["id"] == product["id"] and (warehouse is None or r["warehouse"]["id"] == warehouse)
+    ]
     return sum((D(r["qty"]) for r in rows), D("0"))
 
 
 def _lines(entry_id) -> list[tuple[str, D, D]]:
-    return sorted((ln.account.code, ln.debit, ln.credit)
-                  for ln in JournalLine.objects.filter(entry_id=entry_id).select_related("account"))
+    return sorted(
+        (ln.account.code, ln.debit, ln.credit)
+        for ln in JournalLine.objects.filter(entry_id=entry_id).select_related("account")
+    )
 
 
 def _received(admin):
     """Spec scenario: 100 bars × 20 USD at 12 000, VAT 12 % → kirim row of 24 000 000 so'm."""
     order, _, _, project = _usd_order(admin)
     _send(admin, order["id"])
-    r = admin.post(f"{API}/procurement/receipts/", {"order_id": order["id"], "date": "2026-10-15"}, format="json")
+    r = admin.post(
+        f"{API}/procurement/receipts/", {"order_id": order["id"], "date": "2026-10-15"}, format="json"
+    )
     assert r.status_code == 201, r.content
     receipt = r.json()
     r = admin.post(f"{API}/procurement/receipts/{receipt['id']}/post/")
@@ -106,7 +116,11 @@ def test_product_code_and_on_hand(admin):
     assert p["code"] == f"MH-{p['id']:05d}"
     _stock_in(admin, p, 10, 5000)
     row = admin.get(f"{INV}/products/", {"q": "Profil"}).json()["items"][0]
-    assert (D(row["qty_on_hand"]), D(row["value_on_hand"]), D(row["avg_cost"])) == (D("10"), D("50000"), D("5000"))
+    assert (D(row["qty_on_hand"]), D(row["value_on_hand"]), D(row["avg_cost"])) == (
+        D("10"),
+        D("50000"),
+        D("5000"),
+    )
 
 
 # ------------------------------------------------------------------ receipt from procurement
@@ -114,10 +128,17 @@ def test_product_code_and_on_hand(admin):
 
 def test_receipt_posting_fills_the_warehouse(admin):
     receipt, project = _received(admin)
-    moves = admin.get(f"{INV}/moves/", {"source_model": "procurement.goodsreceipt", "source_id": receipt["id"]}).json()
+    moves = admin.get(
+        f"{INV}/moves/", {"source_model": "procurement.goodsreceipt", "source_id": receipt["id"]}
+    ).json()
     assert moves["total"] == 1
     m = moves["items"][0]
-    assert (m["type"], m["status"], D(m["qty"]), D(m["amount"])) == ("receipt", "posted", D("100"), D("24000000"))
+    assert (m["type"], m["status"], D(m["qty"]), D(m["amount"])) == (
+        "receipt",
+        "posted",
+        D("100"),
+        D("24000000"),
+    )
     assert m["source_label"] == receipt["code"] and m["code"].startswith("OM-")
     product = Product.objects.get(pk=m["product"]["id"])
     assert (product.name, product.category) == ("Profil", "profil")  # created from the line, category guessed
@@ -138,8 +159,9 @@ def test_receipt_into_chosen_warehouse(admin):
     w = admin.post(f"{INV}/warehouses/", {"name": "Sex ombori"}, format="json").json()
     order, _, _, _ = _usd_order(admin)
     _send(admin, order["id"])
-    rc = admin.post(f"{API}/procurement/receipts/", {"order_id": order["id"], "date": "2026-10-15"},
-                    format="json").json()
+    rc = admin.post(
+        f"{API}/procurement/receipts/", {"order_id": order["id"], "date": "2026-10-15"}, format="json"
+    ).json()
     r = admin.patch(f"{API}/procurement/receipts/{rc['id']}/", {"warehouse_id": w["id"]}, format="json")
     assert r.status_code == 200, r.content
     admin.post(f"{API}/procurement/receipts/{rc['id']}/post/")
@@ -161,7 +183,9 @@ def test_receipt_rows_cancel_only_through_the_receipt(admin):
 
 def test_cancel_receipt_cancels_its_rows(admin):
     receipt, _ = _received(admin)
-    r = admin.post(f"{API}/procurement/receipts/{receipt['id']}/cancel/", {"comment": "noto'g'ri"}, format="json")
+    r = admin.post(
+        f"{API}/procurement/receipts/{receipt['id']}/cancel/", {"comment": "noto'g'ri"}, format="json"
+    )
     assert r.status_code == 200, r.content
     assert StockMove.objects.get(source_id=receipt["id"]).status == "cancelled"
     assert D(_stock(admin)["total_value"]) == D("0") == ledger.account_balance("materials")
@@ -171,7 +195,9 @@ def test_cancel_receipt_after_the_goods_were_used(admin):
     receipt, project = _received(admin)
     profil = {"id": Product.objects.get(name="Profil").pk}
     _posted(admin, type="issue", product_id=profil["id"], qty="30", project_id=project["id"])
-    r = admin.post(f"{API}/procurement/receipts/{receipt['id']}/cancel/", {"comment": "noto'g'ri"}, format="json")
+    r = admin.post(
+        f"{API}/procurement/receipts/{receipt['id']}/cancel/", {"comment": "noto'g'ri"}, format="json"
+    )
     assert r.status_code == 409, r.content
     assert admin.get(f"{API}/procurement/receipts/{receipt['id']}/").json()["status"] == "posted"
     assert StockMove.objects.get(source_id=receipt["id"]).status == "posted"
@@ -225,13 +251,22 @@ def test_transfer_moves_stock_without_entry(admin):
     _stock_in(admin, p, 10, 1000)
     main = Warehouse.objects.get(is_default=True)
     sex = admin.post(f"{INV}/warehouses/", {"name": "Sex ombori"}, format="json").json()
-    m = _posted(admin, type="transfer", product_id=p["id"], qty="4", warehouse_id=main.pk, to_warehouse_id=sex["id"])
+    m = _posted(
+        admin, type="transfer", product_id=p["id"], qty="4", warehouse_id=main.pk, to_warehouse_id=sex["id"]
+    )
     assert m["entry_id"] is None
     assert (_qty(admin, p, main.pk), _qty(admin, p, sex["id"])) == (D("6"), D("4"))
     rows = _stock(admin, warehouse=sex["id"])["rows"]
     assert len(rows) == 1 and D(rows[0]["value"]) == D("4000")
-    same = _move(admin, expect=400, type="transfer", product_id=p["id"], qty="1", warehouse_id=main.pk,
-                 to_warehouse_id=main.pk)
+    same = _move(
+        admin,
+        expect=400,
+        type="transfer",
+        product_id=p["id"],
+        qty="1",
+        warehouse_id=main.pk,
+        to_warehouse_id=main.pk,
+    )
     assert same["error"]["field"] == "to_warehouse"
 
 
@@ -342,7 +377,12 @@ def test_summary_follows_the_filter(admin):
     s = admin.get(f"{INV}/moves/summary/", {"project": a["id"]}).json()
     assert (s["count"], D(s["chiqim"]), D(s["kirim"])) == (1, D("3000"), D("0"))
     s = admin.get(f"{INV}/moves/summary/").json()
-    assert (s["count"], D(s["kirim"]), D(s["chiqim"]), D(s["stock_value"])) == (3, D("10000"), D("5000"), D("5000"))
+    assert (s["count"], D(s["kirim"]), D(s["chiqim"]), D(s["stock_value"])) == (
+        3,
+        D("10000"),
+        D("5000"),
+        D("5000"),
+    )
     rows = admin.get(f"{INV}/moves/", {"type": ["issue"], "project": a["id"]}).json()
     assert rows["total"] == 1
 
@@ -356,15 +396,125 @@ def test_card_shows_what_went_into_the_order(admin):
     stock = admin.get(f"{API}/projects/{project['id']}/").json()["stock"]
     assert stock["moves"] == 2
     assert (D(stock["issued"]), D(stock["output"]), D(stock["delivered"]), D(stock["wip"])) == (
-        D("1500000"), D("0"), D("0"), D("1500000"))
+        D("1500000"),
+        D("0"),
+        D("0"),
+        D("1500000"),
+    )
 
 
 def test_viewer_cannot_post(api, admin):
     p = _product(admin)
     m = _move(admin, type="adjust", product_id=p["id"], qty="5", unit_cost="100")
-    viewer = _user_with(api, admin, "omborkuzatuvchi", {"inventory": {"can_view": True}, "stock": {"can_view": True}})
+    viewer = _user_with(
+        api, admin, "omborkuzatuvchi", {"inventory": {"can_view": True}, "stock": {"can_view": True}}
+    )
     assert viewer.get(f"{INV}/moves/").status_code == 200
     assert viewer.get(f"{INV}/products/").status_code == 200  # the move form picks products
     assert viewer.post(f"{INV}/moves/{m['id']}/post/").status_code == 403
     keeper = _user_with(api, admin, "omborchi", {"inventory": EDIT})
     assert keeper.post(f"{INV}/moves/{m['id']}/post/").status_code == 200
+
+
+# ------------------------------------------------------------------ improve-product-selection
+
+
+def _priced_order_for(admin, lines, price="1000"):
+    """Approved request → order → priced → sent, through the procurement API."""
+    from apps.procurement.tests import _approved_request, _line_input, _order_from, _supplier
+
+    sup = _supplier(admin, name="Uzbek Oyna", price_currency="UZS")
+    project = _project(admin)
+    req = _approved_request(admin, project["id"], lines)
+    order = _order_from(admin, req, sup)[0]
+    r = admin.patch(
+        f"{API}/procurement/orders/{order['id']}/",
+        {"lines": [{**_line_input(ln), "price": price, "vat_rate": "0"} for ln in order["lines"]]},
+        format="json",
+    )
+    assert r.status_code == 200, r.content
+    _send(admin, order["id"])
+    return r.json(), req
+
+
+def _receipt_of(admin, order):
+    r = admin.post(
+        f"{API}/procurement/receipts/", {"order_id": order["id"], "date": "2026-10-20"}, format="json"
+    )
+    assert r.status_code == 201, r.content
+    return r.json()
+
+
+def test_chosen_product_is_used_by_the_receipt(admin):
+    p = _product(admin, name="Profil Rombo Termo 60 mm", unit="m")
+    order, req = _priced_order_for(
+        admin, [{"name": "Profil 60", "unit": "m", "qty": "10", "product_id": p["id"]}]
+    )
+    assert req["lines"][0]["product"]["id"] == p["id"]
+    assert order["lines"][0]["product"]["id"] == p["id"]  # inherited from the request line
+    rc = _receipt_of(admin, order)
+    assert (
+        rc["lines"][0]["match"]["source"] == "order" and rc["lines"][0]["match"]["product"]["id"] == p["id"]
+    )
+    assert admin.post(f"{API}/procurement/receipts/{rc['id']}/post/").status_code == 200
+    m = StockMove.objects.get(source_id=rc["id"], source_model="procurement.goodsreceipt")
+    assert m.product_id == p["id"] and Product.objects.count() == 1
+
+
+def test_category_fixed_before_posting(admin):
+    order, _ = _priced_order_for(
+        admin, [{"name": "Deraza tayyor", "unit": "dona", "qty": "2"}], price="900000"
+    )
+    rc = _receipt_of(admin, order)
+    ln = rc["lines"][0]
+    assert ln["match"] == {"source": "new", "product": None, "category": "material"}
+    r = admin.patch(
+        f"{API}/procurement/receipts/{rc['id']}/",
+        {"lines": [{"order_line_id": ln["order_line_id"], "qty": ln["qty"], "new_category": "tayyor"}]},
+        format="json",
+    )
+    assert r.status_code == 200 and r.json()["lines"][0]["match"]["category"] == "tayyor"
+    posted = admin.post(f"{API}/procurement/receipts/{rc['id']}/post/").json()
+    product = Product.objects.get(name="Deraza tayyor")
+    assert product.category == "tayyor"
+    assert ledger.account_balance("finished_goods") == D("1800000")
+    assert JournalLine.objects.filter(entry_id=posted["entry_id"], account__code="1010").count() == 0
+
+
+def test_receipt_line_can_pick_another_product(admin):
+    p = _product(admin, name="Oyna 4 mm", unit="m2", category="oyna")
+    order, _ = _priced_order_for(admin, [{"name": "Shisha 4", "unit": "m2", "qty": "5"}])
+    rc = _receipt_of(admin, order)
+    ln = rc["lines"][0]
+    r = admin.patch(
+        f"{API}/procurement/receipts/{rc['id']}/",
+        {"lines": [{"order_line_id": ln["order_line_id"], "qty": ln["qty"], "product_id": p["id"]}]},
+        format="json",
+    )
+    assert r.json()["lines"][0]["match"]["source"] == "receipt"
+    admin.post(f"{API}/procurement/receipts/{rc['id']}/post/")
+    assert _qty(admin, p) == D("5") and not Product.objects.filter(name="Shisha 4").exists()
+
+
+def test_only_what_the_warehouse_holds(admin):
+    a, b, c = _product(admin, name="A"), _product(admin, name="B"), _product(admin, name="C")
+    _stock_in(admin, a, 5, 100)
+    main = Warehouse.objects.get(is_default=True)
+    sex = admin.post(f"{INV}/warehouses/", {"name": "Sex ombori"}, format="json").json()
+    _stock_in(admin, b, 3, 100, warehouse_id=sex["id"])
+    rows = admin.get(f"{INV}/products/", {"in_stock": "true", "warehouse": main.pk}).json()["items"]
+    assert [(r["name"], D(r["qty_in_warehouse"])) for r in rows] == [("A", D("5"))]
+    anywhere = admin.get(f"{INV}/products/", {"in_stock": "true"}).json()["items"]
+    assert {r["name"] for r in anywhere} == {"A", "B"} and all(
+        r["qty_in_warehouse"] is None for r in anywhere
+    )
+    assert c["id"] not in {r["id"] for r in anywhere}
+
+
+def test_buyer_reads_products(api, admin):
+    from apps.procurement.tests import BUYER_PAGES
+
+    _product(admin)
+    buyer = _user_with(api, admin, "xaridor", BUYER_PAGES)
+    assert buyer.get(f"{INV}/products/").status_code == 200
+    assert buyer.post(f"{INV}/products/", {"name": "X", "unit": "m"}, format="json").status_code == 403

@@ -19,14 +19,24 @@ class WarehouseRefSerializer(serializers.Serializer):
 
 class WarehouseSerializer(serializers.ModelSerializer):
     responsible = RefSerializer(read_only=True)
-    responsible_id = serializers.PrimaryKeyRelatedField(source="responsible", queryset=Employee.objects.all(),
-                                                        required=False, allow_null=True)
+    responsible_id = serializers.PrimaryKeyRelatedField(
+        source="responsible", queryset=Employee.objects.all(), required=False, allow_null=True
+    )
     has_moves = serializers.BooleanField(read_only=True, default=False)
 
     class Meta:
         model = Warehouse
-        fields = ["id", "name", "address", "responsible", "responsible_id", "is_default", "is_active", "has_moves",
-                  "updated_at"]
+        fields = [
+            "id",
+            "name",
+            "address",
+            "responsible",
+            "responsible_id",
+            "is_default",
+            "is_active",
+            "has_moves",
+            "updated_at",
+        ]
 
 
 # ------------------------------------------------------------------ products
@@ -43,20 +53,45 @@ class ProductRefSerializer(serializers.Serializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category = serializers.ChoiceField(choices=Category.choices, required=False)
-    price_item_id = serializers.PrimaryKeyRelatedField(source="price_item", queryset=PriceListItem.objects.all(),
-                                                       required=False, allow_null=True)
+    price_item_id = serializers.PrimaryKeyRelatedField(
+        source="price_item", queryset=PriceListItem.objects.all(), required=False, allow_null=True
+    )
     price_item = serializers.SerializerMethodField()
-    default_cost = serializers.DecimalField(max_digits=18, decimal_places=2, required=False,
-                                            min_value=Decimal("0"))
+    default_cost = serializers.DecimalField(
+        max_digits=18, decimal_places=2, required=False, min_value=Decimal("0")
+    )
     qty_on_hand = serializers.SerializerMethodField()
     value_on_hand = serializers.SerializerMethodField()
     avg_cost = serializers.SerializerMethodField()
+    qty_in_warehouse = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ["id", "code", "name", "sku", "unit", "category", "default_cost", "price_item_id", "price_item",
-                  "is_active", "notes", "qty_on_hand", "value_on_hand", "avg_cost", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "code",
+            "name",
+            "sku",
+            "unit",
+            "category",
+            "default_cost",
+            "price_item_id",
+            "price_item",
+            "is_active",
+            "notes",
+            "qty_on_hand",
+            "value_on_hand",
+            "avg_cost",
+            "qty_in_warehouse",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["code"]
+
+    def get_qty_in_warehouse(self, obj) -> str | None:
+        """Quantity in the `?warehouse=` of the list (the move form's picker), else null."""
+        hand = self.context.get("in_warehouse")
+        return None if hand is None else str(hand.get(obj.pk, Decimal("0")))
 
     def get_price_item(self, obj):
         it = obj.price_item
@@ -95,23 +130,46 @@ class StockMoveListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StockMove
-        fields = ["id", "code", "type", "status", "date", "product", "warehouse", "to_warehouse", "qty", "unit_cost",
-                  "amount", "project", "partner", "source_model", "source_id", "source_label", "entry_code",
-                  "entry_id", "notes", "created_at"]
+        fields = [
+            "id",
+            "code",
+            "type",
+            "status",
+            "date",
+            "product",
+            "warehouse",
+            "to_warehouse",
+            "qty",
+            "unit_cost",
+            "amount",
+            "project",
+            "partner",
+            "source_model",
+            "source_id",
+            "source_label",
+            "entry_code",
+            "entry_id",
+            "notes",
+            "created_at",
+        ]
 
 
 class StockMoveSerializer(StockMoveListSerializer):
     type = serializers.ChoiceField(choices=MoveType.choices)
     date = serializers.DateField(required=False)
     product_id = serializers.PrimaryKeyRelatedField(source="product", queryset=Product.objects.all())
-    warehouse_id = serializers.PrimaryKeyRelatedField(source="warehouse", queryset=Warehouse.objects.all(),
-                                                      required=False, allow_null=True)
-    to_warehouse_id = serializers.PrimaryKeyRelatedField(source="to_warehouse", queryset=Warehouse.objects.all(),
-                                                         required=False, allow_null=True)
-    project_id = serializers.PrimaryKeyRelatedField(source="project", queryset=Project.objects.all(),
-                                                    required=False, allow_null=True)
-    partner_id = serializers.PrimaryKeyRelatedField(source="partner", queryset=Client.objects.all(),
-                                                    required=False, allow_null=True)
+    warehouse_id = serializers.PrimaryKeyRelatedField(
+        source="warehouse", queryset=Warehouse.objects.all(), required=False, allow_null=True
+    )
+    to_warehouse_id = serializers.PrimaryKeyRelatedField(
+        source="to_warehouse", queryset=Warehouse.objects.all(), required=False, allow_null=True
+    )
+    project_id = serializers.PrimaryKeyRelatedField(
+        source="project", queryset=Project.objects.all(), required=False, allow_null=True
+    )
+    partner_id = serializers.PrimaryKeyRelatedField(
+        source="partner", queryset=Client.objects.all(), required=False, allow_null=True
+    )
     qty = serializers.DecimalField(max_digits=14, decimal_places=3)
     unit_cost = serializers.DecimalField(max_digits=18, decimal_places=2, required=False, allow_null=True)
     amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
@@ -121,9 +179,20 @@ class StockMoveSerializer(StockMoveListSerializer):
     allowed_statuses = serializers.ListField(read_only=True)
 
     class Meta(StockMoveListSerializer.Meta):
-        fields = [*StockMoveListSerializer.Meta.fields, "product_id", "warehouse_id", "to_warehouse_id",
-                  "project_id", "partner_id", "on_hand", "posted_at", "posted_by", "created_by", "allowed_statuses",
-                  "updated_at"]
+        fields = [
+            *StockMoveListSerializer.Meta.fields,
+            "product_id",
+            "warehouse_id",
+            "to_warehouse_id",
+            "project_id",
+            "partner_id",
+            "on_hand",
+            "posted_at",
+            "posted_by",
+            "created_by",
+            "allowed_statuses",
+            "updated_at",
+        ]
 
     def get_on_hand(self, obj) -> dict | None:
         """What the warehouse holds now and the product's average — the form shows it next to the qty."""
@@ -132,8 +201,10 @@ class StockMoveSerializer(StockMoveListSerializer):
         from apps.inventory import selectors
 
         avg = selectors.average_cost(obj.product)
-        return {"qty": str(selectors.warehouse_qty(obj.product, obj.warehouse)),
-                "avg_cost": None if avg is None else str(avg)}
+        return {
+            "qty": str(selectors.warehouse_qty(obj.product, obj.warehouse)),
+            "avg_cost": None if avg is None else str(avg),
+        }
 
 
 class CancelSerializer(serializers.Serializer):
