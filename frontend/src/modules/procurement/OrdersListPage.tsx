@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -36,6 +37,7 @@ export function OrdersListPage() {
   const can = useCan("purchase_orders");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-created_at" }, ["status"]);
+  const sel = useSelection(query);
   const list = ordersApi.useList(query);
   const summary = useStatusSummary("orders");
   const selected = (params.filters.status as string[] | undefined) ?? [];
@@ -54,7 +56,7 @@ export function OrdersListPage() {
         selected={selected} counts={counts} onClear={() => update({ filters: { status: [] } })}
         onToggle={(s) => update({ filters: { status: selected.includes(s) ? selected.filter((x) => x !== s) : [...selected, s] } })} />
 
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="procurement/orders" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Kod, yetkazib beruvchi, loyiha…" />
         <EntitySelect endpoint="procurement/suppliers" placeholder="Yetkazib beruvchi" className="w-56"
           value={params.filters.supplier ? Number(params.filters.supplier) : null}
@@ -64,7 +66,9 @@ export function OrdersListPage() {
           onChange={(id) => update({ filters: { project: id ? String(id) : null } })} />
       </Toolbar>
 
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="procurement/orders" selection={sel} />
+
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="procurement/orders" onRowClick={(r) => navigate(`/procurement/orders/${r.id}`)} />
     </>
   );

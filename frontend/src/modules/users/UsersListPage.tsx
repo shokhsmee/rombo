@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -40,6 +41,7 @@ export function UsersListPage() {
   const can = useCan("users");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "first_name" });
+  const sel = useSelection(query);
   const list = usersApi.useList(query);
 
   return (
@@ -50,7 +52,7 @@ export function UsersListPage() {
             <Plus className="size-4" /> Yangi foydalanuvchi
           </Link>
         )} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="users" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Ism, login, telefon…" />
         <EntitySelect endpoint="access/roles" placeholder="Rol" className="w-52"
           value={params.filters.role ? Number(params.filters.role) : null}
@@ -58,7 +60,8 @@ export function UsersListPage() {
         <Segmented value={(params.filters.is_active as string) || ""} onChange={(v) => update({ filters: { is_active: v || null } })}
           options={[{ value: "", label: "Barchasi" }, { value: "true", label: "Faol" }, { value: "false", label: "Bloklangan" }]} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="users" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="users" onRowClick={(r) => navigate(`/settings/users/${r.id}`)} />
     </>
   );

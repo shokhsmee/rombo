@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -73,6 +74,7 @@ export function MovesListPage() {
   const canStock = useCan("stock");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-date" }, ["status", "type"]);
+  const sel = useSelection(query);
   const list = movesApi.useList(query);
   const summary = useMovesSummary(query);
   const warehouses = useWarehouses();
@@ -103,7 +105,7 @@ export function MovesListPage() {
         <Kpi label="Ombordagi qoldiq, so'm" value={money(s?.stock_value)} onClick={canStock.view ? () => navigate("/inventory/stock") : undefined} />
       </div>
 
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="inventory/moves" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="№, mahsulot, loyiha, hujjat…" />
         <div className="flex flex-wrap gap-1">
           {(Object.keys(MOVE_TYPE) as MoveType[]).map((t) => (
@@ -136,7 +138,8 @@ export function MovesListPage() {
         <Input type="date" className="w-40" value={(f.date_from as string) || ""} onChange={(e) => update({ filters: { date_from: e.target.value || null } })} />
         <Input type="date" className="w-40" value={(f.date_to as string) || ""} onChange={(e) => update({ filters: { date_to: e.target.value || null } })} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="inventory/moves" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="inventory-moves" onRowClick={(r) => navigate(`/inventory/moves/${r.id}`)}
         empty="Harakat yo'q. Kirim ta'minotdagi KR o'tkazilganda o'zi paydo bo'ladi." />
     </>

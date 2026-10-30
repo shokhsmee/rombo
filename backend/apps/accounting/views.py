@@ -13,12 +13,14 @@ from apps.accounting import selectors, services
 from apps.accounting.models import (
     Account,
     AccountRole,
+    EntryStatus,
     ExchangeRate,
     Invoice,
     InvoiceKind,
     InvoiceStatus,
     JournalEntry,
     JournalLine,
+    SourceKind,
 )
 from apps.accounting.serializers import (
     AccountCardQuerySerializer,
@@ -36,6 +38,7 @@ from apps.accounting.serializers import (
     RoleSerializer,
 )
 from apps.clients.models import Client
+from apps.core.tabular import Bulk, Col, TabularMixin, label_of
 from apps.core.views import ServiceModelViewSet
 from apps.projects.models import Project
 
@@ -124,7 +127,7 @@ class EntryFilter(django_filters.FilterSet):
         return qs.filter(lines__account_id=value).distinct()
 
 
-class EntryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
+class EntryViewSet(TabularMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin,
                    viewsets.GenericViewSet):
     """Jurnal. Create = a manual entry (opening balances, corrections); there is no update or delete —
     PATCH answers 405, the way to change a posted entry is `reverse`."""
@@ -137,6 +140,15 @@ class EntryViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Crea
     ordering_fields = ["date", "code", "total_debit"]
     ordering = ["-date", "-id"]
     permission_action_map = {"reverse": Action.UPDATE}
+
+    excel_name = "jurnal"
+    excel_columns = [
+        Col("№", "code", width=12), Col("Sana", "date", kind="date", width=12), Col("Mazmun", "memo", width=44),
+        Col("Hujjat", lambda e: selectors.entry_source_label(e), width=16),
+        Col("Turi", lambda e: label_of(SourceKind)(e.source_kind), width=12),
+        Col("Holat", lambda e: label_of(EntryStatus)(e.status), width=12),
+        Col("Summa", "total_debit", kind="money"),
+    ]
 
     def get_queryset(self):
         qs = JournalEntry.objects.select_related("posted_by", "reversed_by")
@@ -193,7 +205,7 @@ class InvoiceFilter(django_filters.FilterSet):
         fields = ["status", "kind", "partner", "project", "currency"]
 
 
-class InvoiceViewSet(ServiceModelViewSet):
+class InvoiceViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.INVOICES
     serializer_class = InvoiceSerializer
     list_serializer_class = InvoiceListSerializer
@@ -206,6 +218,19 @@ class InvoiceViewSet(ServiceModelViewSet):
     service_create = services.invoice_create
     service_update = services.invoice_update
     service_delete = services.invoice_delete
+
+    excel_name = "hisob-fakturalar"
+    excel_columns = [
+        Col("№", "code", width=12), Col("Turi", lambda i: label_of(InvoiceKind)(i.kind), width=16),
+        Col("Holat", lambda i: label_of(InvoiceStatus)(i.status), width=14), Col("Kontragent", "partner.name", width=26),
+        Col("Loyiha", "project.code", width=14), Col("Sana", "date", kind="date", width=12),
+        Col("ESF №", "external_number", width=14), Col("Valyuta", "currency", width=8),
+        Col("Sof", "net", kind="money"), Col("QQS", "vat", kind="money"), Col("Jami", "gross", kind="money"),
+    ]
+    bulk_actions = [
+        Bulk("confirm", "Tasdiqlash", services.invoice_confirm),
+        Bulk("delete", "O'chirish (qoralama)", services.invoice_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         qs = Invoice.objects.select_related("partner", "project", "entry")

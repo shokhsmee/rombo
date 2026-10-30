@@ -7,10 +7,11 @@ from apps.access.registry import Action, Pages
 from apps.clients import services
 from apps.clients.models import FINISHED_PROJECT_STATUSES, Client, ClientKind
 from apps.clients.serializers import ClientListSerializer, ClientMapSerializer, ClientSerializer
+from apps.core.tabular import Bulk, Col, Field, TabularMixin, choice, label_of
 from apps.core.views import ServiceModelViewSet
 
 
-class ClientViewSet(ServiceModelViewSet):
+class ClientViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.CLIENTS
     serializer_class = ClientSerializer
     list_serializer_class = ClientListSerializer
@@ -23,6 +24,30 @@ class ClientViewSet(ServiceModelViewSet):
     service_create = services.client_create
     service_update = services.client_update
     service_delete = services.client_delete
+
+    excel_name = "mijozlar"
+    excel_columns = [
+        Col("Kod", "code", width=12), Col("Turi", lambda c: label_of(ClientKind)(c.kind), width=14),
+        Col("Nomi", "name", width=32), Col("STIR", "tin", width=14), Col("Telefon", "phone", width=16),
+        Col("Qo'shimcha telefon", "phone_extra", width=16), Col("Email", "email", width=22),
+        Col("Hudud", "region"), Col("Manzil", "address", width=30), Col("Qayerdan kelgan", "source"),
+        Col("Menejer", "manager.name", width=22), Col("Segment", "segment.name"), Col("Faol", "is_active", width=8),
+        Col("Yaratilgan", lambda c: c.created_at, kind="date", width=12),
+    ]
+    excel_import = [
+        Field("Turi", "kind", resolve=choice([(k, v) for k, v in ClientKind.choices if k != ClientKind.SUPPLIER]),
+              hint="Jismoniy shaxs / Yuridik shaxs; bo'sh — jismoniy"),
+        Field("Nomi", "name", required=True, hint="F.I.O. yoki kompaniya nomi"),
+        Field("STIR", "tin"), Field("Telefon", "phone", hint="+998901234567"),
+        Field("Qo'shimcha telefon", "phone_extra"), Field("Email", "email"), Field("Hudud", "region"),
+        Field("Manzil", "address"), Field("Qayerdan kelgan", "source"), Field("Pasport", "passport"),
+        Field("Izoh", "notes"),
+    ]
+    bulk_actions = [
+        Bulk("deactivate", "Nofaol qilish", lambda c, *, actor: services.client_update(c, actor=actor, is_active=False)),
+        Bulk("activate", "Faol qilish", lambda c, *, actor: services.client_update(c, actor=actor, is_active=True)),
+        Bulk("delete", "Arxivlash", services.client_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         qs = Client.objects.select_related("manager", "segment")

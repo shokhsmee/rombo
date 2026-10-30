@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -35,6 +36,7 @@ export function RequestsListPage() {
   const canOrders = useCan("purchase_orders");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-created_at" }, ["status"]);
+  const sel = useSelection(query);
   const list = requestsApi.useList(query);
   const summary = useStatusSummary("requests");
   const selected = (params.filters.status as string[] | undefined) ?? [];
@@ -60,7 +62,7 @@ export function RequestsListPage() {
         selected={selected} counts={counts} onClear={() => update({ filters: { status: [] } })}
         onToggle={(s) => update({ filters: { status: selected.includes(s) ? selected.filter((x) => x !== s) : [...selected, s] } })} />
 
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="procurement/requests" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Kod, loyiha, material…" />
         <EntitySelect endpoint="projects" placeholder="Loyiha" className="w-60"
           value={project ? Number(project) : null}
@@ -69,7 +71,9 @@ export function RequestsListPage() {
           onChange={(v) => update({ filters: { needs_approval: v ? "true" : null } })} />
       </Toolbar>
 
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="procurement/requests" selection={sel} />
+
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="procurement/requests" onRowClick={(r) => navigate(`/procurement/requests/${r.id}`)} />
     </>
   );

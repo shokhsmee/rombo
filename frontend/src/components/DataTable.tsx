@@ -5,7 +5,7 @@ import type { ListParams } from "@/hooks/useListParams";
 import type { Page } from "@/lib/api";
 import { rememberIds } from "@/lib/recordNav";
 
-import { Spinner } from "./ui";
+import { Checkbox, Spinner } from "./ui";
 
 export type Column<T> = {
   key: string;
@@ -26,6 +26,9 @@ type Props<T extends { id: number }> = {
   /** Remember the visible ids so the record page can step ‹ › through them. */
   navKey?: string;
   empty?: ReactNode;
+  /** Row selection for batch operations (ListTools): ids across pages, kept by the page. */
+  selected?: Set<number>;
+  onSelect?: (ids: Set<number>) => void;
 };
 
 function nextSort(current: string, field: string) {
@@ -35,7 +38,7 @@ function nextSort(current: string, field: string) {
 }
 
 /** Table + "1–25 / 128 ‹ ›" pager, uzbridge style. */
-export function DataTable<T extends { id: number }>({ columns, data, loading, params, onParams, onRowClick, navKey, empty }: Props<T>) {
+export function DataTable<T extends { id: number }>({ columns, data, loading, params, onParams, onRowClick, navKey, empty, selected, onSelect }: Props<T>) {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const from = total ? (params.page - 1) * params.size + 1 : 0;
@@ -46,6 +49,19 @@ export function DataTable<T extends { id: number }>({ columns, data, loading, pa
     if (navKey && data) rememberIds(navKey, data.items.map((r) => r.id));
   }, [navKey, data]);
 
+  const pageIds = items.map((r) => r.id);
+  const picked = pageIds.filter((id) => selected?.has(id)).length;
+  const togglePage = (on: boolean) => {
+    const next = new Set(selected);
+    pageIds.forEach((id) => (on ? next.add(id) : next.delete(id)));
+    onSelect?.(next);
+  };
+  const toggleRow = (id: number, on: boolean) => {
+    const next = new Set(selected);
+    if (on) next.add(id); else next.delete(id);
+    onSelect?.(next);
+  };
+
   const btn = "grid size-7 place-items-center rounded-md border border-line bg-surface text-muted hover:text-ink disabled:opacity-40 disabled:hover:text-muted";
 
   return (
@@ -54,6 +70,12 @@ export function DataTable<T extends { id: number }>({ columns, data, loading, pa
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-xs uppercase tracking-wider text-muted">
+              {onSelect && (
+                <th className="w-10 px-3 py-3">
+                  <Checkbox label="Sahifani tanlash" checked={!!pageIds.length && picked === pageIds.length}
+                    indeterminate={picked > 0 && picked < pageIds.length} onChange={togglePage} />
+                </th>
+              )}
               {columns.map((c) => {
                 const active = !!c.sort && params.sort.replace("-", "") === c.sort;
                 const Arrow = params.sort.startsWith("-") ? ArrowDown : ArrowUp;
@@ -74,7 +96,12 @@ export function DataTable<T extends { id: number }>({ columns, data, loading, pa
           <tbody className={loading && items.length ? "opacity-60 transition-opacity" : ""}>
             {items.map((row) => (
               <tr key={row.id} onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`border-b border-line last:border-0 ${onRowClick ? "cursor-pointer hover:bg-ground" : ""}`}>
+                className={`border-b border-line last:border-0 ${onRowClick ? "cursor-pointer hover:bg-ground" : ""} ${selected?.has(row.id) ? "bg-accent-soft/50" : ""}`}>
+                {onSelect && (
+                  <td className="w-10 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox label="Tanlash" checked={!!selected?.has(row.id)} onChange={(on) => toggleRow(row.id, on)} />
+                  </td>
+                )}
                 {columns.map((c) => (
                   <td key={c.key} className={`px-4 py-3 ${c.align === "right" ? "whitespace-nowrap text-right tabular" : ""} ${c.className ?? ""}`}>
                     {c.render(row)}

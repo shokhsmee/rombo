@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -37,6 +38,7 @@ export function ClientsListPage() {
   const can = useCan("clients");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-created_at" });
+  const sel = useSelection(query);
   const list = clientsApi.useList(query);
   const f = params.filters;
 
@@ -48,7 +50,7 @@ export function ClientsListPage() {
             <Plus className="size-4" /> Yangi mijoz
           </Link>
         )} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="clients" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Nom, STIR, telefon…" />
         <Segmented value={(f.kind as string) || ""} onChange={(k) => update({ filters: { kind: k || null } })}
           options={[{ value: "", label: "Barchasi" }, ...Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))]} />
@@ -65,7 +67,8 @@ export function ClientsListPage() {
           <option value="false">Nofaol</option>
         </Select>
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="clients" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="clients" onRowClick={(r) => navigate(`/clients/${r.id}`)} />
     </>
   );

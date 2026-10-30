@@ -16,6 +16,7 @@ from apps.access.permissions import PagePermission
 from apps.access.registry import Action, Pages
 from apps.access.services import has_permission
 from apps.core.exceptions import NotFound, ValidationFailed
+from apps.core.tabular import Col, TabularMixin, label_of
 from apps.core.views import ServiceModelViewSet
 from apps.crm import analytics, catalog, selectors, services
 from apps.crm.models import (
@@ -507,7 +508,7 @@ class CallFilter(django_filters.FilterSet):
         return qs.filter(user=self.request.user) if value else qs
 
 
-class CallViewSet(ServiceModelViewSet):
+class CallViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.TELEPHONY
     serializer_class = CallSerializer
     filterset_class = CallFilter
@@ -517,6 +518,15 @@ class CallViewSet(ServiceModelViewSet):
     http_method_names = ["get", "post", "patch", "head", "options"]  # calls come from the PBX
     permission_action_map = {"live": Action.VIEW, "stats": Action.VIEW, "create_lead": Action.UPDATE,
                              "analytics": Action.VIEW}
+
+    excel_name = "qongiroqlar"
+    excel_columns = [
+        Col("Vaqt", "started_at", kind="date", width=18), Col("Yo'nalish", lambda c: label_of(CallDirection)(c.direction)),
+        Col("Holat", lambda c: label_of(CallStatus)(c.status)), Col("Mijoz raqami", "client_phone", width=16),
+        Col("Kimdan", "from_number", width=16), Col("Kimga", "to_number", width=16), Col("Ichki raqam", "extension"),
+        Col("Operator", "user.full_name", width=20), Col("Mijoz", "client.name", width=24), Col("Lid", "lead.title", width=24),
+        Col("Davomiyligi, s", "duration", width=12),
+    ]
 
     def get_queryset(self):
         return selectors.calls_qs().select_related("connection")

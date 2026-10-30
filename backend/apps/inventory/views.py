@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import django_filters
 from django.db.models import Exists, OuterRef, Q
 from rest_framework.decorators import action, api_view, permission_classes
@@ -7,6 +9,19 @@ from rest_framework.response import Response
 from apps.access.permissions import page_required
 from apps.access.registry import Action, Pages
 from apps.access.services import has_permission
+from apps.core.tabular import (
+    Bulk,
+    Col,
+    Field,
+    TabularMixin,
+    as_date,
+    as_decimal,
+    choice,
+    label_of,
+    ref,
+    workbook,
+    xlsx_response,
+)
 from apps.core.views import ServiceModelViewSet
 from apps.inventory import selectors, services
 from apps.inventory.models import Category, MoveStatus, MoveType, Product, StockMove, Warehouse
@@ -18,6 +33,7 @@ from apps.inventory.serializers import (
     StockQuerySerializer,
     WarehouseSerializer,
 )
+from apps.projects.models import Project
 
 
 def any_page_view(*keys: str) -> type[BasePermission]:
@@ -92,7 +108,7 @@ class ProductFilter(django_filters.FilterSet):
         return qs.filter(pk__in=ids) if value else qs.exclude(pk__in=ids)
 
 
-class ProductViewSet(ServiceModelViewSet):
+class ProductViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.PRODUCTS
     serializer_class = ProductSerializer
     filterset_class = ProductFilter
@@ -103,6 +119,45 @@ class ProductViewSet(ServiceModelViewSet):
     service_create = services.product_create
     service_update = services.product_update
     service_delete = services.product_delete
+
+    excel_name = "mahsulotlar"
+    excel_columns = [
+        Col("Kod", "code", width=12),
+        Col("Nomi", "name", width=32),
+        Col("Artikul", "sku", width=14),
+        Col("Birlik", "unit", width=8),
+        Col("Turkum", lambda p: label_of(Category)(p.category), width=16),
+        Col("Standart tannarx", "default_cost", kind="money"),
+        Col("Qoldiq", lambda p: selectors.product_totals(p)[0], kind="qty", width=12),
+        Col("Qiymat, so'm", lambda p: selectors.product_totals(p)[1], kind="money"),
+        Col("Faol", "is_active", width=8),
+    ]
+    excel_import = [
+        Field("Nomi", "name", required=True),
+        Field("Birlik", "unit", required=True, hint="m, m2, dona, kg"),
+        Field(
+            "Turkum",
+            "category",
+            resolve=choice(Category.choices),
+            hint="Profil / Oyna / Furnitura / Boshqa material / Tayyor mahsulot",
+        ),
+        Field("Artikul", "sku"),
+        Field("Standart tannarx", "default_cost", resolve=as_decimal),
+        Field("Izoh", "notes"),
+    ]
+    bulk_actions = [
+        Bulk(
+            "deactivate",
+            "Nofaol qilish",
+            lambda p, *, actor: services.product_update(p, actor=actor, is_active=False),
+        ),
+        Bulk(
+            "activate",
+            "Faol qilish",
+            lambda p, *, actor: services.product_update(p, actor=actor, is_active=True),
+        ),
+        Bulk("delete", "Arxivlash", services.product_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         return Product.objects.select_related("price_item")
@@ -168,7 +223,7 @@ class StockMoveFilter(django_filters.FilterSet):
         return qs.filter(Q(warehouse_id=value) | Q(to_warehouse_id=value))  # a transfer shows on both
 
 
-class StockMoveViewSet(ServiceModelViewSet):
+class StockMoveViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.INVENTORY
     serializer_class = StockMoveSerializer
     list_serializer_class = StockMoveListSerializer
@@ -190,6 +245,60 @@ class StockMoveViewSet(ServiceModelViewSet):
     service_create = services.move_create
     service_update = services.move_update
     service_delete = services.move_delete
+
+    excel_name = "ombor-harakatlari"
+    excel_columns = [
+        Col("№", "code", width=12),
+        Col("Sana", "date", kind="date", width=12),
+        Col("Turi", lambda m: label_of(MoveType)(m.type), width=16),
+        Col("Holat", lambda m: label_of(MoveStatus)(m.status)),
+        Col("Mahsulot kodi", "product.code", width=12),
+        Col("Mahsulot", "product.name", width=30),
+        Col("Turkum", lambda m: label_of(Category)(m.product.category), width=14),
+        Col("Ombor", "warehouse.name"),
+        Col("Qayerga", "to_warehouse.name"),
+        Col("Miqdor", "qty", kind="qty", width=10),
+        Col("Birlik", "product.unit", width=8),
+        Col("Tannarx", "unit_cost", kind="money"),
+        Col("Summa", "amount", kind="money"),
+        Col("Loyiha", "project.code", width=14),
+        Col("Kontragent", "partner.name", width=24),
+        Col("Hujjat", "source_label", width=12),
+        Col("O'tkazma", "entry.code", width=12),
+        Col("Izoh", "notes", width=30),
+    ]
+    excel_import = [
+        Field(
+            "Turi",
+            "type",
+            required=True,
+            resolve=choice([(k, v) for k, v in MoveType.choices if k != MoveType.RECEIPT]),
+            hint="Chiqim / Ishlab chiqarish / Yetkazish / Ko'chirish / Tuzatish (boshlang'ich qoldiq — Tuzatish)",
+        ),
+        Field("Sana", "date", resolve=as_date, hint="31.10.2026; bo'sh — bugun"),
+        Field(
+            "Mahsulot",
+            "product_id",
+            required=True,
+            resolve=ref(Product, "code", "sku", "name"),
+            hint="kod (MH-00001), artikul yoki nomi",
+        ),
+        Field("Ombor", "warehouse_id", resolve=ref(Warehouse, "name"), hint="bo'sh — asosiy ombor"),
+        Field("Qayerga", "to_warehouse_id", resolve=ref(Warehouse, "name"), hint="faqat ko'chirish uchun"),
+        Field("Miqdor", "qty", required=True, resolve=as_decimal, hint="tuzatishda kamomad manfiy: -2"),
+        Field("Tannarx", "unit_cost", resolve=as_decimal, hint="tuzatish (+) va ishlab chiqarish uchun"),
+        Field(
+            "Loyiha",
+            "project_id",
+            resolve=ref(Project, "code", "name"),
+            hint="chiqim / ishlab chiqarish / yetkazish",
+        ),
+        Field("Izoh", "notes"),
+    ]
+    bulk_actions = [
+        Bulk("post", "O'tkazish", services.move_post),
+        Bulk("delete", "O'chirish (qoralama)", services.move_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         return StockMove.objects.select_related(
@@ -227,8 +336,30 @@ def stock_view(request):
     s = StockQuerySerializer(data=request.query_params)
     s.is_valid(raise_exception=True)
     d = s.validated_data
-    return Response(
-        selectors.stock(
-            warehouse=d.get("warehouse"), category=d.get("category") or None, q=d["q"], nonzero=d["nonzero"]
-        )
+    data = selectors.stock(
+        warehouse=d.get("warehouse"), category=d.get("category") or None, q=d["q"], nonzero=d["nonzero"]
     )
+    if request.query_params.get("xlsx"):
+        cats = dict(Category.choices)
+        rows = [
+            [
+                r["product"]["code"],
+                r["product"]["name"],
+                cats.get(r["product"]["category"]),
+                r["warehouse"]["name"],
+                Decimal(r["qty"]),
+                r["product"]["unit"],
+                Decimal(r["avg_cost"]) if r["avg_cost"] else None,
+                Decimal(r["value"]),
+            ]
+            for r in data["rows"]
+        ]
+        book = workbook(
+            "qoldiqlar",
+            ["Kod", "Mahsulot", "Turkum", "Ombor", "Miqdor", "Birlik", "O'rtacha tannarx", "Qiymat, so'm"],
+            rows,
+            ["", "", "", "", "qty", "", "money", "money"],
+            [12, 32, 16, 18, 10, 8, 16, 16],
+        )
+        return xlsx_response(book, "qoldiqlar")
+    return Response(data)

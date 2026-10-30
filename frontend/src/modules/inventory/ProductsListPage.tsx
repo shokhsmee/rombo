@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { ActivePill } from "@/components/Status";
@@ -28,6 +29,7 @@ export function ProductsListPage() {
   const can = useCan("products");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "name" });
+  const sel = useSelection(query);
   const list = productsApi.useList(query);
   const cat = (params.filters.category as string) || "";
 
@@ -35,12 +37,13 @@ export function ProductsListPage() {
     <>
       <PageHeader title="Mahsulotlar" lede="Profil, oyna, furnitura va tayyor mahsulotlar. Ta'minot kirimi noma'lum tovarni o'zi qo'shadi."
         action={can.create && <Button onClick={() => navigate("/inventory/products/new")}><Plus className="size-4" strokeWidth={1.75} /> Mahsulot</Button>} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="inventory/products" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Nomi, artikul, kod…" />
         <Segmented value={cat} onChange={(c) => update({ filters: { category: c || null } })}
           options={[{ value: "", label: "Barchasi" }, ...(Object.keys(CATEGORY) as Category[]).map((k) => ({ value: k, label: CATEGORY[k] }))]} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="inventory/products" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="inventory-products" onRowClick={(r) => navigate(`/inventory/products/${r.id}`)} />
     </>
   );

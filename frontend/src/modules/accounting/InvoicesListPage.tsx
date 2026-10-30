@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -34,6 +35,7 @@ export function InvoicesListPage() {
   const can = useCan("invoices");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-date" }, ["status"]);
+  const sel = useSelection(query);
   const list = invoicesApi.useList(query);
   const f = params.filters;
   const statuses = (f.status as string[] | undefined) ?? [];
@@ -47,7 +49,7 @@ export function InvoicesListPage() {
             <Plus className="size-4" /> Yangi hisob-faktura
           </Link>
         )} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="accounting/invoices" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="№, ESF, kontragent, loyiha…" />
         <Segmented value={(f.kind as string) || ""} onChange={(k) => update({ filters: { kind: k || null } })}
           options={[{ value: "", label: "Barchasi" }, ...(Object.keys(INVOICE_KIND) as InvoiceKind[]).map((k) => ({ value: k, label: INVOICE_KIND[k] }))]} />
@@ -62,7 +64,8 @@ export function InvoicesListPage() {
         <EntitySelect endpoint="clients" placeholder="Kontragent" className="w-52"
           value={f.partner ? Number(f.partner) : null} onChange={(id) => update({ filters: { partner: id ? String(id) : null } })} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="accounting/invoices" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="invoices" onRowClick={(r) => navigate(`/accounting/invoices/${r.id}`)} />
     </>
   );

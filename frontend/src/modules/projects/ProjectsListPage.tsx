@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -41,6 +42,7 @@ export function ProjectsListPage() {
   const can = useCan("projects");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-created_at" }, ["status"]);
+  const sel = useSelection(query);
   const list = projectsApi.useList(query);
   const summary = useProjectSummary();
 
@@ -75,7 +77,7 @@ export function ProjectsListPage() {
         })}
       </div>
 
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="projects" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Kod, nom, mijoz, telefon…" />
         <EntitySelect endpoint="clients" placeholder="Mijoz" className="w-56"
           value={params.filters.client ? Number(params.filters.client) : null}
@@ -87,7 +89,9 @@ export function ProjectsListPage() {
           onChange={(v) => update({ filters: { overdue: v ? "true" : null } })} />
       </Toolbar>
 
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="projects" selection={sel} />
+
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="projects" onRowClick={(r) => navigate(`/projects/${r.id}`)} />
     </>
   );

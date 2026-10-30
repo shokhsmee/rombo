@@ -1,11 +1,14 @@
+import { FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { Toolbar } from "@/components/DataTable";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
-import { Empty, Kpi, Select, Spinner, Toggle } from "@/components/ui";
+import { Button, Empty, Kpi, Select, Spinner, Toggle } from "@/components/ui";
 import { useListParams } from "@/hooks/useListParams";
+import { download } from "@/lib/download";
+import { notifyError } from "@/lib/notify";
 import { money } from "@/modules/accounting/labels";
 
 import { useStock, useWarehouses } from "./api";
@@ -33,7 +36,11 @@ export function StockPage() {
         <Kpi label="Mahsulotlar" value={s?.products ?? "—"} sub="qoldig'i bor" />
         <Kpi label="Qatorlar" value={rows.length} sub="mahsulot × ombor" />
       </div>
-      <Toolbar>
+      <Toolbar action={
+        <Button variant="ghost" onClick={() => download("/inventory/stock/", {
+          warehouse: f.warehouse || undefined, category: f.category || undefined, q: params.q, nonzero: !showZero, xlsx: 1,
+        }, "qoldiqlar.xlsx").catch(notifyError)}><FileSpreadsheet className="size-4" strokeWidth={1.75} /> Excel</Button>
+      }>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Mahsulot, artikul, kod…" />
         <Select className="w-44" value={(f.warehouse as string) || ""} onChange={(e) => update({ filters: { warehouse: e.target.value || null } })}>
           <option value="">Barcha omborlar</option>

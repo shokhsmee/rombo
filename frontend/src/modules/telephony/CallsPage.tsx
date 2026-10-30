@@ -6,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { Button, Dialog, IconButton, Kpi, Pill, Segmented, Select, Textarea, Toggle } from "@/components/ui";
@@ -23,6 +24,7 @@ export function CallsPage() {
   const canLeads = useCan("crm");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-started_at" }, ["status"]);
+  const sel = useSelection(query);
   const f = params.filters;
   const period = (f.period as Period) || "today";
   const from = dayjs().subtract(PERIODS[period] ?? 0, "day").format("YYYY-MM-DD");
@@ -95,7 +97,7 @@ export function CallsPage() {
         <Kpi label="Qayta qo'ng'iroq kutmoqda" value={s?.missed_open} tone={s?.missed_open ? "text-bad" : ""} />
         <Kpi label="Suhbat vaqti" value={s ? fmtDuration(s.talk_seconds) : undefined} sub={s ? `${s.new_leads} yangi lid` : undefined} />
       </div>
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="telephony/calls" query={{ ...query, period: undefined, date_from: from }} selection={sel} />}>
         <Segmented value={period} onChange={(p) => update({ filters: { period: p === "today" ? null : p } })}
           options={[{ value: "today", label: "Bugun" }, { value: "week", label: "7 kun" }, { value: "month", label: "30 kun" }]} />
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Raqam, mijoz, lid…" />
@@ -110,7 +112,8 @@ export function CallsPage() {
         </Select>
         <Toggle label="Faqat meniki" checked={mine} onChange={(v) => update({ filters: { mine: v ? "true" : null } })} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="telephony/calls" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         onRowClick={(c) => (can.update ? setNoteFor(c) : c.lead && navigate(`/crm/leads/${c.lead.id}`))}
         empty="Bu davrda qo'ng'iroq yo'q" />
       {noteFor && <NoteDialog call={noteFor} onClose={() => setNoteFor(null)} />}

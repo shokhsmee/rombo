@@ -10,6 +10,7 @@ from apps.access.permissions import page_required
 from apps.access.registry import Action, Pages
 from apps.clients import services as client_services
 from apps.clients.models import Client, ClientKind
+from apps.core.tabular import Bulk, Col, Field, TabularMixin, choice, label_of
 from apps.core.views import ServiceModelViewSet
 from apps.procurement import services
 from apps.procurement.models import (
@@ -60,7 +61,7 @@ class RequestFilter(django_filters.FilterSet):
 APPROVER = [IsAuthenticated, page_required(Pages.PURCHASE_APPROVE, Action.UPDATE)]
 
 
-class PurchaseRequestViewSet(ServiceModelViewSet):
+class PurchaseRequestViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.PROCUREMENT
     serializer_class = RequestSerializer
     list_serializer_class = RequestListSerializer
@@ -75,6 +76,22 @@ class PurchaseRequestViewSet(ServiceModelViewSet):
     service_create = services.request_create
     service_update = services.request_update
     service_delete = services.request_delete
+
+    excel_name = "xarid-sorovlari"
+    excel_columns = [
+        Col("№", "code", width=12), Col("Holat", lambda r: label_of(RequestStatus)(r.status), width=20),
+        Col("Loyiha", "project.code", width=14), Col("Loyiha nomi", "project.name", width=28),
+        Col("So'rovchi", "requester.full_name", width=22), Col("Kerak sana", "needed_by", kind="date", width=12),
+        Col("Qatorlar", lambda r: "; ".join(f"{ln.name} {ln.qty.normalize():f} {ln.unit}" for ln in r.lines.all()),
+            width=60),
+        Col("Yaratilgan", lambda r: r.created_at, kind="date", width=12),
+    ]
+    bulk_actions = [
+        Bulk("submit", "Tasdiqlashga yuborish", services.request_submit),
+        Bulk("approve", "Tasdiqlash", services.request_approve, page=Pages.PURCHASE_APPROVE),
+        Bulk("cancel", "Bekor qilish", services.request_cancel, danger=True, comment=True),
+        Bulk("delete", "O'chirish (qoralama)", services.request_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         qs = (PurchaseRequest.objects.select_related("project", "requester")
@@ -156,7 +173,7 @@ class OrderFilter(django_filters.FilterSet):
         return qs.filter(Q(project_id=value) | Q(lines__project_id=value)).distinct()
 
 
-class PurchaseOrderViewSet(ServiceModelViewSet):
+class PurchaseOrderViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.PURCHASE_ORDERS
     serializer_class = OrderSerializer
     list_serializer_class = OrderListSerializer
@@ -171,6 +188,21 @@ class PurchaseOrderViewSet(ServiceModelViewSet):
     service_create = services.order_create
     service_update = services.order_update
     service_delete = services.order_delete
+
+    excel_name = "buyurtmalar"
+    excel_columns = [
+        Col("№", "code", width=12), Col("Holat", lambda o: label_of(OrderStatus)(o.status), width=16),
+        Col("Yetkazib beruvchi", "supplier.name", width=26), Col("Loyiha", "project.code", width=14),
+        Col("Sana", "date", kind="date", width=12), Col("Kutilayotgan", "expected_date", kind="date", width=12),
+        Col("Valyuta", "currency", width=8), Col("Kurs", "rate", kind="money", width=12),
+        Col("Jami (valyuta)", lambda o: o.totals()["gross"], kind="money"),
+        Col("Jami, so'm", lambda o: o.totals()["gross_uzs"], kind="money"),
+        Col("Yuborilgan", lambda o: o.sent_at, kind="date", width=12),
+    ]
+    bulk_actions = [
+        Bulk("cancel", "Bekor qilish", services.order_cancel, danger=True, comment=True),
+        Bulk("delete", "O'chirish (qoralama)", services.order_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         qs = PurchaseOrder.objects.select_related("supplier", "project").prefetch_related("lines")
@@ -242,7 +274,7 @@ class ReceiptFilter(django_filters.FilterSet):
         return qs.filter(Q(order__project_id=value) | Q(lines__order_line__project_id=value)).distinct()
 
 
-class GoodsReceiptViewSet(ServiceModelViewSet):
+class GoodsReceiptViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.GOODS_RECEIPTS
     serializer_class = ReceiptSerializer
     list_serializer_class = ReceiptListSerializer
@@ -256,6 +288,19 @@ class GoodsReceiptViewSet(ServiceModelViewSet):
     service_create = services.receipt_create_from_order
     service_update = services.receipt_update
     service_delete = services.receipt_delete
+
+    excel_name = "kirimlar"
+    excel_columns = [
+        Col("№", "code", width=12), Col("Holat", lambda r: label_of(ReceiptStatus)(r.status), width=14),
+        Col("Buyurtma", "order.code", width=12), Col("Yetkazib beruvchi", "supplier.name", width=26),
+        Col("Sana", "date", kind="date", width=12), Col("Ombor", "warehouse.name", width=16),
+        Col("Hisob-faktura №", "invoice_number", width=16),
+        Col("Jami, so'm", lambda r: r.totals()["gross_uzs"], kind="money"),
+    ]
+    bulk_actions = [
+        Bulk("post", "O'tkazish", services.receipt_post),
+        Bulk("delete", "O'chirish (qoralama)", services.receipt_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         qs = (GoodsReceipt.objects.select_related("order", "supplier", "storekeeper", "warehouse")
@@ -294,7 +339,7 @@ def _supplier_create(*, actor, **fields) -> Client:
     return client_services.client_create(actor=actor, kind=ClientKind.SUPPLIER, **fields)
 
 
-class SupplierViewSet(ServiceModelViewSet):
+class SupplierViewSet(TabularMixin, ServiceModelViewSet):
     """Yetkazib beruvchilar: clients of kind supplier (ADR 0008) with their ledger balance."""
 
     page_key = Pages.SUPPLIERS
@@ -307,6 +352,29 @@ class SupplierViewSet(ServiceModelViewSet):
     service_create = _supplier_create
     service_update = client_services.client_update
     service_delete = client_services.client_delete
+
+    excel_name = "yetkazib-beruvchilar"
+    excel_columns = [
+        Col("Kod", "code", width=12), Col("Nomi", "name", width=30), Col("STIR", "tin", width=14),
+        Col("Aloqa shaxsi", "contact_person", width=22), Col("Telefon", "phone", width=16), Col("Email", "email", width=22),
+        Col("Hudud", "region"), Col("Manzil", "address", width=30), Col("Hisob raqami", "bank_account", width=24),
+        Col("Bank", "bank_name", width=22), Col("MFO", "mfo", width=8), Col("Narx valyutasi", "price_currency", width=10),
+        Col("Oldindan to'lov, %", "prepay_percent", width=10), Col("Kredit kunlari", "credit_days", width=10),
+        Col("Faol", "is_active", width=8),
+    ]
+    excel_import = [
+        Field("Nomi", "name", required=True), Field("STIR", "tin"), Field("Aloqa shaxsi", "contact_person"),
+        Field("Telefon", "phone"), Field("Email", "email"), Field("Hudud", "region"), Field("Manzil", "address"),
+        Field("Hisob raqami", "bank_account"), Field("Bank", "bank_name"), Field("MFO", "mfo"),
+        Field("Narx valyutasi", "price_currency", resolve=choice([("UZS", "so'm"), ("USD", "USD")]), hint="UZS / USD"),
+        Field("Oldindan to'lov, %", "prepay_percent"), Field("Kredit kunlari", "credit_days"), Field("Izoh", "notes"),
+    ]
+    bulk_actions = [
+        Bulk("deactivate", "Nofaol qilish",
+             lambda c, *, actor: client_services.client_update(c, actor=actor, is_active=False)),
+        Bulk("activate", "Faol qilish", lambda c, *, actor: client_services.client_update(c, actor=actor, is_active=True)),
+        Bulk("delete", "Arxivlash", client_services.client_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         return (Client.objects.filter(kind=ClientKind.SUPPLIER)

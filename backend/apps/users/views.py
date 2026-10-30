@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.access.registry import Action, Pages
+from apps.core.tabular import Bulk, Col, TabularMixin
 from apps.core.views import ServiceModelViewSet
 from apps.users import services
 from apps.users.authentication import LoginSerializer, RefreshSerializer
@@ -50,7 +51,7 @@ class UserFilter(django_filters.FilterSet):
         fields = ["is_active", "is_superuser", "role"]
 
 
-class UserViewSet(ServiceModelViewSet):
+class UserViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.USERS
     serializer_class = UserSerializer
     list_serializer_class = UserListSerializer
@@ -63,6 +64,19 @@ class UserViewSet(ServiceModelViewSet):
     service_create = services.user_create
     service_update = services.user_update
     service_delete = services.user_delete
+
+    excel_name = "foydalanuvchilar"
+    excel_columns = [
+        Col("Login", "username", width=16), Col("F.I.O.", "full_name", width=26), Col("Email", "email", width=24),
+        Col("Telefon", "phone", width=16), Col("Rollar", lambda u: ", ".join(r.name for r in u.roles.all()), width=30),
+        Col("Faol", "is_active", width=8), Col("Superuser", "is_superuser", width=10),
+        Col("Oxirgi kirish", "last_login", kind="date", width=14),
+    ]
+    bulk_actions = [
+        Bulk("deactivate", "Bloklash", lambda u, *, actor: services.user_update(u, actor=actor, is_active=False),
+             danger=True),
+        Bulk("activate", "Faollashtirish", lambda u, *, actor: services.user_update(u, actor=actor, is_active=True)),
+    ]
 
     def get_queryset(self):
         return user_queryset().select_related("employee")

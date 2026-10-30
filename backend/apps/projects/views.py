@@ -13,9 +13,18 @@ from rest_framework.response import Response
 
 from apps.access.permissions import PagePermission
 from apps.access.registry import Action, Pages
+from apps.clients.models import Client
+from apps.core.tabular import Bulk, Col, Field, TabularMixin, as_date, as_decimal, choice, label_of, opts, ref
 from apps.core.views import ServiceModelViewSet
 from apps.projects import services
-from apps.projects.models import FINISHED_STATUSES, Project, ProjectCalc, ProjectFile, ProjectItem, ProjectStatus
+from apps.projects.models import (
+    FINISHED_STATUSES,
+    Project,
+    ProjectCalc,
+    ProjectFile,
+    ProjectItem,
+    ProjectStatus,
+)
 from apps.projects.serializers import (
     CalcCreateSerializer,
     CalcSerializer,
@@ -48,7 +57,7 @@ class ProjectFilter(django_filters.FilterSet):
         return qs.filter(deadline__lt=timezone.localdate()).exclude(status__in=FINISHED_STATUSES)
 
 
-class ProjectViewSet(ServiceModelViewSet):
+class ProjectViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.PROJECTS
     serializer_class = ProjectSerializer
     list_serializer_class = ProjectListSerializer
@@ -66,6 +75,36 @@ class ProjectViewSet(ServiceModelViewSet):
     service_create = services.project_create
     service_update = services.project_update
     service_delete = services.project_delete
+
+    excel_name = "loyihalar"
+    excel_columns = [
+        Col("Kod", "code", width=14), Col("Nomi", "name", width=30), Col("Holat", lambda p: label_of(ProjectStatus)(p.status)),
+        Col("Mijoz", "client.name", width=26), Col("Telefon", "phone", width=16), Col("Hudud", "region"),
+        Col("Obyekt manzili", "object_address", width=30), Col("Mahsulot", "product_name", width=22),
+        Col("Sotuv sanasi", "sale_date", kind="date", width=12), Col("Muddat", "deadline", kind="date", width=12),
+        Col("Summa", "amount", kind="money"), Col("Xizmat", "service_amount", kind="money"),
+        Col("Avans", "advance_amount", kind="money"), Col("Qarz", "debt_amount", kind="money"),
+        Col("Valyuta", "currency", width=8), Col("Menejer", "manager.name", width=22),
+        Col("Shartnoma №", "contract_number", width=14),
+    ]
+    excel_import = [
+        Field("Nomi", "name", required=True),
+        Field("Mijoz", "client_id", required=True, resolve=ref(Client, "code", "name", "phone"),
+              hint="Mijoz kodi (MJ-00012), nomi yoki telefoni"),
+        Field("Telefon", "phone"), Field("Hudud", "region"), Field("Obyekt manzili", "object_address"),
+        Field("Mahsulot", "product_name"), Field("Sotuv sanasi", "sale_date", resolve=as_date, hint="31.10.2026"),
+        Field("Muddat", "deadline", resolve=as_date), Field("Summa", "amount", resolve=as_decimal),
+        Field("Valyuta", "currency", resolve=choice([("UZS", "so'm"), ("USD", "USD")])),
+        Field("USD kursi", "usd_rate", resolve=as_decimal), Field("Shartnoma №", "contract_number"),
+        Field("Izoh", "notes"),
+    ]
+    import_defaults = {"items": []}
+    bulk_actions = [
+        Bulk("status", "Holatini o'zgartirish",
+             lambda p, *, actor, status: services.project_change_status(p, actor=actor, status=status),
+             params=[{"name": "status", "label": "Yangi holat", "options": opts(ProjectStatus)}]),
+        Bulk("delete", "O'chirish (qoralama)", services.project_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         # totals via subqueries: two SUMs over one join would multiply each other

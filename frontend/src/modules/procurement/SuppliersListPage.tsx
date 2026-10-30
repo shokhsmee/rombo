@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { ActivePill } from "@/components/Status";
@@ -50,6 +51,7 @@ export function SuppliersListPage() {
   const can = useCan("suppliers");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "name" });
+  const sel = useSelection(query);
   const list = suppliersApi.useList(query);
   const f = params.filters;
 
@@ -61,7 +63,7 @@ export function SuppliersListPage() {
             <Plus className="size-4" /> Yangi yetkazib beruvchi
           </Link>
         )} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="procurement/suppliers" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Nom, STIR, telefon, email…" />
         <Select className="w-40" value={(f.price_currency as string) || ""} onChange={(e) => update({ filters: { price_currency: e.target.value || null } })}>
           <option value="">Valyuta: barchasi</option>
@@ -74,7 +76,8 @@ export function SuppliersListPage() {
           <option value="false">Nofaol</option>
         </Select>
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="procurement/suppliers" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="procurement/suppliers" onRowClick={(r) => navigate(`/procurement/suppliers/${r.id}`)} />
     </>
   );

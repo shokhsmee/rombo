@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -38,6 +39,7 @@ export function JournalListPage() {
   const can = useCan("accounting");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-date" });
+  const sel = useSelection(query);
   const list = entriesApi.useList(query);
   const f = params.filters;
 
@@ -49,7 +51,7 @@ export function JournalListPage() {
             <Plus className="size-4" /> Qo'lda o'tkazma
           </Link>
         )} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="accounting/entries" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="№, mazmun…" />
         <Segmented value={(f.source_kind as string) || ""} onChange={(k) => update({ filters: { source_kind: k || null } })}
           options={[{ value: "", label: "Barchasi" }, ...(Object.keys(SOURCE_KIND) as SourceKind[]).map((k) => ({ value: k, label: SOURCE_KIND[k] }))]} />
@@ -58,7 +60,8 @@ export function JournalListPage() {
         <EntitySelect endpoint="clients" placeholder="Kontragent" className="w-52"
           value={f.partner ? Number(f.partner) : null} onChange={(id) => update({ filters: { partner: id ? String(id) : null } })} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="accounting/entries" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="accounting-entries" onRowClick={(r) => navigate(`/accounting/entries/${r.id}`)} />
     </>
   );

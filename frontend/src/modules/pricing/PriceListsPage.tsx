@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { ActivePill } from "@/components/Status";
@@ -27,6 +28,7 @@ export function PriceListsPage() {
   const can = useCan("pricing");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "name" });
+  const sel = useSelection(query);
   const list = pricingApi.useList(query);
   return (
     <>
@@ -36,8 +38,9 @@ export function PriceListsPage() {
             <Plus className="size-4" /> Yangi narx ro'yxati
           </Link>
         )} />
-      <Toolbar><SearchInput value={params.q} onChange={(q) => update({ q })} /></Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <Toolbar action={<ExcelMenu resource="pricing" query={query} selection={sel} />}><SearchInput value={params.q} onChange={(q) => update({ q })} /></Toolbar>
+      <BulkBar resource="pricing" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="pricing" onRowClick={(r) => navigate(`/settings/pricing/${r.id}`)} />
     </>
   );

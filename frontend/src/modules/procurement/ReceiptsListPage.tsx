@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -32,6 +33,7 @@ const columns: Column<ReceiptListItem>[] = [
 export function ReceiptsListPage() {
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-created_at" }, ["status"]);
+  const sel = useSelection(query);
   const list = receiptsApi.useList(query);
   const summary = useStatusSummary("receipts");
   const selected = (params.filters.status as string[] | undefined) ?? [];
@@ -45,7 +47,7 @@ export function ReceiptsListPage() {
         selected={selected} counts={counts} onClear={() => update({ filters: { status: [] } })}
         onToggle={(s) => update({ filters: { status: selected.includes(s) ? selected.filter((x) => x !== s) : [...selected, s] } })} />
 
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="procurement/receipts" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="Kod, buyurtma, hisob-faktura…" />
         <EntitySelect endpoint="procurement/suppliers" placeholder="Yetkazib beruvchi" className="w-56"
           value={params.filters.supplier ? Number(params.filters.supplier) : null}
@@ -55,7 +57,9 @@ export function ReceiptsListPage() {
           onChange={(id) => update({ filters: { project: id ? String(id) : null } })} />
       </Toolbar>
 
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="procurement/receipts" selection={sel} />
+
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="procurement/receipts" onRowClick={(r) => navigate(`/procurement/receipts/${r.id}`)}
         empty={params.filters.order ? "Bu buyurtma bo'yicha kirim yo'q" : undefined} />
     </>

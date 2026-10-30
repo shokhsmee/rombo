@@ -6,6 +6,8 @@ from rest_framework.response import Response
 
 from apps.access.permissions import page_required
 from apps.access.registry import Action, Pages
+from apps.clients.models import Client
+from apps.core.tabular import Bulk, Col, Field, TabularMixin, as_date, as_decimal, choice, label_of, ref
 from apps.core.views import ServiceModelViewSet
 from apps.kassa import selectors, services
 from apps.kassa.models import (
@@ -28,6 +30,7 @@ from apps.kassa.serializers import (
     PaymentRequestSerializer,
     PurposeSerializer,
 )
+from apps.projects.models import Project
 
 # ------------------------------------------------------------------ accounts and purposes
 
@@ -100,7 +103,7 @@ class CashOrderFilter(django_filters.FilterSet):
         return qs.filter(Q(account_id=value) | Q(to_account_id=value))  # a transfer shows on both accounts
 
 
-class CashOrderViewSet(ServiceModelViewSet):
+class CashOrderViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.CASH_ORDERS
     serializer_class = CashOrderSerializer
     list_serializer_class = CashOrderListSerializer
@@ -114,6 +117,32 @@ class CashOrderViewSet(ServiceModelViewSet):
     service_create = services.cash_order_create
     service_update = services.cash_order_update
     service_delete = services.cash_order_delete
+
+    excel_name = "kassa-orderlari"
+    excel_columns = [
+        Col("№", "code", width=12), Col("Turi", lambda o: label_of(OrderKind)(o.kind), width=10),
+        Col("Holat", lambda o: label_of(OrderStatus)(o.status), width=14), Col("Sana", "date", kind="date", width=12),
+        Col("Kassa / bank", "account.name", width=20), Col("Qayerga", "to_account.name", width=20),
+        Col("Summa", "amount", kind="money"), Col("Valyuta", "currency", width=8),
+        Col("Summa, so'm", "amount_uzs", kind="money"), Col("Maqsad", "purpose.name", width=22),
+        Col("Kontragent", "partner.name", width=26), Col("Loyiha", "project.code", width=14),
+        Col("Xodim", "employee.name", width=20), Col("Asos", "basis", width=30), Col("O'tkazma", "entry.code", width=12),
+    ]
+    excel_import = [
+        Field("Turi", "kind", required=True, resolve=choice(OrderKind.choices), hint="Kirim / Chiqim / O'tkazma"),
+        Field("Sana", "date", resolve=as_date, hint="31.10.2026; bo'sh — bugun"),
+        Field("Kassa / bank", "account_id", required=True, resolve=ref(CashAccount, "name"), hint="Hisob nomi"),
+        Field("Qayerga", "to_account_id", resolve=ref(CashAccount, "name"), hint="faqat o'tkazma uchun"),
+        Field("Summa", "amount", required=True, resolve=as_decimal), Field("Kurs", "rate", resolve=as_decimal),
+        Field("Maqsad", "purpose_id", resolve=ref(PaymentPurpose, "name"), hint="To'lov maqsadi nomi"),
+        Field("Kontragent", "partner_id", resolve=ref(Client, "code", "name", "tin"), hint="kod, nomi yoki STIR"),
+        Field("Loyiha", "project_id", resolve=ref(Project, "code", "name")), Field("Asos", "basis"),
+        Field("Izoh", "notes"),
+    ]
+    bulk_actions = [
+        Bulk("post", "O'tkazish", services.cash_order_post),
+        Bulk("delete", "O'chirish (qoralama)", services.cash_order_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         return CashOrder.objects.select_related("account__responsible", "to_account", "purpose", "partner", "project", "employee",
@@ -169,7 +198,7 @@ class PaymentRequestFilter(django_filters.FilterSet):
 PAY_APPROVER = [IsAuthenticated, page_required(Pages.PAYMENT_APPROVE, Action.UPDATE)]
 
 
-class PaymentRequestViewSet(ServiceModelViewSet):
+class PaymentRequestViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.PAYMENT_REQUESTS
     serializer_class = PaymentRequestSerializer
     list_serializer_class = PaymentRequestListSerializer
@@ -182,6 +211,23 @@ class PaymentRequestViewSet(ServiceModelViewSet):
     service_create = services.payment_request_create
     service_update = services.payment_request_update
     service_delete = services.payment_request_delete
+
+    excel_name = "pul-sorovlari"
+    excel_columns = [
+        Col("№", "code", width=12), Col("Holat", lambda r: label_of(PaymentRequestStatus)(r.status), width=14),
+        Col("Kontragent", "partner.name", width=26), Col("Loyiha", "project.code", width=14),
+        Col("Summa", "amount", kind="money"), Col("Valyuta", "currency", width=8), Col("Maqsad", "purpose.name", width=22),
+        Col("Asos", "basis", width=30), Col("Hujjat", "source_label", width=12),
+        Col("Kerak sana", "needed_by", kind="date", width=12), Col("So'ragan", "requested_by.full_name", width=20),
+    ]
+    bulk_actions = [
+        Bulk("submit", "Yuborish", services.payment_request_submit),
+        Bulk("approve", "Tasdiqlash", services.payment_request_approve, page=Pages.PAYMENT_APPROVE),
+        Bulk("reject", "Rad etish", services.payment_request_reject, page=Pages.PAYMENT_APPROVE, danger=True,
+             comment=True),
+        Bulk("cancel", "Bekor qilish", services.payment_request_cancel, danger=True, comment=True),
+        Bulk("delete", "O'chirish (qoralama)", services.payment_request_delete, action=Action.DELETE, danger=True),
+    ]
 
     def get_queryset(self):
         return PaymentRequest.objects.select_related("partner", "project", "purpose", "requested_by",

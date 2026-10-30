@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -47,6 +48,7 @@ export function CashOrdersListPage() {
   const can = useCan("cash_orders");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-date" }, ["status"]);
+  const sel = useSelection(query);
   const list = ordersApi.useList(query);
   const accounts = useCashAccounts({}, useCan("kassa").view);
   const purposes = usePurposes();
@@ -68,7 +70,7 @@ export function CashOrdersListPage() {
               ]} />
           </>
         )} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="kassa/orders" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="№, kontragent, loyiha, asos…" />
         <Segmented value={(f.kind as string) || ""} onChange={(k) => update({ filters: { kind: k || null } })}
           options={[{ value: "", label: "Barchasi" }, ...(Object.keys(ORDER_KIND) as OrderKind[]).map((k) => ({ value: k, label: ORDER_KIND[k] }))]} />
@@ -97,7 +99,8 @@ export function CashOrdersListPage() {
         <Input type="date" className="w-40" value={(f.date_from as string) || ""} onChange={(e) => update({ filters: { date_from: e.target.value || null } })} />
         <Input type="date" className="w-40" value={(f.date_to as string) || ""} onChange={(e) => update({ filters: { date_to: e.target.value || null } })} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="kassa/orders" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="cash-orders" onRowClick={(r) => navigate(`/kassa/orders/${r.id}`)} />
     </>
   );

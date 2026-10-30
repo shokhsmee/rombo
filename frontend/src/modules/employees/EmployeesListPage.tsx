@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { Pill, Segmented, Select } from "@/components/ui";
@@ -41,6 +42,7 @@ export function EmployeesListPage() {
   const can = useCan("employees");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "last_name" });
+  const sel = useSelection(query);
   const list = employeesApi.useList(query);
   const departments = useDepartments();
 
@@ -52,7 +54,7 @@ export function EmployeesListPage() {
             <Plus className="size-4" /> Yangi xodim
           </Link>
         )} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="employees" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="F.I.O., telefon, lavozim…" />
         <Segmented value={(params.filters.status as string) || ""} onChange={(s) => update({ filters: { status: s || null } })}
           options={[{ value: "", label: "Barchasi" }, ...Object.entries(EMP_STATUS).map(([value, s]) => ({ value, label: s.label }))]} />
@@ -61,7 +63,8 @@ export function EmployeesListPage() {
           {(departments.data ?? []).map((d) => <option key={d} value={d}>{d}</option>)}
         </Select>
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="employees" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="employees" onRowClick={(r) => navigate(`/employees/${r.id}`)} />
     </>
   );

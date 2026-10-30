@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { DataTable, Toolbar, type Column } from "@/components/DataTable";
+import { BulkBar, ExcelMenu, useSelection } from "@/components/ListTools";
 import { EntitySelect } from "@/components/EntitySelect";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
@@ -42,6 +43,7 @@ export function PaymentRequestsListPage() {
   const can = useCan("payment_requests");
   const navigate = useNavigate();
   const { params, update, query } = useListParams({ sort: "-created_at" }, ["status"]);
+  const sel = useSelection(query);
   const list = paymentRequestsApi.useList(query);
   const f = params.filters;
   const statuses = (f.status as string[] | undefined) ?? [];
@@ -52,7 +54,7 @@ export function PaymentRequestsListPage() {
     <>
       <PageHeader title="Pul so'rovlari" lede="Xarid va boshqa bo'limlar kassadan pul so'raydi. Kassa tasdiqlaydi, keyin chiqim bilan to'laydi."
         action={can.create && <Button onClick={() => navigate("/kassa/payment-requests/new")}><Plus className="size-4" strokeWidth={1.75} /> Yangi so'rov</Button>} />
-      <Toolbar>
+      <Toolbar action={<ExcelMenu resource="kassa/payment-requests" query={query} selection={sel} />}>
         <SearchInput value={params.q} onChange={(q) => update({ q })} placeholder="№, kontragent, loyiha, asos…" />
         <div className="flex flex-wrap gap-1">
           {(Object.keys(PAYMENT_REQUEST_STATUS) as PaymentRequestStatus[]).map((s) => (
@@ -67,7 +69,8 @@ export function PaymentRequestsListPage() {
         <EntitySelect endpoint="projects" placeholder="Loyiha" className="w-48"
           value={f.project ? Number(f.project) : null} onChange={(id) => update({ filters: { project: id ? String(id) : null } })} />
       </Toolbar>
-      <DataTable columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
+      <BulkBar resource="kassa/payment-requests" selection={sel} />
+      <DataTable selected={sel.ids} onSelect={sel.set} columns={columns} data={list.data} loading={list.isFetching} params={params} onParams={update}
         navKey="payment-requests" onRowClick={(r) => navigate(`/kassa/payment-requests/${r.id}`)} />
     </>
   );

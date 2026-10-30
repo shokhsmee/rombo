@@ -2,9 +2,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from apps.access import services
-from apps.access.registry import PAGES, Pages
+from apps.access.registry import PAGES, Action, Pages
 from apps.access.selectors import role_queryset
 from apps.access.serializers import PageSerializer, RoleListSerializer, RoleSerializer
+from apps.core.tabular import Bulk, Col, TabularMixin
 from apps.core.views import ServiceModelViewSet
 
 
@@ -16,7 +17,7 @@ def pages_view(request):
     return Response(PageSerializer(data, many=True).data)
 
 
-class RoleViewSet(ServiceModelViewSet):
+class RoleViewSet(TabularMixin, ServiceModelViewSet):
     page_key = Pages.ROLES
     serializer_class = RoleSerializer
     list_serializer_class = RoleListSerializer
@@ -27,6 +28,11 @@ class RoleViewSet(ServiceModelViewSet):
     service_create = services.role_create
     service_update = services.role_update
     service_delete = services.role_delete
+
+    excel_name = "rollar"
+    excel_columns = [Col("Nomi", "name", width=26), Col("Tavsif", "description", width=40),
+                     Col("Tizim roli", "is_system", width=10)]
+    bulk_actions = [Bulk("delete", "O'chirish", services.role_delete, action=Action.DELETE, danger=True)]
 
     def get_queryset(self):
         return role_queryset()
