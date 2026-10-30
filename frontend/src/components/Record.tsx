@@ -1,10 +1,11 @@
 // Record (form) page pieces, laid out like uzbridge's booking page:
 //   breadcrumb + record pager · action bar with status track · the sheet · chatter column on the right.
 import { ArrowLeft, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { recordNav } from "@/lib/recordNav";
+import { nameCurrent, useTrail } from "@/lib/trail";
 
 import { ChatterPanel, ChatterReopen, useChatterOpen } from "./Chatter";
 import { Button, ConfirmDialog } from "./ui";
@@ -31,21 +32,33 @@ export function RecordNav({ listTo, listLabel, crumb, navKey, id }: {
   listTo: string; listLabel: string; crumb: ReactNode; navKey: string; id?: number;
 }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const trail = useTrail();
   const nav = id ? recordNav(navKey, id) : null;
   const btn = "press grid size-8 place-items-center rounded-md border border-line bg-surface text-muted hover:text-ink disabled:opacity-40";
+  // the record names its breadcrumb ("LY-26-00007"); with a trail above, the list link would repeat it
+  const label = typeof crumb === "string" || typeof crumb === "number" ? String(crumb) : listLabel;
+  useEffect(() => nameCurrent(pathname, label), [pathname, label]);
+  const deep = trail.length > 1;
+  // the pager swaps the last crumb instead of piling records onto the trail
+  const go = (to: string) => navigate(to, { replace: true });
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Link to={listTo} className="inline-flex items-center gap-1 text-sm text-accent-ink hover:underline">
-        <ArrowLeft className="size-4" /> {listLabel}
-      </Link>
-      <span className="text-sm text-muted">/ {crumb}</span>
+      {!deep && (
+        <>
+          <Link to={listTo} className="inline-flex items-center gap-1 text-sm text-accent-ink hover:underline">
+            <ArrowLeft className="size-4" /> {listLabel}
+          </Link>
+          <span className="text-sm text-muted">/ {crumb}</span>
+        </>
+      )}
       {nav && nav.pos >= 0 && nav.total > 1 && (
         <div className="ml-auto flex items-center gap-1 text-sm">
           <span className="tabular text-muted">{nav.pos + 1} / {nav.total}</span>
-          <button type="button" className={btn} disabled={!nav.prev} onClick={() => nav.prev && navigate(`${listTo}/${nav.prev}`)} aria-label="Oldingi">
+          <button type="button" className={btn} disabled={!nav.prev} onClick={() => nav.prev && go(`${listTo}/${nav.prev}`)} aria-label="Oldingi">
             <ChevronLeft className="size-4" />
           </button>
-          <button type="button" className={btn} disabled={!nav.next} onClick={() => nav.next && navigate(`${listTo}/${nav.next}`)} aria-label="Keyingi">
+          <button type="button" className={btn} disabled={!nav.next} onClick={() => nav.next && go(`${listTo}/${nav.next}`)} aria-label="Keyingi">
             <ChevronRight className="size-4" />
           </button>
         </div>

@@ -3,6 +3,10 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-30
+- `add-breadcrumb-trail` — Odoo-style breadcrumbs across apps: following links from a Loyiha to its
+  request, order, money request and RKO keeps a clickable trail at the top; a crumb or browser back returns
+  and shortens it; the pager swaps the last crumb; the sidebar starts over. Why: the way back was lost
+  between apps.
 - `add-purchase-approvals-and-money-requests` — Multi-level approval of purchase requests: ordered steps,
   each decided by members of a role (Sozlamalar → Tasdiqlash bosqichlari), every decision stored and shown on
   the request; no steps = the old single approval. Money requests (Pul so'rovi `PS-`) in kassa: the buyer

@@ -2,6 +2,7 @@
 import {
   ArrowLeftRight,
   Building,
+  ChevronRight,
   Building2,
   BookOpen,
   NotebookText,
@@ -37,10 +38,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 
 import { useAuth, type PageKey } from "@/auth/AuthProvider";
 import { useLiveSocket } from "@/lib/live";
+import { resetTrail, useTrail, visit } from "@/lib/trail";
 import { useTheme, type Theme } from "@/lib/theme";
 import { TelephonyLive } from "@/modules/telephony/TelephonyLive";
 
@@ -109,6 +111,36 @@ const NAV: NavGroup[] = [
   },
 ];
 
+/** The crumb label of a page before it names itself: the sidebar item with the longest matching path. */
+function pageLabel(pathname: string): string {
+  if (pathname === "/") return "Bosh sahifa";
+  let best = { len: 0, label: "Sahifa" };
+  for (const g of NAV) for (const i of g.items) {
+    if ((pathname === i.to || pathname.startsWith(`${i.to}/`)) && i.to.length > best.len) best = { len: i.to.length, label: i.label };
+  }
+  return best.label;
+}
+
+/** Breadcrumbs across apps (lib/trail): shown once there is somewhere to go back to. */
+function TrailBar() {
+  const trail = useTrail();
+  if (trail.length < 2) return null;
+  return (
+    <nav aria-label="Yo'l" className="no-scrollbar mb-3 flex items-center gap-1 overflow-x-auto whitespace-nowrap text-sm">
+      {trail.map((c, i) => {
+        const last = i === trail.length - 1;
+        return (
+          <span key={c.path} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-faint" strokeWidth={1.75} aria-hidden />}
+            {last ? <span className="font-medium text-ink">{c.label}</span>
+              : <Link to={c.to} className="text-accent-ink hover:underline">{c.label}</Link>}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 /** /crm must not light up on /crm/map: an item whose path prefixes another item's matches exactly. */
 const hasChildItem = (to: string) => NAV.some((g) => g.items.some((i) => i.to !== to && i.to.startsWith(`${to}/`)));
 
@@ -117,6 +149,7 @@ function Row({ to, icon: Icon, label, end }: { to: string; icon: LucideIcon; lab
     <NavLink
       to={to}
       end={end}
+      onClick={resetTrail}
       className={({ isActive }) =>
         `group/item flex items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-[7px] text-[14px] transition-colors ${
           isActive ? "bg-accent-soft font-semibold text-accent-ink" : "text-ink hover:bg-sunk"
@@ -172,7 +205,7 @@ function TopBar() {
       <span className="truncate font-semibold text-ink">Rombo ERP</span>
       <div className="ml-auto flex items-center gap-2">
         {can("projects", "create") && (
-          <Link to="/projects/new" className="press hidden h-8 items-center gap-1 rounded-lg bg-accent px-3 text-xs font-semibold text-white hover:bg-accent-ink sm:inline-flex">
+          <Link to="/projects/new" onClick={resetTrail} className="press hidden h-8 items-center gap-1 rounded-lg bg-accent px-3 text-xs font-semibold text-white hover:bg-accent-ink sm:inline-flex">
             <Plus className="size-3.5" strokeWidth={2.25} /> Yangi loyiha
           </Link>
         )}
@@ -201,11 +234,16 @@ function TopBar() {
 export function Shell() {
   const { can, me } = useAuth();
   useLiveSocket(!!me); // live updates (board, calls, Telegram, notifications)
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const navType = useNavigationType();
   // a new page starts at the top (block body: newer browsers return a Promise from scrollTo)
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
+  // every page visit feeds the breadcrumb trail; list filters only refresh the crumb's link
+  useEffect(() => {
+    visit(pathname, search, pageLabel(pathname), navType === "REPLACE");
+  }, [pathname, search, navType]);
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => can(i.page)) })).filter((g) => g.items.length);
 
   return (
@@ -245,6 +283,7 @@ export function Shell() {
       <div className="flex min-w-0 flex-col">
         <TopBar />
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
+          <TrailBar />
           <Outlet />
         </main>
         <TelephonyLive />
