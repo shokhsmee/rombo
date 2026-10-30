@@ -728,6 +728,13 @@ def receipt_update(receipt: GoodsReceipt, *, actor, lines: list[dict] | None = N
     return receipt
 
 
+def _inventory():
+    """The inventory write API (ADR 0010): procurement imports inventory, never the reverse."""
+    from apps.inventory import services as inv
+
+    return inv
+
+
 def _ledger():
     """The accounting write/read API (ADR 0007): procurement imports accounting, never the reverse."""
     from apps.accounting import selectors as accsel
@@ -758,12 +765,17 @@ def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
         rate = accsel.rate_for(receipt.date, currency)
     cur = None if currency == Currency.UZS else currency
 
-    entry_lines = []
+    inv = _inventory()
+    entry_lines, stock_rows = [], []
     gross_total = ZERO
     for ln in lines:
+        ol = ln.order_line
         net_uzs, vat_uzs = money(ln.net * rate), money(ln.vat * rate)
-        memo = f"{ln.order_line.name} {ln.qty.normalize():f} {ln.order_line.unit}"
-        entry_lines.append({"role": "materials", "debit": net_uzs, "partner": receipt.supplier,
+        memo = f"{ol.name} {ln.qty.normalize():f} {ol.unit}"
+        # the product the line brings decides the stock account (1010 / 2810), so stock value = ledger
+        product = inv.product_for(actor=actor, item=ol.item, name=ol.name, unit=ol.unit)
+        stock_rows.append({"product": product, "qty": ln.qty, "amount": net_uzs, "project": ol.project})
+        entry_lines.append({"role": inv.stock_role(product), "debit": net_uzs, "partner": receipt.supplier,
                             "project": ln.order_line.project, "currency": cur,
                             "amount_cur": ln.net if cur else None, "rate": order.rate if cur else None,
                             "memo": memo})
@@ -783,17 +795,22 @@ def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
                                             project=order.project)
     entry = acc.entry_post(actor=actor, date=receipt.date, memo=f"Kirim {receipt.code} ({order.code})",
                            lines=entry_lines, source=receipt)
+    warehouse = receipt.warehouse or inv.default_warehouse()
+    moves = inv.source_moves_post(actor=actor, source=receipt, date=receipt.date, warehouse=warehouse,
+                                  partner=receipt.supplier, rows=stock_rows)
 
     for ln in lines:
         ol = ln.order_line
         ol.received_qty += ln.qty
         ol.save(update_fields=["received_qty"])
     receipt.posted_at, receipt.posted_by, receipt.entry = timezone.now(), actor, entry
+    receipt.warehouse = warehouse
     with muted():
-        receipt.save(update_fields=["posted_at", "posted_by", "entry"])
+        receipt.save(update_fields=["posted_at", "posted_by", "entry", "warehouse"])
     _move(receipt, RECEIPT_TRANSITIONS, ReceiptStatus.POSTED, actor=actor, labels=ReceiptStatus)
     total = f"{gross_total:,.2f}".replace(",", " ")
     event(receipt, f"Jurnalga o'tkazildi: {entry.code} — {total} so'm", actor=actor)
+    event(receipt, f"Omborga kirim: «{warehouse.name}», {len(moves)} qator", actor=actor)
     _derive_order_status(order, actor=actor)
     return receipt
 
@@ -808,6 +825,8 @@ def receipt_cancel(receipt: GoodsReceipt, *, actor, comment: str = "") -> GoodsR
     if receipt.status != ReceiptStatus.POSTED:
         raise ValidationFailed("Faqat o'tkazilgan kirim bekor qilinadi", field="status")
     acc, _ = _ledger()
+    # the goods leave the warehouse first: 409 when some of them were already issued
+    _inventory().source_moves_cancel(actor=actor, source=receipt, comment=comment or f"{receipt.code} bekor qilindi")
     if receipt.entry_id:
         reversal = acc.entry_reverse(receipt.entry, actor=actor, memo=f"Storno {receipt.code}")
         event(receipt, f"Storno: {reversal.code}", actor=actor)

@@ -47,7 +47,7 @@ def test_needs_view_permission_and_known_model(api, admin):
 
 
 def test_role_matrix_change_is_logged(admin):
-    role = admin.post(f"{API}/access/roles/", {"name": "Omborchi", "permissions": []}, format="json").json()
+    role = admin.post(f"{API}/access/roles/", {"name": "Qorovul", "permissions": []}, format="json").json()
     admin.patch(f"{API}/access/roles/{role['id']}/",
                 {"permissions": [{"page_key": "clients", "can_update": True}]}, format="json")
     msg = _history(admin, "access.role", role["id"]).json()[0]

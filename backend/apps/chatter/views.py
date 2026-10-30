@@ -26,6 +26,9 @@ CHATTER_PAGES = {
     "kassa.cashaccount": Pages.KASSA,
     "kassa.cashorder": Pages.CASH_ORDERS,
     "kassa.paymentrequest": Pages.PAYMENT_REQUESTS,
+    "inventory.stockmove": Pages.INVENTORY,
+    "inventory.product": Pages.PRODUCTS,
+    "inventory.warehouse": Pages.WAREHOUSES,
 }
 
 

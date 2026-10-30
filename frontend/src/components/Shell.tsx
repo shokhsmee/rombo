@@ -1,6 +1,10 @@
 // App frame in uzbridge's layout: a 236px sidebar (sticky), a translucent top bar, the page.
 import {
+  ArrowDownUp,
   ArrowLeftRight,
+  Boxes,
+  Package,
+  Warehouse,
   Building,
   ChevronRight,
   Building2,
@@ -77,6 +81,15 @@ const NAV: NavGroup[] = [
       { page: "goods_receipts", label: "Kirim", to: "/procurement/receipts", icon: PackageCheck },
       { page: "suppliers", label: "Yetkazib beruvchilar", to: "/procurement/suppliers", icon: Truck },
       { page: "mrp", label: "MRP", to: "/mrp", icon: Factory, planned: true },
+    ],
+  },
+  {
+    title: "Ombor",
+    items: [
+      { page: "inventory", label: "Ombor", to: "/inventory/moves", icon: ArrowDownUp },
+      { page: "stock", label: "Qoldiqlar", to: "/inventory/stock", icon: Boxes },
+      { page: "products", label: "Mahsulotlar", to: "/inventory/products", icon: Package },
+      { page: "warehouses", label: "Omborlar", to: "/inventory/warehouses", icon: Warehouse },
     ],
   },
   {

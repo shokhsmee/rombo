@@ -152,7 +152,7 @@ export function Row({ label, required, error, children, wide }: {
   return (
     <div className={`grid gap-1 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-start sm:gap-3 ${wide ? "lg:col-span-2" : ""}`}>
       <span className="pt-2 text-sm font-medium text-muted">{label}{required && <span className="text-bad"> *</span>}</span>
-      <span className="grid gap-1">
+      <span className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
         {children}
         {error && <span className="text-xs font-medium text-bad">{error}</span>}
       </span>

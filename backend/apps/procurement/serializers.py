@@ -7,6 +7,7 @@ from apps.access.registry import Action, Pages
 from apps.access.services import has_permission
 from apps.clients.models import Client, ClientKind
 from apps.core.serializers import RefSerializer, UserRefSerializer
+from apps.inventory.models import MoveStatus, StockMove, Warehouse
 from apps.pricing.models import PriceListItem
 from apps.procurement import selectors, services
 from apps.procurement.models import (
@@ -307,12 +308,22 @@ class ReceiptSerializer(ReceiptListSerializer):
     entry_id = serializers.IntegerField(read_only=True)
     entry_code = serializers.CharField(source="entry.code", read_only=True, default=None)
     allowed_statuses = serializers.ListField(child=serializers.CharField(), read_only=True)
+    warehouse = RefSerializer(read_only=True)
+    warehouse_id = serializers.PrimaryKeyRelatedField(source="warehouse", queryset=Warehouse.objects.all(),
+                                                      required=False, allow_null=True)
+    stock_moves = serializers.SerializerMethodField()
 
     class Meta(ReceiptListSerializer.Meta):
         fields = [*ReceiptListSerializer.Meta.fields, "order_id", "project", "rate", "invoice_date",
-                  "invoice_total",
+                  "invoice_total", "warehouse", "warehouse_id", "stock_moves",
                   "notes", "lines", "posted_at", "posted_by", "entry_id", "entry_code", "allowed_statuses",
                   "updated_at"]
+
+
+    def get_stock_moves(self, obj) -> int:
+        """Posted kirim rows this receipt put into the warehouse (add-inventory)."""
+        return StockMove.objects.filter(source_model="procurement.goodsreceipt", source_id=obj.pk,
+                                        status=MoveStatus.POSTED).count()
 
 
 # ------------------------------------------------------------------ suppliers (clients of kind supplier)

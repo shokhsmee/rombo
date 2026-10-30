@@ -87,9 +87,10 @@ export type GoodsReceipt = ReceiptListItem & {
   order_id: number; project: Ref | null; rate: string | null; invoice_date: string | null; invoice_total: string | null;
   notes: string; lines: ReceiptLine[]; posted_at: string | null; posted_by: UserRef | null; entry_id: number | null;
   allowed_statuses: ReceiptStatus[]; updated_at: string;
+  warehouse: { id: number; name: string } | null; warehouse_id: number | null; stock_moves: number;
 };
 export type ReceiptInput = Partial<{
-  order_id: number; date: string; invoice_number: string; invoice_date: string | null; invoice_total: string | null;
+  order_id: number; date: string; warehouse_id: number | null; invoice_number: string; invoice_date: string | null; invoice_total: string | null;
   notes: string; lines: { order_line_id: number; qty: string }[];
 }>;
 

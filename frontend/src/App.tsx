@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import { RequireAuth, RequirePage } from "@/auth/Guards";
 import { Shell } from "@/components/Shell";
@@ -56,6 +56,12 @@ const PaymentRequestsListPage = lazy(() => import("@/modules/kassa/PaymentReques
 const PaymentRequestFormPage = lazy(() => import("@/modules/kassa/PaymentRequestFormPage").then((m) => ({ default: m.PaymentRequestFormPage })));
 const ApprovalStepsPage = lazy(() => import("@/modules/procurement/ApprovalStepsPage").then((m) => ({ default: m.ApprovalStepsPage })));
 const CashOrderPrint = lazy(() => import("@/modules/kassa/print/CashOrderPrint").then((m) => ({ default: m.CashOrderPrint })));
+const MovesListPage = lazy(() => import("@/modules/inventory/MovesListPage").then((m) => ({ default: m.MovesListPage })));
+const MoveFormPage = lazy(() => import("@/modules/inventory/MoveFormPage").then((m) => ({ default: m.MoveFormPage })));
+const StockPage = lazy(() => import("@/modules/inventory/StockPage").then((m) => ({ default: m.StockPage })));
+const ProductsListPage = lazy(() => import("@/modules/inventory/ProductsListPage").then((m) => ({ default: m.ProductsListPage })));
+const ProductFormPage = lazy(() => import("@/modules/inventory/ProductFormPage").then((m) => ({ default: m.ProductFormPage })));
+const WarehousesPage = lazy(() => import("@/modules/inventory/WarehousesPage").then((m) => ({ default: m.WarehousesPage })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
 export function App() {
@@ -96,6 +102,13 @@ export function App() {
         <Route path="procurement/receipts/:id" element={<RequirePage page="goods_receipts"><Later><ReceiptFormPage /></Later></RequirePage>} />
         <Route path="procurement/suppliers" element={<RequirePage page="suppliers"><Later><SuppliersListPage /></Later></RequirePage>} />
         <Route path="procurement/suppliers/:id" element={<RequirePage page="suppliers"><Later><SupplierFormPage /></Later></RequirePage>} />
+        <Route path="inventory" element={<Navigate to="/inventory/moves" replace />} />
+        <Route path="inventory/moves" element={<RequirePage page="inventory"><Later><MovesListPage /></Later></RequirePage>} />
+        <Route path="inventory/moves/:id" element={<RequirePage page="inventory"><Later><MoveFormPage /></Later></RequirePage>} />
+        <Route path="inventory/stock" element={<RequirePage page="stock"><Later><StockPage /></Later></RequirePage>} />
+        <Route path="inventory/products" element={<RequirePage page="products"><Later><ProductsListPage /></Later></RequirePage>} />
+        <Route path="inventory/products/:id" element={<RequirePage page="products"><Later><ProductFormPage /></Later></RequirePage>} />
+        <Route path="inventory/warehouses" element={<RequirePage page="warehouses"><Later><WarehousesPage /></Later></RequirePage>} />
         <Route path="accounting" element={<RequirePage page="accounting"><Later><JournalListPage /></Later></RequirePage>} />
         <Route path="accounting/entries/:id" element={<RequirePage page="accounting"><Later><EntryPage /></Later></RequirePage>} />
         <Route path="accounting/invoices" element={<RequirePage page="invoices"><Later><InvoicesListPage /></Later></RequirePage>} />

@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { Banknote, Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Receipt, Ruler, ShoppingCart, Wallet } from "lucide-react";
+import { Banknote, Boxes, Building2, Calculator, ChevronDown, ExternalLink, FileSignature, Lock, Plus, Printer, Receipt, Ruler, ShoppingCart, Wallet } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -82,6 +82,7 @@ export function ProjectFormPage() {
   const canProcurement = useCan("procurement");
   const canInvoice = useCan("invoices");
   const canCash = useCan("cash_orders");
+  const canMoves = useCan("inventory");
   const canClients = useCan("clients");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
   const save = projectsApi.useSave();
@@ -155,6 +156,16 @@ export function ProjectFormPage() {
           {canEdit && <SaveButtons dirty={form.dirty} saving={save.isPending} isNew={isNew} onReset={form.reset} />}
           {p && !form.dirty && <StatusActions project={p} canUpdate={can.update} />}
           {p && !form.dirty && canProcurement.create && p.calcs.length > 0 && <SendToPurchase projectId={p.id} />}
+          {p && !form.dirty && canMoves.create && (
+            <Menu
+              trigger={() => <Button variant="ghost"><Boxes className="size-4" strokeWidth={1.75} /> Ombor <ChevronDown className="size-3.5" /></Button>}
+              items={[
+                { label: "Chiqim — materialni ishlab chiqarishga", onClick: () => navigate(`/inventory/moves/new?type=issue&project=${p.id}`) },
+                { label: "Ishlab chiqarish — tayyor mahsulot omborga", onClick: () => navigate(`/inventory/moves/new?type=output&project=${p.id}`) },
+                { label: "Yetkazish — mijozga", onClick: () => navigate(`/inventory/moves/new?type=delivery&project=${p.id}`) },
+              ]}
+            />
+          )}
           {p && !form.dirty && (
             <Menu
               trigger={() => <Button variant="ghost"><Printer className="size-4" strokeWidth={1.75} /> Hujjatlar <ChevronDown className="size-3.5" /></Button>}
@@ -195,6 +206,13 @@ export function ProjectFormPage() {
                 )}
                 {canInvoice.view && <InvoicesSmart project={p} />}
                 {canCash.view && <PaymentsSmart project={p} />}
+                {canMoves.view && p.stock && (
+                  <Smart icon={<Boxes className="size-4" />} value={p.stock.moves}
+                    label={Number(p.stock.issued) || Number(p.stock.delivered)
+                      ? `Ombor · chiqim ${fmtMoney(p.stock.issued, "UZS")}${Number(p.stock.delivered) ? ` · yetkazildi ${fmtMoney(p.stock.delivered, "UZS")}` : ""}`
+                      : "Ombor harakatlari"}
+                    onClick={() => navigate(`/inventory/moves?project=${p.id}`)} />
+                )}
               </>
             )}
           />

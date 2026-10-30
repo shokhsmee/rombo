@@ -63,6 +63,10 @@ class Pages:
     PAYMENT_REQUESTS = "payment_requests"
     PAYMENT_APPROVE = "payment_approve"
     APPROVAL_STEPS = "approval_steps"
+    INVENTORY = "inventory"  # stock moves
+    STOCK = "stock"
+    PRODUCTS = "products"
+    WAREHOUSES = "warehouses"
 
 
 PAGES: tuple[PageDef, ...] = (
@@ -78,6 +82,10 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.PURCHASE_ORDERS, "Buyurtmalar", "Ta'minot"),
     PageDef(Pages.GOODS_RECEIPTS, "Kirim", "Ta'minot"),
     PageDef(Pages.SUPPLIERS, "Yetkazib beruvchilar", "Ta'minot"),
+    PageDef(Pages.INVENTORY, "Ombor harakatlari", "Ombor"),
+    PageDef(Pages.STOCK, "Qoldiqlar", "Ombor", VIEW_ONLY),
+    PageDef(Pages.PRODUCTS, "Mahsulotlar", "Ombor"),
+    PageDef(Pages.WAREHOUSES, "Omborlar", "Ombor", (Action.VIEW, Action.CREATE, Action.UPDATE, Action.DELETE)),
     PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", planned=True),
     PageDef(Pages.ACCOUNTING, "Jurnal (o'tkazmalar)", "Buxgalteriya", (Action.VIEW, Action.CREATE, Action.UPDATE)),
     PageDef(Pages.INVOICES, "Hisob-fakturalar", "Buxgalteriya"),

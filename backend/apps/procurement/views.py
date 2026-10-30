@@ -259,7 +259,7 @@ class GoodsReceiptViewSet(ServiceModelViewSet):
     service_delete = services.receipt_delete
 
     def get_queryset(self):
-        qs = GoodsReceipt.objects.select_related("order", "supplier", "storekeeper").prefetch_related("lines")
+        qs = GoodsReceipt.objects.select_related("order", "supplier", "storekeeper", "warehouse").prefetch_related("lines")
         if self.action != "list":
             qs = qs.select_related("order__project",
                                    "posted_by", "entry").prefetch_related("lines__order_line__project")

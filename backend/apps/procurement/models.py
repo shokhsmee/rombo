@@ -308,7 +308,7 @@ RECEIPT_TRANSITIONS: dict[str, set[str]] = {
 class GoodsReceipt(AuditModel, SoftDeleteModel):
     TRACK = {
         "status": "Holat", "order": "Buyurtma", "supplier": "Yetkazib beruvchi", "date": "Sana",
-        "storekeeper": "Omborchi", "invoice_number": "Hisob-faktura №",
+        "storekeeper": "Omborchi", "warehouse": "Ombor", "invoice_number": "Hisob-faktura №",
         "invoice_date": "Hisob-faktura sanasi",
         "invoice_total": "Hisob-faktura summasi", "notes": "Izoh",
     }
@@ -323,6 +323,9 @@ class GoodsReceipt(AuditModel, SoftDeleteModel):
     storekeeper = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
                                     on_delete=models.SET_NULL,
                                     related_name="+")
+    # where the goods go (add-inventory); empty = the default warehouse when posted
+    warehouse = models.ForeignKey("inventory.Warehouse", null=True, blank=True, on_delete=models.PROTECT,
+                                  related_name="goods_receipts")
     # the supplier's ESF for the goods: typed by the accountant, no separate invoice document (design.md)
     invoice_number = models.CharField("Hisob-faktura №", max_length=50, blank=True, default="")
     invoice_date = models.DateField(null=True, blank=True)

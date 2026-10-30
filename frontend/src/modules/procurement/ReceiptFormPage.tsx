@@ -1,24 +1,27 @@
-import { BookCheck, Building2, FileText, ShoppingCart, Wallet } from "lucide-react";
+import { BookCheck, Boxes, Building2, FileText, ShoppingCart, Wallet } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useCan } from "@/auth/AuthProvider";
 import { ActionBar, DeleteButton, FieldGrid, RecordNav, RecordPage, Row, SaveButtons, Sheet, SheetTitle, StatusTrack } from "@/components/Record";
-import { Button, Dialog, Input, Smart, Textarea } from "@/components/ui";
+import { Button, Dialog, Input, Select, Smart, Textarea } from "@/components/ui";
 import { applyServerErrors, useServerForm } from "@/hooks/useServerForm";
 import { fmtDateTime, fmtMoney, toNum } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
+import { useWarehouses } from "@/modules/inventory/api";
 
 import { receiptsApi, useReceiptActions, type GoodsReceipt } from "./api";
 import { RECEIPT_PIPELINE, RECEIPT_STATUS } from "./statuses";
 
-type Values = { date: string; invoice_number: string; invoice_date: string; invoice_total: string; notes: string; qty: Record<number, string> };
+type Values = { date: string; warehouse_id: number | null; invoice_number: string; invoice_date: string; invoice_total: string; notes: string; qty: Record<number, string> };
 
 /** A receipt is always made from an order ("Kirim qilish"); this page edits the quantities and the ESF block. */
 export function ReceiptFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const can = useCan("goods_receipts");
+  const canMoves = useCan("inventory");
+  const warehouses = useWarehouses();
   const detail = receiptsApi.useDetail(id);
   const save = receiptsApi.useSave();
   const remove = receiptsApi.useRemove();
@@ -27,10 +30,10 @@ export function ReceiptFormPage() {
   const editable = can.update && !!r && r.status !== "cancelled";
 
   const form = useServerForm<Values, GoodsReceipt>({
-    initial: { date: "", invoice_number: "", invoice_date: "", invoice_total: "", notes: "", qty: {} },
+    initial: { date: "", warehouse_id: null, invoice_number: "", invoice_date: "", invoice_total: "", notes: "", qty: {} },
     record: r,
     toForm: (x) => ({
-      date: x.date, invoice_number: x.invoice_number, invoice_date: x.invoice_date ?? "",
+      date: x.date, warehouse_id: x.warehouse_id, invoice_number: x.invoice_number, invoice_date: x.invoice_date ?? "",
       invoice_total: x.invoice_total ? String(Number(x.invoice_total)) : "", notes: x.notes,
       qty: Object.fromEntries(x.lines.map((l) => [l.order_line_id, String(Number(l.qty))])),
     }),
@@ -57,7 +60,7 @@ export function ReceiptFormPage() {
     const data = {
       invoice_number: v.invoice_number, invoice_date: v.invoice_date || null,
       invoice_total: v.invoice_total ? String(toNum(v.invoice_total)) : null, notes: v.notes,
-      ...(draft ? { date: v.date, lines: r.lines.map((l) => ({ order_line_id: l.order_line_id, qty: String(toNum(v.qty[l.order_line_id])) })) } : {}),
+      ...(draft ? { date: v.date, warehouse_id: v.warehouse_id, lines: r.lines.map((l) => ({ order_line_id: l.order_line_id, qty: String(toNum(v.qty[l.order_line_id])) })) } : {}),
     };
     save.mutate({ id, data }, {
       onSuccess: () => { notifyOk("Saqlandi"); form.commit(); },
@@ -98,6 +101,10 @@ export function ReceiptFormPage() {
               <Smart icon={<ShoppingCart className="size-4" />} value={r.order.code} label="Buyurtma" onClick={() => navigate(`/procurement/orders/${r.order_id}`)} />
               <Smart icon={<Building2 className="size-4" />} value={r.supplier.name} label="Yetkazib beruvchi" onClick={() => navigate(`/procurement/suppliers/${r.supplier.id}`)} />
               {r.project && <Smart icon={<FileText className="size-4" />} value={r.project.code} label="Loyiha" onClick={() => navigate(`/projects/${r.project!.id}`)} />}
+              {r.stock_moves > 0 && canMoves.view && (
+                <Smart icon={<Boxes className="size-4" />} value={r.stock_moves} label={`Ombor · ${r.warehouse?.name ?? ""}`}
+                  onClick={() => navigate(`/inventory/moves?source_model=procurement.goodsreceipt&source_id=${r.id}`)} />
+              )}
               <Smart icon={<Wallet className="size-4" />} value={fmtMoney(gross, r.currency)} label={r.currency === "UZS" ? "Jami" : `= ${fmtMoney(gross * rate, "UZS")}`} />
             </>} />
 
@@ -105,6 +112,17 @@ export function ReceiptFormPage() {
             <FieldGrid>
               <Row label="Sana" required><Input type="date" disabled={!draft} {...form.text("date")} /></Row>
               <Row label="Omborchi"><Input disabled value={r.storekeeper?.full_name ?? "—"} /></Row>
+              <Row label="Ombor">
+                {draft ? (
+                  <>
+                    <Select value={v.warehouse_id ?? ""} onChange={(e) => form.set("warehouse_id", e.target.value ? Number(e.target.value) : null)}>
+                      <option value="">Asosiy ombor (standart)</option>
+                      {(warehouses.data ?? []).filter((w) => w.is_active || w.id === v.warehouse_id).map((w) => <option key={w.id} value={w.id}>{w.name}{w.is_default ? " · asosiy" : ""}</option>)}
+                    </Select>
+                    <span className="text-xs text-muted">O'tkazilganda har qator omborga kirim bo'ladi</span>
+                  </>
+                ) : <Input disabled value={r.warehouse?.name ?? "—"} />}
+              </Row>
               <Row label="Valyuta / kurs"><Input disabled value={r.currency === "UZS" ? "so'm" : `${r.currency} · kurs ${r.rate ? Number(r.rate).toLocaleString("ru-RU") : "—"}`} /></Row>
               <Row label="Jurnal"><Input disabled value={r.posted_at ? `${fmtDateTime(r.posted_at)} · ${r.posted_by?.full_name ?? ""}${r.entry_id ? ` · yozuv #${r.entry_id}` : ""}` : "o'tkazilmagan"} /></Row>
             </FieldGrid>
