@@ -68,7 +68,8 @@ export type Project = ProjectListItem & {
   contract_date: string | null;
   notes: string;
   allowed_statuses: ProjectStatus[];
-  money: { invoiced: string; paid: string; debt: string };
+  /** so'm from the ledger; `*_cur` and `rate` only when the Loyiha is not in so'm and a rate is known */
+  money: { invoiced: string; paid: string; debt: string; currency: Currency; rate?: string; invoiced_cur?: string; paid_cur?: string; debt_cur?: string };
   payments: { count: string; paid: string; last_date: string | null };
   advance_derived: boolean;
   updated_at: string;

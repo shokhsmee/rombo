@@ -3,6 +3,12 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-30
+- `fix-currency-display` — Money on a USD Loyiha reads in USD first: the Buxgalteriya block shows
+  "8 500 USD · 101 447 500 so'm" (converted at the Loyiha's `usd_rate`, else today's rate; `project_money`
+  returns `currency`, `rate`, `*_cur`), every figure carries its currency, and `fmtMoney` keeps the decimal
+  comma ("5 986,38 USD" was rendered "5 986 38 USD"). "To'lov qo'shish" opens the kirim on an account in the
+  Loyiha currency with the contract rate, or converts to so'm and says so. `seed_kassa` adds "Valyuta kassasi"
+  (USD, 5020). Why: a dollar order next to so'm ledger figures read as two different debts.
 - `add-quick-create-client` — Mijoz picker on the Loyiha form creates clients inline, Odoo-style: typing an
   unknown name offers "«name» yaratish" (bare individual client) and "Yaratish va to'ldirish…" (popup with
   kind, name, phone, region, address, STIR); the new client is selected and its phone copied. `EntitySelect`

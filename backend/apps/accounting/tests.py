@@ -357,7 +357,9 @@ def test_project_money_zero_without_postings(acc):
     c = _client(acc)
     p = _project(acc, c["id"], advance_amount="4000000")
     detail = acc.get(f"{API}/projects/{p['id']}/").json()
-    assert {k: D(v) for k, v in detail["money"].items()} == {"invoiced": 0, "paid": 0, "debt": 0}
+    m = detail["money"]
+    assert {k: D(m[k]) for k in ("invoiced", "paid", "debt")} == {"invoiced": 0, "paid": 0, "debt": 0}
+    assert m["currency"] == "UZS" and "debt_cur" not in m
     assert detail["debt_amount"] == "8960000.00"  # the typed amounts still show
 
 
@@ -496,3 +498,28 @@ def test_storekeeper_posts_through_the_service_without_accounting_pages(acc):
     services.entry_reverse(receipt, actor=storekeeper)
     assert selectors.partner_balance(partner)["ap"] == 0  # reversed entries do not count
     assert services.advance_offset_lines(partner=partner, side="supplier", amount=D("500")) == []
+
+
+def test_project_money_in_the_loyiha_currency(acc):
+    """A USD Loyiha reads its ledger money in USD (at its usd_rate) next to the so'm figures."""
+    from apps.accounting import services
+    from apps.clients.models import Client
+    from apps.projects.models import Project
+
+    c = _client(acc)
+    p = _project(acc, c["id"], amount="8500", currency="USD", usd_rate="11935")
+    project, partner = Project.objects.get(pk=p["id"]), Client.objects.get(pk=c["id"])
+    services.entry_post(actor=None, date=dt.date(2026, 10, 30), memo="HF", lines=[
+        {"role": "ar_customers", "debit": D("101447500"), "partner": partner, "project": project},
+        {"role": "revenue_products", "credit": D("101447500"), "project": project}])
+    services.entry_post(actor=None, date=dt.date(2026, 10, 30), memo="PKO", lines=[
+        {"role": "cash_uzs", "debit": D("30000000")},
+        {"role": "ar_customers", "credit": D("30000000"), "partner": partner, "project": project}])
+    m = acc.get(f"{API}/projects/{p['id']}/").json()["money"]
+    assert (m["currency"], D(m["rate"])) == ("USD", D("11935"))
+    assert (D(m["invoiced"]), D(m["paid"]), D(m["debt"])) == (D("101447500"), D("30000000"), D("71447500"))
+    assert (D(m["invoiced_cur"]), D(m["paid_cur"]), D(m["debt_cur"])) == (D("8500.00"), D("2513.62"), D("5986.38"))
+    # a so'm Loyiha carries no *_cur keys
+    p2 = _project(acc, c["id"])
+    m2 = acc.get(f"{API}/projects/{p2['id']}/").json()["money"]
+    assert m2["currency"] == "UZS" and "debt_cur" not in m2

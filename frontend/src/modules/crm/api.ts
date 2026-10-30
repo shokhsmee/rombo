@@ -208,7 +208,7 @@ export const useSaveCrmSettings = () =>
 export function fieldText(f: LeadField, v: FieldValue | undefined): string {
   if (v === null || v === undefined || v === "") return "";
   if (f.type === "bool") return v ? "✓" : "";
-  if (f.type === "number") return new Intl.NumberFormat("ru-RU").format(Number(v)).replace(/,/g, " ");
+  if (f.type === "number") return new Intl.NumberFormat("ru-RU").format(Number(v)).replace(/[  ]/g, " ");
   if (f.type === "date") return String(v).split("-").reverse().join(".");
   return String(v);
 }

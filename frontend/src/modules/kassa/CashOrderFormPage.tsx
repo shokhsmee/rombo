@@ -85,9 +85,21 @@ export function CashOrderFormPage() {
     { partner: v.partner_id, status: "confirmed", kind: purpose?.posting === "partner_customer" ? "customer" : "supplier", size: 50 },
     partnerPosting && !!v.partner_id);
 
-  // the default account: the first active kassa; the default purpose: the first one of the direction
+  // the default account: one in the currency the caller asked for (a USD Loyiha → the USD kassa), else the
+  // first active kassa — then the amount, which came in the caller's currency, is converted with its rate
+  const [converted, setConverted] = useState("");
   useEffect(() => {
-    if (isNew && !v.account_id && activeAccounts.length) form.set("account_id", activeAccounts[0].id);
+    if (!isNew || v.account_id || !activeAccounts.length) return;
+    const wanted = sp.get("currency");
+    const match = wanted ? activeAccounts.find((a) => a.currency === wanted) : undefined;
+    const acc = match ?? activeAccounts[0];
+    form.set("account_id", acc.id);
+    const rate = sp.get("rate");
+    if (wanted && match && wanted !== "UZS" && rate) form.set("rate", String(Number(rate)));
+    if (wanted && !match && acc.currency === "UZS" && wanted !== "UZS" && rate && num(v.amount) > 0) {
+      form.set("amount", String(Math.round(num(v.amount) * Number(rate))));
+      setConverted(`${wanted} kassa yo'q — so'mga o'girildi (kurs ${money(rate)})`);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNew, activeAccounts.length]);
   useEffect(() => {
@@ -186,6 +198,7 @@ export function CashOrderFormPage() {
                   <span className="flex h-9 shrink-0 items-center rounded-lg border border-line bg-ground px-3 text-sm text-muted">{unit(currency)}</span>
                 </div>
                 {account && v.kind !== "in" && amount > Number(account.balance) && <span className="text-xs font-medium text-warn">Kassada {money(account.balance)} {unit(currency)} bor — o'tkazish rad etiladi.</span>}
+                {converted && isNew && <span className="text-xs text-muted">{converted}</span>}
               </Row>
               {currency !== "UZS" && (
                 <Row label="Kurs" error={form.errors.rate}><Input inputMode="decimal" className="tabular" placeholder="Bo'sh — kun kursi" {...form.text("rate")} />

@@ -12,4 +12,4 @@ class AccountingConfig(AppConfig):
         from apps.projects.extensions import register_detail_block
 
         # strings, not Decimals: DRF's JSON encoder would render raw Decimals as floats
-        register_detail_block("money", lambda p: {k: str(v) for k, v in project_money(p).items()})
+        register_detail_block("money", lambda p: {k: v if isinstance(v, str) else str(v) for k, v in project_money(p).items()})

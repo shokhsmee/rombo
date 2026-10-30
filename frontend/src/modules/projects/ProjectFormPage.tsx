@@ -354,9 +354,17 @@ function PaymentsSmart({ project }: { project: Project }) {
   return <Smart icon={<Banknote className="size-4" />} value={list.data?.total ?? project.payments.count} label="To'lovlar" onClick={() => navigate(`/kassa/orders?project=${project.id}`)} />;
 }
 
-/** "To'lov qo'shish": a kirim pre-filled with the client, the Loyiha and the remaining debt. */
+/** "To'lov qo'shish": a kirim pre-filled with the client, the Loyiha and the remaining debt — in the Loyiha's
+ * currency; the kirim form picks an account in that currency or converts with the rate. */
 const payUrl = (p: Project) =>
-  `/kassa/orders/new?kind=in&partner=${p.client_id}&project=${p.id}&amount=${Math.max(Number(p.debt_amount), 0)}&basis=${encodeURIComponent(`Loyiha ${p.code}`)}`;
+  `/kassa/orders/new?kind=in&partner=${p.client_id}&project=${p.id}&amount=${Math.max(Number(p.debt_amount), 0)}` +
+  `&currency=${p.currency}${p.usd_rate ? `&rate=${p.usd_rate}` : ""}&basis=${encodeURIComponent(`Loyiha ${p.code}`)}`;
+
+/** One ledger figure: Loyiha currency first, so'm beside it when they differ. */
+function Money({ uzs, cur, currency, tone = "text-ink" }: { uzs: string; cur?: string; currency: Currency; tone?: string }) {
+  if (currency === "UZS" || cur === undefined) return <b className={`tabular ${tone}`}>{fmtMoney(uzs, "UZS")}</b>;
+  return <><b className={`tabular ${tone}`}>{fmtMoney(cur, currency)}</b> <span className="tabular text-xs text-faint">· {fmtMoney(uzs, "UZS")}</span></>;
+}
 
 /** Money as the ledger sees it (ADR 0007): invoiced, paid, debt — next to the typed amounts. */
 function LedgerMoney({ project, canCreate, canPay }: { project: Project; canCreate: boolean; canPay: boolean }) {
@@ -369,9 +377,10 @@ function LedgerMoney({ project, canCreate, canPay }: { project: Project; canCrea
     <div className="grid gap-2 rounded-xl border border-line bg-ground/50 p-3 lg:col-span-2">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
         <span className="t-label">Buxgalteriya</span>
-        <span className="text-muted">Hisob-faktura: <b className="tabular text-ink">{fmtMoney(m.invoiced)}</b></span>
-        <span className="text-muted">To'langan: <b className="tabular text-ok">{fmtMoney(m.paid)}</b></span>
-        <span className="text-muted">Qarz: <b className={`tabular ${Number(m.debt) > 0 ? "text-bad" : "text-ink"}`}>{fmtMoney(m.debt)}</b></span>
+        <span className="text-muted">Hisob-faktura: <Money uzs={m.invoiced} cur={m.invoiced_cur} currency={m.currency} /></span>
+        <span className="text-muted">To'langan: <Money uzs={m.paid} cur={m.paid_cur} currency={m.currency} tone="text-ok" /></span>
+        <span className="text-muted">Qarz: <Money uzs={m.debt} cur={m.debt_cur} currency={m.currency} tone={Number(m.debt) > 0 ? "text-bad" : "text-ink"} /></span>
+        {m.currency !== "UZS" && m.rate && <span className="text-xs text-faint">kurs {fmtMoney(m.rate)}</span>}
         {Number(pay.count) > 0 && <span className="text-muted">Kassa: <b className="tabular text-ink">{pay.count} ta</b>{pay.last_date && <>, oxirgisi {dayjs(pay.last_date).format("DD.MM.YYYY")}</>}</span>}
         <span className="ml-auto flex gap-2">
           {canPay && (

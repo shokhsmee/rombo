@@ -7,7 +7,8 @@ import { ordersApi } from "../api";
 
 const n = (v: string | number) => {
   const x = Number(v);
-  return (Number.isInteger(x) ? x : Math.round(x * 100) / 100).toLocaleString("ru-RU").replace(/,/g, " ");
+  // keep the decimal comma; only the no-break grouping space becomes a plain space
+  return (Number.isInteger(x) ? x : Math.round(x * 100) / 100).toLocaleString("ru-RU").replace(/[  ]/g, " ");
 };
 const cur = (c: string) => (c === "UZS" ? "so'm" : c);
 

@@ -11,7 +11,9 @@ Public contract — other apps (procurement, kassa, projects card) call these an
     partner_balance(partner) -> {ar, advance_received, ap, advance_paid, net_uzs, net_cur}
         All positive numbers in their own meaning; net_uzs > 0 = the partner owes Rombo;
         net_cur = {"USD": Decimal} for every foreign currency with a non-zero net.
-    project_money(project) -> {invoiced, paid, debt}
+    project_money(project) -> {invoiced, paid, debt, currency, [rate, invoiced_cur, paid_cur, debt_cur]}
+        so'm figures; the *_cur keys (in the Loyiha currency, at its usd_rate or today's rate) only when
+        the Loyiha is not priced in so'm and a rate is known.
 
 `role_or_account` is an Account instance or a role key such as "ap_suppliers".
 Reports (trial_balance, account_card, reconciliation) are for the API views of this app.
@@ -143,7 +145,21 @@ def project_money(project) -> dict:
         adv_d=Coalesce(Sum("debit", filter=Q(account=adv)), Value(ZERO), output_field=MONEY),
     )
     paid = agg["ar_c"] + agg["adv_c"] - agg["adv_d"]
-    return {"invoiced": agg["inv"], "paid": paid, "debt": agg["inv"] - paid}
+    out = {"invoiced": agg["inv"], "paid": paid, "debt": agg["inv"] - paid, "currency": project.currency}
+    # a Loyiha priced in USD reads its money in USD first: convert the so'm figures with the contract rate
+    # (the Loyiha's usd_rate), else today's accounting rate; without any rate the *_cur keys stay out
+    if project.currency != UZS:
+        rate = project.usd_rate
+        if not rate:
+            try:
+                rate = rate_for(dt.date.today(), project.currency)
+            except Conflict:
+                rate = None
+        if rate:
+            out["rate"] = rate
+            for key in ("invoiced", "paid", "debt"):
+                out[f"{key}_cur"] = q(out[key] / rate)
+    return out
 
 
 # ------------------------------------------------------------------ reports

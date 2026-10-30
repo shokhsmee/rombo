@@ -132,7 +132,8 @@ def _user_with(api, admin, username, pages: dict[str, list[str]]):
 def test_seed_accounts_and_balance_is_the_ledger(kas):
     accounts = kas.get(f"{K}/accounts/").json()
     assert [(a["name"], a["kind"], a["currency"], a["account"]["code"]) for a in accounts] == [
-        ("Asosiy kassa", "cash", "UZS", "5010"), ("Hisob raqami", "bank", "UZS", "5110")]
+        ("Asosiy kassa", "cash", "UZS", "5010"), ("Valyuta kassasi", "cash", "USD", "5020"),
+        ("Hisob raqami", "bank", "UZS", "5110")]
     assert all(D(a["balance"]) == 0 for a in accounts)
     _fund(kas, "5000000")
     _paid(kas, kind="out", purpose="Xarajat", amount="1200000", basis="Kanselyariya")
@@ -142,13 +143,16 @@ def test_seed_accounts_and_balance_is_the_ledger(kas):
     assert D(s["month_out"]) == D("1200000")
     # seeding again changes nothing
     call_command("seed_kassa", verbosity=0)
-    assert CashAccount.objects.count() == 2 and PaymentPurpose.objects.count() == 14
+    assert CashAccount.objects.count() == 3 and PaymentPurpose.objects.count() == 14
 
 
 def test_account_create_defaults_ledger_account_and_is_unique(kas):
-    r = kas.post(f"{K}/accounts/", {"name": "Dollar kassa", "kind": "cash", "currency": "USD"}, format="json")
+    # the seeded dollar kassa sits on 5020; a USD bank account defaults to 5210
+    usd = kas.get(f"{K}/accounts/{kassa_id('Valyuta kassasi')}/").json()
+    assert usd["account"]["code"] == "5020"
+    r = kas.post(f"{K}/accounts/", {"name": "Valyuta hisobi", "kind": "bank", "currency": "USD"}, format="json")
     assert r.status_code == 201, r.content
-    assert r.json()["account"]["code"] == "5020"
+    assert r.json()["account"]["code"] == "5210"
     # the same ledger account cannot serve two kassas; a non-5xxx account is refused
     r = kas.post(f"{K}/accounts/", {"name": "Ikkinchi", "kind": "cash", "currency": "UZS"}, format="json")
     assert r.status_code == 400 and r.json()["error"]["field"] == "account_id"
@@ -360,8 +364,7 @@ def test_transfer_to_the_bank_moves_both_balances(kas):
 
 
 def test_dollar_kassa_posts_at_the_rate(kas):
-    r = kas.post(f"{K}/accounts/", {"name": "Dollar kassa", "kind": "cash", "currency": "USD"}, format="json")
-    usd = r.json()["id"]
+    usd = kassa_id("Valyuta kassasi")
     c = _client(kas)
     o = _order(kas, kind="in", purpose="Mijozdan to'lov", amount="1000", account=usd, partner_id=c["id"], date="2026-10-12")
     r = kas.post(f"{K}/orders/{o['id']}/post/", {}, format="json")
@@ -497,8 +500,7 @@ def test_project_advance_is_derived_from_payments(kas):
 def test_project_in_usd_converts_payments_at_the_order_rate(kas):
     c = _client(kas)
     p = _project(kas, c["id"], amount="1000", currency="USD", usd_rate="12500")
-    r = kas.post(f"{K}/accounts/", {"name": "Dollar kassa", "kind": "cash", "currency": "USD"}, format="json")
-    usd = r.json()["id"]
+    usd = kassa_id("Valyuta kassasi")
     _paid(kas, kind="in", purpose="Mijozdan to'lov", amount="300", account=usd, partner_id=c["id"], project_id=p["id"],
           date="2026-10-12", rate="12000")
     _paid(kas, kind="in", purpose="Mijozdan to'lov", amount="2500000", partner_id=c["id"], project_id=p["id"], date="2026-10-13")

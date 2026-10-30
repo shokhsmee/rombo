@@ -25,6 +25,7 @@ PURPOSES = (
 
 DEFAULT_ACCOUNTS = (
     ("Asosiy kassa", AccountKind.CASH, "UZS"),
+    ("Valyuta kassasi", AccountKind.CASH, "USD"),  # Loyihalar are priced in USD: dollar payments go here (5020)
     ("Hisob raqami", AccountKind.BANK, "UZS"),
 )
 
