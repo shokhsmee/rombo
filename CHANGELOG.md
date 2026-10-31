@@ -3,6 +3,9 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-10-31
+- feat(auth) — Login page is a Rombo brand page: a dark panel with the red mark glowing over a window-frame
+  lattice, ROMBO wordmark and tagline, no feature text; a minimal form with icons, eye toggle and Caps Lock
+  warning. Why: the old right panel turned light blue with white text in dark mode and said too much.
 - feat(projects) — Chizma files open in a viewer on the Loyiha card: images (click to zoom) and PDF (the
   browser's PDF viewer), ‹ › and arrow keys between files, "Yangi oynada ochish" and download; DWG / DXF /
   ZIP still download. Why: every drawing had to be downloaded to be seen.
