@@ -159,10 +159,16 @@ CELERY_BEAT_SCHEDULE = {
     "crm-reminders": {"task": "crm.remind_due_tasks", "schedule": 60.0, "options": {"expires": 55}},
     "crm-amocrm-tokens": {"task": "crm.refresh_amocrm_tokens", "schedule": 300.0, "options": {"expires": 290}},
     "crm-history-sync": {"task": "crm.sync_connections", "schedule": 60.0, "options": {"expires": 55}},
-    # Central Bank publishes the day's rate in the morning; the evening run catches a late publication
-    "cbu-rates-morning": {"task": "accounting.fetch_cbu_rates", "schedule": crontab(hour=9, minute=10)},
-    "cbu-rates-evening": {"task": "accounting.fetch_cbu_rates", "schedule": crontab(hour=18, minute=10)},
 }
+# Central Bank USD rate fetched automatically. cbu.uz doesn't answer from abroad: a server outside Uzbekistan sets
+# this to false and the accountant enters the rate by hand (Hisoblar rejasi → kurslar).
+CBU_RATES_AUTO = env.bool("CBU_RATES_AUTO", default=True)
+if CBU_RATES_AUTO:
+    # published in the morning; the evening run catches a late publication
+    CELERY_BEAT_SCHEDULE |= {
+        "cbu-rates-morning": {"task": "accounting.fetch_cbu_rates", "schedule": crontab(hour=9, minute=10)},
+        "cbu-rates-evening": {"task": "accounting.fetch_cbu_rates", "schedule": crontab(hour=18, minute=10)},
+    }
 
 # Where outside services reach this install (webhook URLs, OAuth redirects): https://erp.rombo.uz.
 # Empty → taken from the request (fine for dev; set it behind a proxy).

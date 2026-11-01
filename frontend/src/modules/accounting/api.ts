@@ -59,6 +59,15 @@ export function useSetRole() {
 
 export const ratesApi = crudResource<Rate, Rate, Partial<Pick<Rate, "date" | "currency" | "rate">>>("accounting/rates");
 
+/** Does the Central Bank rate arrive by itself on this server (false: the accountant types it daily). */
+export function useRateSource() {
+  return useQuery({
+    queryKey: ["accounting", "rates", "source"],
+    queryFn: async () => (await api.get<{ auto: boolean }>("/accounting/rates/source/")).data,
+    staleTime: Infinity,
+  });
+}
+
 // ---- journal
 
 export type SourceKind = "document" | "manual" | "reversal";

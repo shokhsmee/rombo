@@ -523,3 +523,15 @@ def test_project_money_in_the_loyiha_currency(acc):
     p2 = _project(acc, c["id"])
     m2 = acc.get(f"{API}/projects/{p2['id']}/").json()["money"]
     assert m2["currency"] == "UZS" and "debt_cur" not in m2
+
+
+def test_rate_source_follows_the_setting(acc, settings):
+    """cbu.uz doesn't answer from abroad: such a server turns the automatic rate off and the page says so."""
+    from config.celery import app
+
+    assert acc.get(f"{API}/accounting/rates/source/").json() == {"auto": settings.CBU_RATES_AUTO}
+    settings.CBU_RATES_AUTO = False
+    assert acc.get(f"{API}/accounting/rates/source/").json() == {"auto": False}
+    tasks = {v["task"] for v in app.conf.beat_schedule.values()}
+    assert "crm.remind_due_tasks" in tasks
+    assert "accounting.fetch_cbu_rates" in tasks  # the default schedule (CBU_RATES_AUTO unset) has it

@@ -1,4 +1,5 @@
 import django_filters
+from django.conf import settings
 from django.db.models import Exists, OuterRef, Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, viewsets
@@ -96,6 +97,12 @@ class RateViewSet(ServiceModelViewSet):
     queryset = ExchangeRate.objects.all()
 
     service_delete = services.rate_delete
+    permission_action_map = {"source": Action.VIEW}
+
+    @action(detail=False, methods=["get"])
+    def source(self, request):
+        """Whether the Central Bank rate comes in by itself here, or the accountant types it every day."""
+        return Response({"auto": settings.CBU_RATES_AUTO})
 
     def perform_create(self, serializer):
         serializer.instance = services.rate_set(actor=self.request.user, **serializer.validated_data)

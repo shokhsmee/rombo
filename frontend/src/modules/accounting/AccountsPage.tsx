@@ -11,7 +11,7 @@ import { apiError } from "@/lib/api";
 import { fmtDate } from "@/lib/format";
 import { notifyError, notifyOk } from "@/lib/notify";
 
-import { KIND_LABEL, ratesApi, useAccountActions, useAccounts, useRoles, useSetRole, type Account, type AccountInput, type AccountKind } from "./api";
+import { KIND_LABEL, ratesApi, useAccountActions, useAccounts, useRateSource, useRoles, useSetRole, type Account, type AccountInput, type AccountKind } from "./api";
 import { money } from "./labels";
 
 type Tab = "accounts" | "roles" | "rates";
@@ -223,6 +223,9 @@ function RatesTab() {
   const can = useCan("accounts");
   const [page, setPage] = useState(1);
   const list = ratesApi.useList({ page, size: 31, sort: "-date" });
+  const source = useRateSource();
+  const today = dayjs().format("YYYY-MM-DD");
+  const todayMissing = page === 1 && list.data && !list.data.items.some((r) => r.date === today && r.currency === "USD");
   const save = ratesApi.useSave();
   const remove = ratesApi.useRemove();
   const [date, setDate] = useState(dayjs().format("YYYY-MM-DD"));
@@ -269,7 +272,10 @@ function RatesTab() {
             onSuccess: () => { notifyOk("Kurs saqlandi"); setRate(""); }, onError: (e) => notifyError(e),
           })}>Saqlash</Button>
         )}
-        <p className="text-xs text-muted">Har kuni avtomatik: serverda <code className="font-mono">manage.py fetch_cbu_rates</code> (Markaziy bank API). Qo'lda kiritilgan kurs avtomatik yangilanmaydi.</p>
+        {todayMissing && <p className="rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">Bugungi USD kursi hali kiritilmagan</p>}
+        {source.data && (source.data.auto
+          ? <p className="text-xs text-muted">Markaziy bank kursi har kuni 09:10 va 18:10 da o'zi yuklanadi. Qo'lda kiritilgan kurs almashtirilmaydi.</p>
+          : <p className="text-xs text-muted">Kursni har kuni shu yerda kiriting (cbu.uz dagi rasmiy kurs).</p>)}
         {save.error && <ErrorNote error={apiError(save.error).message} />}
       </div>
     </div>
