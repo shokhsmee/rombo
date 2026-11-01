@@ -1,0 +1,16 @@
+[Unit]
+Description=Rombo ERP Celery worker + beat (scheduled jobs, ADR 0013)
+After=network.target postgresql.service redis-server.service
+Requires=redis-server.service
+
+[Service]
+User=rombo-erp
+Group=rombo-erp
+WorkingDirectory=/opt/rombo-erp/backend
+StateDirectory=rombo-erp
+ExecStart=/opt/rombo-erp/backend/.venv/bin/celery -A config worker -B -l info --concurrency 2 -s /var/lib/rombo-erp/celerybeat-schedule
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

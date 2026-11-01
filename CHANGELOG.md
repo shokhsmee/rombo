@@ -2,6 +2,12 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-11-02
+- chore(deploy) — Production runs Redis (`redis-server`, localhost only), `rombo-erp-worker` (Celery worker +
+  beat) and `rombo-erp-telegram` next to `rombo-erp`; unit files in `deploy/`. Why: scheduled jobs and live
+  updates had nothing running them in production. The server (France) can't reach cbu.uz, so the USD rate
+  job logs a timeout there; rates are entered by hand until a route from Uzbekistan exists.
+
 ## 2026-11-01
 - `fix-writable-workflow-fields`:
   - Document status and workflow stamps can no longer be set by PATCH. A draft receipt could be made "posted"
