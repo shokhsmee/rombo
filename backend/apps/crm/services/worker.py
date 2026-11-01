@@ -6,7 +6,6 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from apps.core.exceptions import DomainError
 from apps.crm.models import LeadTask
 from apps.crm.services import live
 
@@ -30,25 +29,17 @@ def remind_due_tasks() -> int:
 
 
 def run_once() -> dict:
-    from apps.crm.models import Connection
-    from apps.crm.services.amocrm import amo_refresh_due
-    from apps.crm.services.connections import connection_sync, sync_due
-    from apps.crm.services.recordings import archive_due
-    from apps.crm.services.telephony import expire_stale
+    """One pass of the Celery beat jobs, in process — for dev without Redis (`manage.py crm_worker`)."""
+    from apps.crm import tasks
 
     out = {"recordings": 0, "reminders": 0, "synced": 0}
-    for name, job in (("stale", expire_stale), ("recordings", archive_due), ("reminders", remind_due_tasks),
-                      ("amocrm", amo_refresh_due)):
+    for name, job in (("stale", tasks.expire_stale_calls), ("recordings", tasks.archive_recordings),
+                      ("reminders", tasks.remind_due_tasks), ("amocrm", tasks.refresh_amocrm_tokens),
+                      ("synced", tasks.sync_connections)):
         try:
             r = job()
             if name in out:
                 out[name] = r or 0
         except Exception:  # one job failing must not stop the others
             log.exception("crm_worker: %s failed", name)
-    for pk in sync_due():
-        try:
-            connection_sync(Connection.objects.get(pk=pk), days=1)
-            out["synced"] += 1
-        except DomainError as e:
-            log.warning("crm_worker: sync %s: %s", pk, e)
     return out
