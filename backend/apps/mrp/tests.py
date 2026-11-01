@@ -42,7 +42,7 @@ def _bom(admin, product, lines, expect=201):
 
 def _window(admin):
     """Window: profile 3.2 m per m² + 5 % waste, 1 handle per piece."""
-    profil = _product(admin, "Profil 60", "m", "profil", order_multiple="6.5")
+    profil = _product(admin, "Profil 60", "m", "profil", purchase_unit="dona", purchase_factor="6.5")
     ruchka = _product(admin, "Ruchka", "dona", "furnitura")
     window = _product(admin, "Termo deraza", "dona", "tayyor")
     bom = _bom(admin, window, [(profil, "3.2", "m2", "5"), (ruchka, "1", "dona", "0")])
@@ -193,7 +193,9 @@ def test_documents_from_materials(admin):
     r = admin.post(f"{M}/projects/{p['id']}/to-request/", {}, format="json")
     assert r.status_code == 200, r.content
     req = PurchaseRequest.objects.get(pk=r.json()["request"]["id"])
-    assert {(ln.product.name, ln.qty) for ln in req.lines.all()} == {("Profil 60", D("33.60")), ("Ruchka", D("4.00"))}
+    # profile is asked in its purchase unit: 33.6 m = 6 bars of 6.5 m (add-units-of-measure)
+    assert {(ln.product.name, ln.unit, ln.qty) for ln in req.lines.all()} == {
+        ("Profil 60", "dona", D("6")), ("Ruchka", "dona", D("4.00"))}
     again = admin.post(f"{M}/projects/{p['id']}/to-request/", {}, format="json")
     assert again.status_code == 409  # all requested already
 
@@ -242,12 +244,12 @@ def _need_profile(admin, profil, area, deadline):
 
 
 def test_net_requirements(admin):
-    profil = _product(admin, "Profil 60", "m", "profil", order_multiple="6.5")
+    profil = _product(admin, "Profil 60", "m", "profil", purchase_unit="dona", purchase_factor="6.5")
     _need_profile(admin, profil, "40", "2026-11-05")
     _need_profile(admin, profil, "30", "2026-11-20")
     _stock_in(admin, profil, 20)
-    from apps.procurement.models import OrderStatus, PurchaseOrder, PurchaseOrderLine
     from apps.clients.models import Client, ClientKind
+    from apps.procurement.models import OrderStatus, PurchaseOrder, PurchaseOrderLine
 
     sup = Client.objects.create(name="AKFA", kind=ClientKind.SUPPLIER)
     order = PurchaseOrder.objects.create(supplier=sup, date="2026-10-30", status=OrderStatus.SENT)
@@ -340,3 +342,21 @@ def test_one_step_needs_inventory_rights(api, admin):
                                                   "inventory": {"can_view": True}})
     r = seller.post(f"{M}/projects/{p['id']}/issue/", {"lines": [{"product_id": 1, "qty": "1"}]}, format="json")
     assert r.status_code == 403
+
+
+def test_shortage_is_asked_in_whole_bars_and_counted_back_in_metres(admin):
+    """add-units-of-measure: profile kept in metres, bought in 6.5 m bars."""
+    profil = _product(admin, "Profil 60", "m", "profil", purchase_unit="шт", purchase_factor="6.5")
+    assert (profil["unit"], profil["purchase_unit"], D(profil["purchase_factor"])) == ("m", "dona", D("6.5"))
+    a = _need_profile(admin, profil, "4", "2026-11-05")
+    b = _need_profile(admin, profil, "3", "2026-11-20")
+    row = next(r for r in admin.get(f"{M}/plan/").json()["rows"] if r["product"]["id"] == profil["id"])
+    assert (D(row["shortage"]), D(row["to_buy"]), D(row["to_buy_purchase"])) == (D("7"), D("13"), D("2"))
+    r = admin.post(f"{M}/plan/to-requests/", {"product_ids": [profil["id"]]}, format="json")
+    assert r.status_code == 200, r.content
+    lines = {PurchaseRequest.objects.get(pk=x["id"]).project_id: PurchaseRequest.objects.get(pk=x["id"]).lines.get()
+             for x in r.json()["requests"]}
+    # 4 m + 3 m = 7 m = 2 bars in all: the first Loyiha's 4 m crosses bar 1, the running 7 m crosses bar 2
+    assert (lines[a["id"]].unit, lines[a["id"]].qty, lines[b["id"]].qty) == ("dona", D("1"), D("1"))
+    row = next(r for r in admin.get(f"{M}/plan/").json()["rows"] if r["product"]["id"] == profil["id"])
+    assert D(row["requested"]) == D("13") and D(row["shortage"]) == 0  # 2 bars counted back as 13 m

@@ -68,11 +68,11 @@ of the remaining quantities.
 ### Requirement: Net requirements
 The MRP plan SHALL list per component product: need = Σ remaining materials of Loyihas in `confirmed`,
 `procurement`, `production`, `ready`; stock = on hand in all active warehouses; on order = Σ remaining qty of
-sent or partly received purchase-order lines linked to the product; shortage = max(need − stock − on order, 0)
-rounded up to `order_multiple`.
+sent or partly received purchase-order lines linked to the product, in its stock unit; shortage = max(need − stock −
+on order, 0), "to buy" = shortage rounded up to whole purchase units (add-units-of-measure).
 
 #### Scenario: Stock and orders count
-- WHEN two Loyihas need 40 m and 30 m of profile, 20 m is in stock and 26 m is on order, multiple 6.5 m
+- WHEN two Loyihas need 40 m and 30 m of profile, 20 m is in stock and 26 m is on order, 1 dona = 6.5 m
 - THEN the shortage is 24 m, rounded up to 26 m (4 bars)
 
 ### Requirement: Purchase requests from shortages
@@ -100,3 +100,20 @@ product of the Loyiha — produced, delivered, in stock.
 #### Scenario: Make and deliver the window
 - WHEN materials worth 2 000 000 were issued and 1 window is received, then delivered
 - THEN the output is 2 000 000 (Dt 2810 Kt 2010) and the delivery posts Dt 9110 Kt 2810 2 000 000
+
+
+### Requirement: Net requirements in stock units
+Open order and request lines SHALL count in the product's stock unit. A shortage SHALL round up to whole
+purchase units; the plan shows "to buy" in both units.
+
+#### Scenario: Bars
+- WHEN profile kept in m (1 dona = 6.5 m) is 7 m short
+- THEN "to buy" is 13 m = 2 dona
+
+### Requirement: Requests ask in purchase units
+Requests created from MRP SHALL ask in the product's purchase unit, in whole units.
+- Across Loyihas, each one gets the bars its running total crosses, so together they ask for exactly "to buy".
+
+#### Scenario: Two Loyihas share bars
+- WHEN Loyiha A is short 4 m and Loyiha B 3 m of 6.5 m bars
+- THEN A asks 1 dona and B asks 1 dona, 2 in all

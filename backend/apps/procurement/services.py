@@ -786,7 +786,9 @@ def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
         # the product the line brings decides the stock account (1010 / 2810), so stock value = ledger
         product = ln.product or ol.product or inv.product_for(
             actor=actor, item=ol.item, name=ol.name, unit=ol.unit, category=ln.new_category or None)
-        stock_rows.append({"product": product, "qty": ln.qty, "amount": net_uzs, "project": ol.project})
+        # the line counts in the supplier's unit (10 dona of 6.5 m bars); stock counts in the product's (65 m)
+        stock_rows.append({"product": product, "qty": inv.to_stock_qty(product, ln.qty, ol.unit),
+                           "amount": net_uzs, "project": ol.project})
         entry_lines.append({"role": inv.stock_role(product), "debit": net_uzs, "partner": receipt.supplier,
                             "project": ln.order_line.project, "currency": cur,
                             "amount_cur": ln.net if cur else None, "rate": order.rate if cur else None,

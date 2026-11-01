@@ -9,12 +9,14 @@ import { Button, ConfirmDialog, IconButton, Input, Pill, Segmented, Spinner, Tog
 import { notifyError, notifyOk } from "@/lib/notify";
 
 import { REF_KINDS, refsApi, useRefs, type RefItem, type RefKind } from "./api";
+import { UomPanel } from "./UomPanel";
 
 /** Sozlamalar → Ma'lumotnomalar: the editable lists behind the order card's pickers. */
 export function ReferencesPage() {
   const can = useCan("references");
   const [sp, setSp] = useSearchParams();
-  const kind = (sp.get("kind") as RefKind) || "product_type";
+  const tab = sp.get("kind") || "product_type";
+  const kind = (tab === "uom" ? "product_type" : tab) as RefKind;
   const meta = REF_KINDS.find((k) => k.kind === kind) ?? REF_KINDS[0];
   const list = useRefs(kind);
   const qc = useQueryClient();
@@ -42,9 +44,11 @@ export function ReferencesPage() {
       <PageHeader title="Ma'lumotnomalar"
         lede="Loyiha va mijoz kartochkasidagi tanlov ro'yxatlari. Ishlatilgan qiymatni o'chirib bo'lmaydi — nofaol qiling." />
       <div className="mb-4">
-        <Segmented value={kind} onChange={(k) => setSp({ kind: k }, { replace: true })}
-          options={REF_KINDS.map((k) => ({ value: k.kind, label: k.label }))} />
+        <Segmented value={tab} onChange={(k) => setSp({ kind: k }, { replace: true })}
+          options={[...REF_KINDS.map((k) => ({ value: k.kind as string, label: k.label })), { value: "uom", label: "O'lchov birliklari" }]} />
       </div>
+
+      {tab === "uom" ? <UomPanel /> : (
 
       <section className="card max-w-2xl overflow-hidden">
         <header className="border-b border-line px-4 py-3">
@@ -88,6 +92,7 @@ export function ReferencesPage() {
           </form>
         )}
       </section>
+      )}
 
       <ConfirmDialog open={!!del} onClose={() => setDel(null)} danger confirmLabel="O'chirish" busy={remove.isPending}
         title="Qiymatni o'chirish"

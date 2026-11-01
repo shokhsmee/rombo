@@ -93,8 +93,9 @@ export function useMaterialActions(projectId: number) {
 // ---- MRP plan
 
 export type PlanRow = {
-  product: ProductRef & { category: Category; order_multiple: string | null };
+  product: ProductRef & { category: Category; purchase_unit: string; purchase_factor: string | null };
   need: string; stock: string; on_order: string; requested: string; shortage: string; to_buy: string;
+  to_buy_purchase: string | null; // the same in purchase units (2 dona of 6.5 m bars)
   projects: { project: { id: number; code: string; name: string; client: string; deadline: string | null }; need: string; covered: string; short: string }[];
 };
 export type Plan = { rows: PlanRow[]; short: number; projects: number };

@@ -3,6 +3,14 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-11-02
+- `add-units-of-measure`:
+  - Units-of-measure registry (Ma'lumotnomalar → O'lchov birliklari) with categories, ratios and aliases
+    (шт → dona, м → m).
+  - A product has a stock unit (locked once stock exists) and a purchase unit with a factor ("1 dona = 6.5 m"),
+    replacing "Xarid karrasi".
+  - Goods receipts convert to stock units: 10 bars = 65 m, not 10 m. A unit that doesn't convert is refused.
+  - MRP counts orders and requests in stock units and asks for whole bars.
+  - Why: audit #25, and price-list items (шт, м) and stock products (dona, m) had no link between their units.
 - chore(deploy) — Production runs Redis (`redis-server`, localhost only), `rombo-erp-worker` (Celery worker +
   beat) and `rombo-erp-telegram` next to `rombo-erp`; unit files in `deploy/`. Why: scheduled jobs and live
   updates had nothing running them in production. The server (France) can't reach cbu.uz, so the USD rate

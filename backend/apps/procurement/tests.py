@@ -741,3 +741,59 @@ def test_buyer_asks_money_but_cannot_approve_it(api, admin):
     assert r.status_code == 403
     r = buyer.post(f"{API}/procurement/orders/{order['id']}/send/", {"via": "print"}, format="json")
     assert r.status_code == 409
+
+
+def _bar_order(admin, product, unit, qty="10"):
+    sup = _supplier(admin, email="sales@akfa.uz")
+    project = _project(admin)
+    req = _approved_request(admin, project["id"], [{"name": product["name"], "unit": unit, "qty": qty,
+                                                    "product_id": product["id"]}])
+    order = _order_from(admin, req, sup)[0]
+    admin.patch(f"{API}/procurement/orders/{order['id']}/", {
+        "currency": "UZS", "lines": [{**_line_input(ln), "price": "390000", "vat_rate": "0"} for ln in order["lines"]],
+    }, format="json")
+    _send(admin, order["id"])
+    return admin.post(f"{API}/procurement/receipts/", {"order_id": order["id"]}, format="json").json()
+
+
+def test_receipt_converts_bars_to_metres_and_refuses_what_does_not_convert(admin):
+    """add-units-of-measure / audit #25: 10 bars of 6.5 m are 65 m in stock, not 10 m."""
+    profil = admin.post(f"{API}/inventory/products/", {"name": "Profil L", "unit": "м", "category": "profil",
+                                                       "purchase_unit": "шт", "purchase_factor": "6.5"},
+                        format="json").json()
+    assert (profil["unit"], profil["purchase_unit"]) == ("m", "dona")
+    rec = _bar_order(admin, profil, "шт")
+    r = admin.post(f"{API}/procurement/receipts/{rec['id']}/post/")
+    assert r.status_code == 200, r.content
+    p = admin.get(f"{API}/inventory/products/{profil['id']}/").json()
+    assert Decimal(p["qty_on_hand"]) == Decimal("65")
+    assert Decimal(p["avg_cost"]) == Decimal("60000.00")  # 3 900 000 so'm / 65 m
+
+    # the stock is counted in metres now: the unit can't be relabelled
+    r = admin.patch(f"{API}/inventory/products/{profil['id']}/", {"unit": "dona"}, format="json")
+    assert r.status_code == 409 and r.json()["error"]["field"] == "unit"
+
+    ruchka = admin.post(f"{API}/inventory/products/", {"name": "Ruchka", "unit": "dona", "category": "furnitura"},
+                        format="json").json()
+    rec = _bar_order(admin, ruchka, "kg", qty="3")
+    r = admin.post(f"{API}/procurement/receipts/{rec['id']}/post/")
+    assert r.status_code == 400 and "«kg»" in r.json()["error"]["message"]
+
+
+def test_units_resolve_through_the_registry(admin):
+    uoms = {u["name"]: u for u in admin.get(f"{API}/references/uoms/").json()}
+    assert {"dona", "m", "m2", "kg", "komplekt"} <= set(uoms)
+    r = admin.post(f"{API}/inventory/products/", {"name": "Oyna", "unit": "кв.м"}, format="json")
+    assert r.status_code == 201 and r.json()["unit"] == "m2"
+    r = admin.post(f"{API}/inventory/products/", {"name": "X", "unit": "bochka"}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "unit"
+    # a new unit and its spelling; a spelling another unit owns is refused
+    r = admin.post(f"{API}/references/uoms/", {"name": "bochka", "category": "other", "aliases": "бочка"},
+                   format="json")
+    assert r.status_code == 201, r.content
+    assert admin.post(f"{API}/inventory/products/", {"name": "X", "unit": "Бочка"}, format="json").json()["unit"] == "bochka"
+    r = admin.post(f"{API}/references/uoms/", {"name": "shtuka", "aliases": "шт"}, format="json")
+    assert r.status_code == 409 and r.json()["error"]["field"] == "aliases"
+    # a used unit keeps its meaning
+    r = admin.patch(f"{API}/references/uoms/{uoms['m2']['id']}/", {"ratio": "2"}, format="json")
+    assert r.status_code == 409

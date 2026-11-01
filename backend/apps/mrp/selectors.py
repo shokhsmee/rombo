@@ -9,7 +9,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from django.db.models import Q, Sum
 
 from apps.inventory import selectors as inv
-from apps.inventory.models import Category, MoveStatus, MoveType, Product
+from apps.inventory.models import Category, MoveType, Product
 from apps.mrp.models import Basis, Bom, ItemSpec, ProjectMaterial
 
 ZERO = Decimal("0")
@@ -129,15 +129,28 @@ def issued_of(project) -> dict[int, Decimal]:
     return {r["product_id"]: r["q"] for r in rows}
 
 
+def in_stock_units(product: Product, qty: Decimal, unit: str) -> Decimal:
+    """A purchase line's quantity in the product's stock unit (10 dona of 6.5 m bars = 65 m). A unit that doesn't
+    convert counts as is: the receipt refuses it anyway (add-units-of-measure)."""
+    from apps.inventory.services import stock_factor
+
+    f = stock_factor(product, unit)
+    return qty if f is None else qty * f
+
+
 def requested_of(project) -> dict[int, Decimal]:
-    """Product-linked purchase-request quantities of the Loyiha still alive (not rejected / cancelled)."""
+    """Product-linked purchase-request quantities of the Loyiha still alive (not rejected / cancelled), in
+    stock units."""
     from apps.procurement.models import PurchaseRequestLine, RequestStatus
 
-    rows = (PurchaseRequestLine.objects.filter(request__project=project, product__isnull=False,
-                                                request__deleted_at__isnull=True)
-            .exclude(request__status__in=[RequestStatus.REJECTED, RequestStatus.CANCELLED])
-            .values("product_id").annotate(q=Sum("qty")))
-    return {r["product_id"]: r["q"] for r in rows}
+    lines = (PurchaseRequestLine.objects.filter(request__project=project, product__isnull=False,
+                                                 request__deleted_at__isnull=True)
+             .exclude(request__status__in=[RequestStatus.REJECTED, RequestStatus.CANCELLED])
+             .select_related("product"))
+    out: dict[int, Decimal] = defaultdict(lambda: ZERO)
+    for ln in lines:
+        out[ln.product_id] += in_stock_units(ln.product, ln.qty, ln.unit)
+    return dict(out)
 
 
 def _stock(ids, warehouse=None) -> dict[int, Decimal]:
@@ -213,8 +226,8 @@ def on_order() -> dict[int, Decimal]:
     lines = PurchaseOrderLine.objects.filter(
         product__isnull=False, order__deleted_at__isnull=True,
         order__status__in=[OrderStatus.SENT, OrderStatus.PARTIALLY_RECEIVED])
-    for ln in lines.only("product_id", "qty", "received_qty"):
-        out[ln.product_id] += max(ln.qty - ln.received_qty, ZERO)
+    for ln in lines.select_related("product"):
+        out[ln.product_id] += in_stock_units(ln.product, max(ln.qty - ln.received_qty, ZERO), ln.unit)
     return dict(out)
 
 
@@ -226,9 +239,17 @@ def requested_open() -> dict[int, Decimal]:
     lines = PurchaseRequestLine.objects.filter(
         product__isnull=False, request__deleted_at__isnull=True,
         request__status__in=[RequestStatus.DRAFT, RequestStatus.SUBMITTED, RequestStatus.APPROVED])
-    for ln in lines.only("product_id", "qty", "ordered_qty"):
-        out[ln.product_id] += max(ln.qty - ln.ordered_qty, ZERO)
+    for ln in lines.select_related("product"):
+        out[ln.product_id] += in_stock_units(ln.product, max(ln.qty - ln.ordered_qty, ZERO), ln.unit)
     return dict(out)
+
+
+def purchase_qty(product: Product, qty: Decimal) -> tuple[str, Decimal]:
+    """`qty` in stock units → (unit, quantity) a purchase line asks for: whole purchase units when the product has
+    one (4.2 m of profile in 6.5 m bars → 1 dona), else the stock unit rounded up to 0.01."""
+    if product.purchase_unit and product.purchase_factor:
+        return product.purchase_unit, Decimal(math.ceil(qty / product.purchase_factor))
+    return product.unit, qty.quantize(Decimal("0.01"), rounding="ROUND_UP")
 
 
 def round_up(qty: Decimal, multiple: Decimal | None) -> Decimal:
@@ -282,11 +303,13 @@ def plan(*, project=None, category=None, deadline_before=None, only_short: bool 
             continue
         rows.append({
             "product": {"id": prod.pk, "code": prod.code, "name": prod.name, "unit": prod.unit,
-                        "category": prod.category, "order_multiple": None if prod.order_multiple is None
-                        else str(prod.order_multiple)},
+                        "category": prod.category, "purchase_unit": prod.purchase_unit,
+                        "purchase_factor": None if prod.purchase_factor is None else str(prod.purchase_factor)},
             "need": str(q3(need)), "stock": str(q3(stock)), "on_order": str(q3(ordered.get(pid, ZERO))),
             "requested": str(q3(asked.get(pid, ZERO))), "shortage": str(q3(short)),
-            "to_buy": str(round_up(short, prod.order_multiple)), "projects": alloc,
+            "to_buy": str(round_up(short, prod.purchase_factor if prod.purchase_unit else None)),
+            "to_buy_purchase": str(purchase_qty(prod, short)[1]) if prod.purchase_unit and short > 0 else None,
+            "projects": alloc,
         })
     rows.sort(key=lambda r: (Decimal(r["shortage"]) <= 0, r["product"]["category"], r["product"]["name"].lower()))
     return {"rows": rows, "short": sum(1 for r in rows if Decimal(r["shortage"]) > 0),

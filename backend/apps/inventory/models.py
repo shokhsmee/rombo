@@ -74,7 +74,8 @@ class Product(AuditModel, SoftDeleteModel):
         "unit": "Birlik",
         "category": "Turkum",
         "default_cost": "Tannarx",
-        "order_multiple": "Xarid karrasi",
+        "purchase_unit": "Xarid birligi",
+        "purchase_factor": "Xarid birligida",
         "is_active": "Faol",
         "notes": "Izoh",
     }
@@ -83,13 +84,15 @@ class Product(AuditModel, SoftDeleteModel):
     code = models.CharField(max_length=20, unique=True, null=True, editable=False)  # MH-00001
     name = models.CharField("Nomi", max_length=200)
     sku = models.CharField("Artikul", max_length=60, blank=True, default="", db_index=True)
-    unit = models.CharField("O'lchov birligi", max_length=20, default="dona")
+    unit = models.CharField("O'lchov birligi", max_length=20, default="dona")  # a references.Uom name: stock unit
     category = models.CharField(
         max_length=12, choices=Category.choices, default=Category.MATERIAL, db_index=True
     )
     default_cost = models.DecimalField("Tannarx", max_digits=18, decimal_places=2, default=ZERO)
-    # purchase multiple (MRP rounds a shortage up to it): 6.5 for profile bought in 6.5 m bars
-    order_multiple = models.DecimalField("Xarid karrasi", max_digits=14, decimal_places=3, null=True, blank=True)
+    # how the supplier sells it: 1 `purchase_unit` = `purchase_factor` stock units (profile: 1 dona = 6.5 m).
+    # Receipts convert with it and MRP rounds a shortage up to whole purchase units (add-units-of-measure).
+    purchase_unit = models.CharField("Xarid birligi", max_length=20, blank=True, default="")
+    purchase_factor = models.DecimalField("Xarid birligida", max_digits=14, decimal_places=4, null=True, blank=True)
     # the price-list item a goods receipt line points to; lets the receipt find its product
     price_item = models.ForeignKey(
         "pricing.PriceListItem", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"

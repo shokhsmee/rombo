@@ -3,6 +3,7 @@ projects (calc quantities), procurement (purchase requests), inventory (draft is
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from decimal import Decimal
 
@@ -193,6 +194,15 @@ def fill_calc(project, *, actor, calc) -> dict:
     return {"filled": len(rows), "missing": missing}
 
 
+def _line(product: Product, unit: str, qty: Decimal) -> dict:
+    return {"product": product, "item": product.price_item, "name": product.name, "unit": unit, "qty": qty}
+
+
+def _request_line(product: Product, qty: Decimal) -> dict:
+    """A request line asks in the supplier's unit: 65 m of profile → 10 dona (6.5 m bars)."""
+    return _line(product, *selectors.purchase_qty(product, qty))
+
+
 @transaction.atomic
 def to_request(project, *, actor):
     """A purchase request for what is left to issue minus what is already requested for this Loyiha."""
@@ -207,9 +217,7 @@ def to_request(project, *, actor):
     if not rows:
         raise Conflict("So'raladigan material qolmagan — hammasi so'ralgan yoki chiqim qilingan")
     products = {p.pk: p for p in Product.objects.filter(pk__in=[pid for pid, _ in rows])}
-    lines = [{"product": products[pid], "item": products[pid].price_item, "name": products[pid].name,
-              "unit": products[pid].unit, "qty": q.quantize(Decimal("0.01"), rounding="ROUND_UP")}
-             for pid, q in sorted(rows, key=lambda r: products[r[0]].name)]
+    lines = [_request_line(products[pid], q) for pid, q in sorted(rows, key=lambda r: products[r[0]].name)]
     req = procurement.request_create(actor=actor, project=project, lines=lines)
     event(req, f"Loyiha materiallaridan: {len(lines)} qator", actor=actor)
     return req
@@ -240,33 +248,43 @@ def to_issue(project, *, actor, warehouse=None) -> list[StockMove]:
 
 @transaction.atomic
 def plan_to_requests(*, actor, product_ids: list[int]) -> list:
-    """One request per Loyiha for the shortage of the chosen products, earliest deadline first, rounded
-    up to the purchase multiple on the first Loyiha that takes the product."""
+    """One request per Loyiha for the shortage of the chosen products, earliest deadline first. Lines ask in the
+    purchase unit: whole bars are shared out so the Loyihas together ask for exactly the plan's "to buy"."""
     from apps.procurement import services as procurement
     from apps.projects.models import Project
 
     plan = selectors.plan()
     wanted = {int(i) for i in product_ids}
+    products = {p.pk: p for p in Product.objects.filter(pk__in=wanted)}
     per_project: dict[int, list] = defaultdict(list)
     for r in plan["rows"]:
         pid = r["product"]["id"]
         if pid not in wanted or Decimal(r["shortage"]) <= 0:
             continue
-        extra = Decimal(r["to_buy"]) - Decimal(r["shortage"])  # rounding to the bar goes to the first taker
-        for a in r["projects"]:
-            q = Decimal(a["short"])
-            if q > 0:
-                per_project[a["project"]["id"]].append((pid, q + extra))
+        prod = products[pid]
+        takers = [(a["project"]["id"], Decimal(a["short"])) for a in r["projects"] if Decimal(a["short"]) > 0]
+        if prod.purchase_unit and prod.purchase_factor:
+            # 4 m + 3 m of 6.5 m bars is 2 bars, not 1 + 1 rounded each: give each Loyiha the bars its running
+            # total crosses
+            total = Decimal(r["to_buy"]) / prod.purchase_factor
+            cum, given = ZERO, ZERO
+            for proj_id, q in takers:
+                cum += q
+                upto = min(Decimal(math.ceil(cum / prod.purchase_factor)), total)
+                if upto > given:
+                    per_project[proj_id].append(_line(prod, prod.purchase_unit, upto - given))
+                    given = upto
+        else:
+            extra = Decimal(r["to_buy"]) - Decimal(r["shortage"])  # rounding goes to the first taker
+            for proj_id, q in takers:
+                per_project[proj_id].append(
+                    _line(prod, prod.unit, (q + extra).quantize(Decimal("0.01"), rounding="ROUND_UP")))
                 extra = ZERO
     if not per_project:
         raise Conflict("Tanlangan mahsulotlarda kamomad yo'q")
-    products = {p.pk: p for p in Product.objects.filter(pk__in=wanted)}
     out = []
-    for proj_id, rows in per_project.items():
+    for proj_id, lines in per_project.items():
         project = Project.objects.get(pk=proj_id)
-        lines = [{"product": products[pid], "item": products[pid].price_item, "name": products[pid].name,
-                  "unit": products[pid].unit, "qty": q.quantize(Decimal("0.01"), rounding="ROUND_UP")}
-                 for pid, q in rows]
         req = procurement.request_create(actor=actor, project=project, lines=lines, notes="MRP kamomadi")
         event(req, f"MRP: {len(lines)} qator", actor=actor)
         out.append(req)

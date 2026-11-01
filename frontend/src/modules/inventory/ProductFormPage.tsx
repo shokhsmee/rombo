@@ -11,11 +11,12 @@ import { notifyError, notifyOk } from "@/lib/notify";
 import { money } from "@/modules/accounting/labels";
 
 import { useActiveBom } from "@/modules/mrp/api";
+import { useUoms } from "@/modules/references/api";
 
 import { productsApi, type Category, type Product } from "./api";
 import { CATEGORY, qty } from "./labels";
 
-type Values = { name: string; sku: string; unit: string; category: Category; default_cost: string; order_multiple: string; is_active: boolean; notes: string };
+type Values = { name: string; sku: string; unit: string; category: Category; default_cost: string; purchase_unit: string; purchase_factor: string; is_active: boolean; notes: string };
 
 export function ProductFormPage() {
   const { id } = useParams();
@@ -29,22 +30,24 @@ export function ProductFormPage() {
   const p = detail.data;
 
   const form = useServerForm<Values, Product>({
-    initial: { name: "", sku: "", unit: "dona", category: "material", default_cost: "", order_multiple: "", is_active: true, notes: "" },
+    initial: { name: "", sku: "", unit: "dona", category: "material", default_cost: "", purchase_unit: "", purchase_factor: "", is_active: true, notes: "" },
     record: p,
-    toForm: (r) => ({ name: r.name, sku: r.sku, unit: r.unit, category: r.category, default_cost: Number(r.default_cost) ? String(Number(r.default_cost)) : "", order_multiple: r.order_multiple ? String(Number(r.order_multiple)) : "", is_active: r.is_active, notes: r.notes }),
+    toForm: (r) => ({ name: r.name, sku: r.sku, unit: r.unit, category: r.category, default_cost: Number(r.default_cost) ? String(Number(r.default_cost)) : "", purchase_unit: r.purchase_unit, purchase_factor: r.purchase_factor ? String(Number(r.purchase_factor)) : "", is_active: r.is_active, notes: r.notes }),
     validate: {
       name: (v) => (v.trim() ? null : "Nomini yozing"),
-      unit: (v) => (v.trim() ? null : "Birlikni yozing"),
+      unit: (v) => (v.trim() ? null : "Birlikni tanlang"),
       default_cost: (v) => (!v || toNum(v) >= 0 ? null : "Tannarx noto'g'ri"),
     },
   });
   const v = form.values;
+  const uoms = useUoms();
+  const units = (uoms.data ?? []).filter((u) => u.is_active || u.name === v.unit || u.name === v.purchase_unit);
   const editable = isNew ? can.create : can.update;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.check()) return;
-    save.mutate({ id, data: { ...v, default_cost: v.default_cost ? String(toNum(v.default_cost)) : "0", order_multiple: v.order_multiple ? String(toNum(v.order_multiple)) : null } }, {
+    save.mutate({ id, data: { ...v, default_cost: v.default_cost ? String(toNum(v.default_cost)) : "0", purchase_factor: v.purchase_unit && v.purchase_factor ? String(toNum(v.purchase_factor)) : null } }, {
       onSuccess: (saved) => { notifyOk("Saqlandi"); form.commit(); if (isNew) navigate(`/inventory/products/${saved.id}`, { replace: true }); },
       onError: (err) => applyServerErrors(form, err),
     });
@@ -88,11 +91,28 @@ export function ProductFormPage() {
                 </Select>
                 <span className="text-xs text-muted">{v.category === "tayyor" ? "Qiymati 2810 da (tayyor mahsulot)" : "Qiymati 1010 da (materiallar)"}</span>
               </Row>
-              <Row label="O'lchov birligi" required error={form.errors.unit}><Input {...form.text("unit")} placeholder="m, m2, dona, kg" /></Row>
+              <Row label="O'lchov birligi" required error={form.errors.unit}>
+                <Select value={v.unit} onChange={(e) => form.set("unit", e.target.value)}>
+                  {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </Select>
+                <span className="text-xs text-muted">Omborda shu birlikda hisoblanadi{p && Number(p.qty_on_hand) ? " — qoldiq bor, o'zgarmaydi" : ""}</span>
+              </Row>
               <Row label="Artikul"><Input {...form.text("sku")} /></Row>
-              <Row label="Xarid karrasi" error={form.errors.order_multiple}>
-                <Input inputMode="decimal" className="tabular" placeholder="masalan 6,5 (profil tayog'i)" {...form.text("order_multiple")} />
-                <span className="text-xs text-muted">MRP sotib olinadigan miqdorni shunga yaxlitlaydi</span>
+              <Row label="Xarid birligi" error={form.errors.purchase_unit ?? form.errors.purchase_factor}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={v.purchase_unit} onChange={(e) => form.set("purchase_unit", e.target.value)} className="w-32">
+                    <option value="">— ({v.unit})</option>
+                    {units.filter((u) => u.name !== v.unit).map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                  </Select>
+                  {v.purchase_unit && (
+                    <>
+                      <span className="whitespace-nowrap text-sm text-muted">1 {v.purchase_unit} =</span>
+                      <Input inputMode="decimal" className="w-24 tabular" placeholder="6,5" {...form.text("purchase_factor")} />
+                      <span className="text-sm text-muted">{v.unit}</span>
+                    </>
+                  )}
+                </div>
+                <span className="text-xs text-muted">Yetkazib beruvchi qanday sotadi (profil tayog'i: 1 dona = 6,5 m). Kirim omborga o'girib yoziladi, MRP butun xarid birligida so'raydi</span>
               </Row>
               <Row label="Standart tannarx" error={form.errors.default_cost}>
                 <Input inputMode="decimal" className="tabular" placeholder="so'm" {...form.text("default_cost")} />

@@ -43,12 +43,12 @@ export function useWarehouseActions() {
 
 export type ProductRef = { id: number; code: string | null; name: string; sku: string; unit: string; category: Category };
 export type Product = ProductRef & {
-  default_cost: string; order_multiple: string | null; price_item_id: number | null; price_item: { id: number; name: string; price_list: number } | null;
+  default_cost: string; purchase_unit: string; purchase_factor: string | null; price_item_id: number | null; price_item: { id: number; name: string; price_list: number } | null;
   is_active: boolean; notes: string; qty_on_hand: string; value_on_hand: string; avg_cost: string | null;
   created_at: string; updated_at: string;
 };
 export type ProductInput = Partial<{
-  name: string; sku: string; unit: string; category: Category; default_cost: string; order_multiple: string | null; price_item_id: number | null;
+  name: string; sku: string; unit: string; category: Category; default_cost: string; purchase_unit: string; purchase_factor: string | null; price_item_id: number | null;
   is_active: boolean; notes: string;
 }>;
 

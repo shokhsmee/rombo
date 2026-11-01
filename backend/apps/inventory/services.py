@@ -145,9 +145,32 @@ def guess_category(name: str) -> str:
     return Category.MATERIAL
 
 
+def _units(fields: dict, p: Product | None = None) -> dict:
+    """Stock and purchase units are registry units stored by canonical name (шт → dona); a purchase unit needs
+    its factor ("1 dona = 6.5 m") unless the registry already converts it (sm → m)."""
+    from apps.references import services as refs
+
+    if "unit" in fields:
+        fields["unit"] = refs.uom_require(fields["unit"] or "dona").name
+    if fields.get("purchase_unit"):
+        fields["purchase_unit"] = refs.uom_require(fields["purchase_unit"], field="purchase_unit").name
+    unit = fields.get("unit", p.unit if p else "dona")
+    purchase = fields.get("purchase_unit", p.purchase_unit if p else "")
+    factor = fields.get("purchase_factor", p.purchase_factor if p else None)
+    if not purchase or purchase == unit:
+        fields["purchase_unit"], fields["purchase_factor"] = "", None
+    elif factor is None or factor <= 0:
+        ratio = refs.uom_ratio(refs.uom_require(purchase), refs.uom_require(unit))
+        if ratio is None:
+            raise ValidationFailed(f"1 {purchase} necha {unit}? Xarid birligidagi miqdorni kiriting",
+                                   field="purchase_factor")
+        fields["purchase_factor"] = ratio
+    return fields
+
+
 @transaction.atomic
 def product_create(*, actor, **fields) -> Product:
-    p = Product(**fields)
+    p = Product(**_units(fields))
     p.stamp(actor, created=True)
     p.save()
     assign_code(p, "MH")
@@ -166,6 +189,11 @@ def product_update(p: Product, *, actor, **fields) -> Product:
             "Harakati bor mahsulotning turkumi o'zgarmaydi — hisob (1010 / 2810) unga bog'liq",
             field="category",
         )
+    fields = _units(fields, p)
+    if fields.get("unit", p.unit) != p.unit and p.moves.filter(status=MoveStatus.POSTED).exists():
+        # the stock in hand is counted in the old unit; relabelling it would silently change the quantity
+        raise Conflict(f"Harakati bor mahsulotning birligi o'zgarmaydi — qoldiq «{p.unit}»da hisoblangan. "
+                       f"Boshqa birlikda olinsa, «Xarid birligi»ni kiriting", field="unit")
     for k, v in fields.items():
         setattr(p, k, v)
     p.stamp(actor)
@@ -182,15 +210,39 @@ def product_delete(p: Product, *, actor) -> None:
     p.soft_delete()  # archived: posted rows keep pointing to it
 
 
+def stock_factor(product: Product, unit: str) -> Decimal | None:
+    """How many stock units of `product` one `unit` is: 1 for its own unit, `purchase_factor` for its purchase
+    unit, the registry ratio within a category (sm → m); None when they don't convert."""
+    from apps.references import services as refs
+
+    src = refs.uom_resolve(unit or "dona")
+    if src is None:
+        return None
+    if src.name == product.unit:
+        return Decimal(1)
+    if product.purchase_unit and src.name == product.purchase_unit and product.purchase_factor:
+        return product.purchase_factor
+    dst = refs.uom_resolve(product.unit)
+    return None if dst is None else refs.uom_ratio(src, dst)
+
+
+def to_stock_qty(product: Product, qty: Decimal, unit: str, *, field: str = "lines") -> Decimal:
+    """`qty` in `unit` (as a document line wrote it) → the product's stock unit. Refuses what doesn't convert."""
+    f = stock_factor(product, unit)
+    if f is None:
+        raise ValidationFailed(f"{product.name}: «{unit}» ombordagi «{product.unit}»ga o'girilmaydi — mahsulotda "
+                               f"«Xarid birligi»ni kiriting (masalan 1 {unit} = ? {product.unit})", field=field)
+    return (qty * f).quantize(Decimal("0.001"))
+
+
 def product_match(*, item=None, name: str, unit: str) -> Product | None:
-    """The existing product a purchase line means: by price-list item, else by name + unit."""
-    name, unit = (name or "").strip(), (unit or "").strip() or "dona"
-    p = None
+    """The existing product a purchase line means: by price-list item, else by name and a unit that converts."""
+    name = (name or "").strip()
     if item is not None:
         p = Product.objects.filter(price_item=item).first()
-    if p is None:
-        p = Product.objects.filter(name__iexact=name, unit__iexact=unit).first()
-    return p
+        if p is not None:
+            return p
+    return next((p for p in Product.objects.filter(name__iexact=name) if stock_factor(p, unit) is not None), None)
 
 
 def product_for(*, actor, item=None, name: str, unit: str, category: str | None = None) -> Product:

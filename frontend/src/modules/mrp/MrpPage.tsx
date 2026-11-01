@@ -96,14 +96,15 @@ export function MrpPage() {
                           {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                           <span className="font-medium text-ink">{r.product.name}</span>
                         </button>
-                        <div className="pl-5 text-xs text-muted">{r.product.code} · {CATEGORY[r.product.category]}{r.product.order_multiple && ` · karra ${qty(r.product.order_multiple)}`}</div>
+                        <div className="pl-5 text-xs text-muted">{r.product.code} · {CATEGORY[r.product.category]}{r.product.purchase_unit && r.product.purchase_factor && ` · 1 ${r.product.purchase_unit} = ${qty(r.product.purchase_factor)} ${r.product.unit}`}</div>
                       </td>
                       <td className="px-3 py-2 text-right tabular">{qty(r.need)} <span className="text-xs text-muted">{r.product.unit}</span></td>
                       <td className="px-3 py-2 text-right tabular">{qty(r.stock)}</td>
                       <td className="px-3 py-2 text-right tabular">{qty(r.on_order)}</td>
                       <td className="px-3 py-2 text-right tabular">{qty(r.requested)}</td>
                       <td className={`px-3 py-2 text-right font-medium tabular ${short ? "text-bad" : ""}`}>{short ? qty(r.shortage) : "—"}</td>
-                      <td className="px-3 py-2 text-right font-semibold tabular">{short ? qty(r.to_buy) : "—"}</td>
+                      <td className="px-3 py-2 text-right font-semibold tabular">{short ? qty(r.to_buy) : "—"}
+                        {short && r.to_buy_purchase && <div className="text-xs font-normal text-muted">= {qty(r.to_buy_purchase)} {r.product.purchase_unit}</div>}</td>
                     </tr>
                     {isOpen && r.projects.map((a) => (
                       <tr key={a.project.id} className="border-b border-line bg-ground/50 text-xs">
