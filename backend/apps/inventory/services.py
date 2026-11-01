@@ -340,7 +340,7 @@ def _entry_lines(m: StockMove, amount: Decimal) -> list[dict]:
 @transaction.atomic
 def move_post(m: StockMove, *, actor) -> StockMove:
     m = (
-        StockMove.objects.select_for_update()
+        StockMove.objects.select_for_update(of=("self",))
         .select_related("product", "warehouse", "to_warehouse", "project", "partner")
         .get(pk=m.pk)
     )
@@ -350,7 +350,7 @@ def move_post(m: StockMove, *, actor) -> StockMove:
     _check_shape(m)
     acc = _ledger()
     acc.check_open(m.date)
-    product = Product.all_objects.select_for_update().get(pk=m.product_id)  # serialises average-cost reads
+    product = Product.all_objects.select_for_update(of=("self",)).get(pk=m.product_id)  # serialises average-cost reads
     m.product = product
     if not m.warehouse.is_active or (m.to_warehouse is not None and not m.to_warehouse.is_active):
         raise Conflict("Ombor nofaol")
@@ -410,7 +410,7 @@ def move_post(m: StockMove, *, actor) -> StockMove:
 
 
 def _cancel_one(m: StockMove, *, actor, comment: str, date: dt.date | None = None) -> None:
-    product = Product.all_objects.select_for_update().get(pk=m.product_id)
+    product = Product.all_objects.select_for_update(of=("self",)).get(pk=m.product_id)
     qty = abs(m.qty)
     # reversing an incoming row takes the goods back out: they must still be there
     back_from = (
@@ -447,7 +447,7 @@ def _cancel_one(m: StockMove, *, actor, comment: str, date: dt.date | None = Non
 @transaction.atomic
 def move_cancel(m: StockMove, *, actor, comment: str = "", date: dt.date | None = None) -> StockMove:
     m = (
-        StockMove.objects.select_for_update()
+        StockMove.objects.select_for_update(of=("self",))
         .select_related("product", "warehouse", "to_warehouse", "entry", "project")
         .get(pk=m.pk)
     )
@@ -509,7 +509,7 @@ def source_moves_post(
 @transaction.atomic
 def source_moves_cancel(*, actor, source, comment: str = "") -> None:
     moves = (
-        StockMove.objects.select_for_update()
+        StockMove.objects.select_for_update(of=("self",))
         .select_related("product", "warehouse", "to_warehouse", "entry", "project")
         .filter(source_model=_label_of(source), source_id=source.pk, status=MoveStatus.POSTED)
         .order_by("id")

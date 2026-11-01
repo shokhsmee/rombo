@@ -4,9 +4,20 @@ from apps.chatter.services import event, post
 from apps.core.exceptions import Conflict, ValidationFailed
 from apps.users.models import User
 
+SUPERUSER_ONLY = "Superuser huquqini faqat superuser beradi yoki o'zgartiradi"
+
+
+def _guard_superuser(user: User | None, actor, fields: dict) -> None:
+    """Only a superuser grants the flag or touches a superuser's account: Users → edit must not be a way up."""
+    if getattr(actor, "is_superuser", False):
+        return
+    if fields.get("is_superuser") or (user is not None and user.is_superuser):
+        raise Conflict(SUPERUSER_ONLY)
+
 
 @transaction.atomic
 def user_create(*, actor, password: str, roles=None, **fields) -> User:
+    _guard_superuser(None, actor, fields)
     user = User(**fields)
     user.set_password(password)
     user.save()
@@ -19,6 +30,7 @@ def user_create(*, actor, password: str, roles=None, **fields) -> User:
 def user_update(user: User, *, actor, roles=None, password: str | None = None, **fields) -> User:
     if user.pk == actor.pk and (fields.get("is_active") is False or fields.get("is_superuser") is False):
         raise Conflict("O'zingizni bloklash yoki superuser huquqini olib tashlash mumkin emas")
+    _guard_superuser(user, actor, fields)
 
     was_active = user.is_active
     for key, value in fields.items():
@@ -47,6 +59,8 @@ def user_delete(user: User, *, actor) -> None:
 
 
 def user_set_password(user: User, *, actor, password: str) -> None:
+    if actor != user:
+        _guard_superuser(user, actor, {})
     user.set_password(password)
     user.revoke_tokens()
     user.save(update_fields=["password", "token_version"])

@@ -320,7 +320,7 @@ export function ProjectFormPage() {
               <Row label="Xizmat summasi" error={form.errors.service_amount}>
                 <Input inputMode="decimal" className="tabular" placeholder="O'rnatish, yetkazish…" {...form.text("service_amount")} />
               </Row>
-              <Row label="Avans" error={form.errors.advance_amount}>
+              <Row label={p?.advance_derived ? "To'langan" : "Avans"} error={form.errors.advance_amount}>
                 <Input inputMode="decimal" className="tabular" disabled={!!p?.advance_derived} {...form.text("advance_amount")} />
                 {p?.advance_derived && <span className="text-xs text-muted">Kassadagi to'lovlardan hisoblanadi ({p.payments.count} ta)</span>}
               </Row>
@@ -329,7 +329,7 @@ export function ProjectFormPage() {
                   debt > 0 ? "bg-bad-soft text-bad" : debt < 0 ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok"}`}>
                   {debt < 0 ? `Ortiqcha to'lov: ${fmtMoney(-debt, v.currency)}` : fmtMoney(debt, v.currency)}
                 </div>
-                <span className="text-xs text-muted">= buyurtma + xizmat − avans</span>
+                <span className="text-xs text-muted">= buyurtma + xizmat − {p?.advance_derived ? "to'langan" : "avans"}</span>
               </Row>
               <Row label="Shartnoma №"><Input {...form.text("contract_number")} /></Row>
               <Row label="Shartnoma sanasi"><Input type="date" {...form.text("contract_date")} /></Row>
@@ -409,7 +409,7 @@ function LedgerMoney({ project, canCreate, canPay }: { project: Project; canCrea
         <span className="t-label">Buxgalteriya</span>
         <span className="text-muted">Hisob-faktura: <Money uzs={m.invoiced} cur={m.invoiced_cur} currency={m.currency} /></span>
         <span className="text-muted">To'langan: <Money uzs={m.paid} cur={m.paid_cur} currency={m.currency} tone="text-ok" /></span>
-        <span className="text-muted">Qarz: <Money uzs={m.debt} cur={m.debt_cur} currency={m.currency} tone={Number(m.debt) > 0 ? "text-bad" : "text-ink"} /></span>
+        <span className="text-muted" title="Hisob-fakturalar − to'lovlar. Shartnoma bo'yicha qarz yuqorida">Faktura bo'yicha qoldiq: <Money uzs={m.debt} cur={m.debt_cur} currency={m.currency} tone={Number(m.debt) > 0 ? "text-bad" : "text-ink"} /></span>
         {m.currency !== "UZS" && m.rate && <span className="text-xs text-faint">kurs {fmtMoney(m.rate)}</span>}
         {Number(pay.count) > 0 && <span className="text-muted">Kassa: <b className="tabular text-ink">{pay.count} ta</b>{pay.last_date && <>, oxirgisi {dayjs(pay.last_date).format("DD.MM.YYYY")}</>}</span>}
         <span className="ml-auto flex gap-2">

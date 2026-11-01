@@ -18,6 +18,7 @@ export type ProjectListItem = {
   sale_date: string | null;
   deadline: string | null;
   amount: string;
+  total_amount: string; // order + service — "Jami summa"
   debt_amount: string;
   total_area: string;
   currency: Currency;
@@ -46,7 +47,6 @@ export type Project = ProjectListItem & {
   location: string;
   service_amount: string;
   advance_amount: string;
-  total_amount: string;
   mosquito_net: boolean;
   dismantling: boolean;
   items: ProjectItem[];

@@ -141,7 +141,7 @@ def entry_post(*, actor, date, memo, lines, source=None, source_kind="document")
 
 @transaction.atomic
 def entry_reverse(entry: JournalEntry, *, actor, date=None, memo: str = "") -> JournalEntry:
-    entry = JournalEntry.objects.select_for_update().get(pk=entry.pk)
+    entry = JournalEntry.objects.select_for_update(of=("self",)).get(pk=entry.pk)
     if entry.status == EntryStatus.REVERSED:
         raise Conflict(f"{entry.code} allaqachon storno qilingan ({entry.reversed_by.code})")
     if entry.source_kind == SourceKind.REVERSAL:
@@ -355,7 +355,7 @@ def invoice_delete(inv: Invoice, *, actor) -> None:
 
 @transaction.atomic
 def invoice_confirm(inv: Invoice, *, actor) -> Invoice:
-    inv = Invoice.objects.select_for_update().select_related("partner", "project").get(pk=inv.pk)
+    inv = Invoice.objects.select_for_update(of=("self",)).select_related("partner", "project").get(pk=inv.pk)
     if inv.status != InvoiceStatus.DRAFT:
         raise Conflict(f"Hisob-faktura allaqachon «{InvoiceStatus(inv.status).label}»")
     lines = list(inv.lines.all())
@@ -414,7 +414,7 @@ def invoice_confirm(inv: Invoice, *, actor) -> Invoice:
 
 @transaction.atomic
 def invoice_cancel(inv: Invoice, *, actor, date=None) -> Invoice:
-    inv = Invoice.objects.select_for_update().get(pk=inv.pk)
+    inv = Invoice.objects.select_for_update(of=("self",)).get(pk=inv.pk)
     if inv.status == InvoiceStatus.CANCELLED:
         raise Conflict("Hisob-faktura allaqachon bekor qilingan")
     if inv.status != InvoiceStatus.CONFIRMED:

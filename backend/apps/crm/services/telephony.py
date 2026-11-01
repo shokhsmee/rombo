@@ -159,7 +159,7 @@ def ingest(payload: dict, *, conn: Connection | None = None, source: str = Call.
 def _ingest(nc: NormalCall, conn: Connection | None, source: str, user) -> Call:
     st = telephony_settings()
     with transaction.atomic():
-        call = Call.objects.select_for_update().filter(external_id=nc.external_id[:120]).first()
+        call = Call.objects.select_for_update(of=("self",)).filter(external_id=nc.external_id[:120]).first()
         if call is None:
             call = Call(external_id=nc.external_id[:120], source=source, connection=conn,
                         started_at=nc.started_at or timezone.now())

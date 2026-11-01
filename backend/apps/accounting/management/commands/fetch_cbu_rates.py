@@ -5,6 +5,7 @@ import datetime as dt
 
 import httpx
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 from apps.accounting.models import ExchangeRate
 from apps.accounting.services import rate_set
@@ -35,7 +36,7 @@ class Command(BaseCommand):
         parser.add_argument("--force", action="store_true", help="overwrite a manually entered rate")
 
     def handle(self, *args, **options):
-        date = dt.date.fromisoformat(options["date"]) if options["date"] else dt.date.today()
+        date = dt.date.fromisoformat(options["date"]) if options["date"] else timezone.localdate()
         currency = options["currency"].upper()
         existing = ExchangeRate.objects.filter(date=date, currency=currency).first()
         if existing is not None and existing.source == "manual" and not options["force"]:

@@ -15,6 +15,7 @@ import datetime as dt
 from decimal import Decimal
 
 from django.db.models import Count, F, Max, Q, Sum
+from django.utils import timezone
 
 from apps.accounting import selectors as ledger
 from apps.accounting.models import ZERO, InvoiceKind, q2
@@ -58,7 +59,7 @@ def _uzs_sum(qs) -> Decimal:
 
 
 def summary() -> dict:
-    today = dt.date.today()
+    today = timezone.localdate()
     month_start = today.replace(day=1)
     accounts = []
     cash_uzs = bank_uzs = ZERO

@@ -89,7 +89,7 @@ def lead_merge(lead: Lead, *, actor, into: Lead) -> Lead:
     a duplicate (not deleted: links to it keep working)."""
     if into.pk == lead.pk:
         raise ValidationFailed("O'ziga birlashtirib bo'lmaydi", field="into")
-    lead, into = (Lead.objects.select_for_update().get(pk=x.pk) for x in (lead, into))
+    lead, into = (Lead.objects.select_for_update(of=("self",)).get(pk=x.pk) for x in (lead, into))
     if into.status != LeadStatus.OPEN:
         raise Conflict("Yopilgan lidga birlashtirib bo'lmaydi")
     if lead.project_id:
@@ -128,7 +128,7 @@ def pick_manager():
 
     crm_settings()
     with transaction.atomic():
-        s = CrmSettings.objects.select_for_update().get(pk=1)
+        s = CrmSettings.objects.select_for_update(of=("self",)).get(pk=1)
         if not s.distribution_enabled:
             return None
         active = set(Employee.objects.filter(pk__in=s.distribution_managers, status=EmployeeStatus.ACTIVE)

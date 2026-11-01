@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -141,6 +142,27 @@ REDIS_URL = env("REDIS_URL", default="")
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels_redis.core.RedisChannelLayer", "CONFIG": {"hosts": [REDIS_URL]}}
                   if REDIS_URL else {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 REALTIME_ENABLED = env.bool("REALTIME_ENABLED", default=True)
+
+# Celery: scheduled jobs + background tasks on the same Redis (ADR 0013). No REDIS_URL (tests, dev without
+# Docker) → tasks run inline and `manage.py crm_worker` runs the schedule instead of beat.
+CELERY_BROKER_URL = REDIS_URL or "memory://"
+CELERY_RESULT_BACKEND = None
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=not REDIS_URL)
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    # what crm_worker did every minute; each task expires before the next tick so a stalled worker
+    # doesn't pile up runs
+    "crm-stale-calls": {"task": "crm.expire_stale_calls", "schedule": 60.0, "options": {"expires": 55}},
+    "crm-recordings": {"task": "crm.archive_recordings", "schedule": 60.0, "options": {"expires": 55}},
+    "crm-reminders": {"task": "crm.remind_due_tasks", "schedule": 60.0, "options": {"expires": 55}},
+    "crm-amocrm-tokens": {"task": "crm.refresh_amocrm_tokens", "schedule": 300.0, "options": {"expires": 290}},
+    "crm-history-sync": {"task": "crm.sync_connections", "schedule": 60.0, "options": {"expires": 55}},
+    # Central Bank publishes the day's rate in the morning; the evening run catches a late publication
+    "cbu-rates-morning": {"task": "accounting.fetch_cbu_rates", "schedule": crontab(hour=9, minute=10)},
+    "cbu-rates-evening": {"task": "accounting.fetch_cbu_rates", "schedule": crontab(hour=18, minute=10)},
+}
 
 # Where outside services reach this install (webhook URLs, OAuth redirects): https://erp.rombo.uz.
 # Empty → taken from the request (fine for dev; set it behind a proxy).

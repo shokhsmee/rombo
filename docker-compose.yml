@@ -1,0 +1,93 @@
+# Rombo ERP — the whole stack (ADR 0013).
+#   Production / full local run:  docker compose up -d --build        → http://localhost:8080
+#   Dev on the host (Django + Vite there), only Redis here:  docker compose up -d redis
+# App settings and secrets come from backend/.env; this file only overrides where the services live.
+# Compose variables (optional, in a root .env): POSTGRES_PASSWORD, HTTP_PORT, POSTGRES_PORT.
+
+x-backend: &backend
+  build: ./backend
+  image: rombo-erp-backend
+  restart: unless-stopped
+  env_file:
+    - path: backend/.env
+      required: false
+  environment:
+    DATABASE_URL: postgres://rombo:${POSTGRES_PASSWORD:-rombo}@db:5432/rombo
+    REDIS_URL: redis://redis:6379/0
+    MEDIA_ROOT: /data/media
+  volumes:
+    - media:/data/media
+  depends_on:
+    db: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rombo
+      POSTGRES_USER: rombo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rombo}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5433}:5432"]  # 5432 is the host's own PostgreSQL
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rombo -d rombo"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    ports: ["127.0.0.1:6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  # one-shot: schema + Django admin assets, before anything else starts
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
+    volumes: [media:/data/media, static:/app/staticfiles]
+
+  backend:  # API + live-updates WebSocket
+    <<: *backend
+    volumes: [media:/data/media, static:/app/staticfiles]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:  # Celery worker + beat: the scheduled jobs in CELERY_BEAT_SCHEDULE
+    <<: *backend
+    command: ["celery", "-A", "config", "worker", "-B", "-l", "info", "--concurrency", "2",
+              "-s", "/data/beat/celerybeat-schedule"]
+    volumes: [media:/data/media, beat:/data/beat]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  telegram:  # keeps connected Telegram accounts online
+    <<: *backend
+    command: ["python", "manage.py", "telegram_listen"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  frontend:  # SPA + proxy to backend
+    build: ./frontend
+    image: rombo-erp-frontend
+    restart: unless-stopped
+    ports: ["${HTTP_PORT:-8080}:80"]
+    volumes: [static:/srv/static:ro]
+    depends_on: [backend]
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
+  static:
+  beat:

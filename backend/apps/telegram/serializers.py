@@ -17,6 +17,7 @@ class AccountSerializer(serializers.ModelSerializer):
         model = Account
         fields = ["id", "owner", "name", "phone", "status", "error", "connected", "tg_name", "tg_username",
                   "auto_clients", "crm_leads", "active", "last_sync", "own_api", "api_id", "chats", "live"]
+        read_only_fields = ["status"]  # set by the workflow actions only
 
     def get_owner(self, obj) -> dict:
         return {"id": obj.owner_id, "full_name": obj.owner.full_name}

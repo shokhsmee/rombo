@@ -57,10 +57,19 @@ def _check_usd_rate(fields: dict) -> None:
                                f"(kiritilgan: {rate:,.0f})".replace(",", " "), field="usd_rate")
 
 
+def _check_advance(project: Project) -> None:
+    """A typed avans above the order total is a typo (it showed as a negative debt). An overpayment through
+    kassa is real and stays allowed: that avans is derived, not typed."""
+    if project.advance_amount > project.amount + project.service_amount:
+        total = f"{project.amount + project.service_amount:,.0f}".replace(",", " ")
+        raise ValidationFailed(f"Avans jami summadan ({total}) katta bo'lmasin", field="advance_amount")
+
+
 @transaction.atomic
 def project_create(*, actor, items: list[dict] | None = None, **fields) -> Project:
     _check_usd_rate(fields)
     project = Project(**fields)
+    _check_advance(project)
     project.stamp(actor, created=True)
     project.save()  # chatter: "Loyiha yaratildi"
     # LY-26-00042: the year helps people on the phone ("the order from last year")
@@ -101,6 +110,8 @@ def project_update(project: Project, *, actor, items: list[dict] | None = None, 
                            f"ishlab chiqarish ma'lumotlari qulflangan: {names}")
     for key, value in fields.items():
         setattr(project, key, value)
+    if {"advance_amount", "amount", "service_amount"} & fields.keys():
+        _check_advance(project)
     project.stamp(actor)
     project.save()  # chatter tracks the changed fields
     if items is not None:
@@ -113,7 +124,7 @@ def project_update(project: Project, *, actor, items: list[dict] | None = None, 
 @transaction.atomic
 def project_change_status(project: Project, *, actor, status: str, comment: str = "") -> Project:
     # lock the row: two managers clicking at once must not both pass the transition check
-    project = Project.objects.select_for_update().get(pk=project.pk)
+    project = Project.objects.select_for_update(of=("self",)).get(pk=project.pk)
     current = project.status
     if status not in TRANSITIONS[current]:
         raise ValidationFailed(

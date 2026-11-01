@@ -2,6 +2,33 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-11-01
+- `fix-writable-workflow-fields`:
+  - Document status and workflow stamps can no longer be set by PATCH. A draft receipt could be made "posted"
+    with no entry or stock; draft orders could skip the kassa gate; requests could skip approval.
+  - Only a superuser grants or manages superusers.
+  - A receipt can't list one order line twice or change its order.
+  - Every row lock is `of=("self",)`: on PostgreSQL, posting kassa orders, receipts and stock moves failed
+    with 500.
+  - Why: audit 2026-11-01 (`docs/audit/2026-11-01-full-test.md`) and the first full test run on PostgreSQL.
+- `add-celery-redis-docker`:
+  - Celery + Redis run the scheduled jobs (CRM every minute, Central Bank USD rate at 09:10 / 18:10).
+    `crm_worker` stays as the no-Redis fallback.
+  - Docker images and `docker-compose.yml` for the whole stack.
+  - Why: no retries or isolation in the old loop, no scheduler for the rate, same setup in dev and prod (ADR 0013).
+- fix(projects):
+  - The list shows "Jami summa" (order + service), the same as the card; its "Qarz" has a currency. The
+    printed hisob-kitob's deal sum includes service, so "Остаток" adds up.
+  - A typed avans can't exceed the total.
+  - The avans from kassa is labelled "To'langan", and the ledger line "Faktura bo'yicha qoldiq".
+  - Bulk "Bekor qilish" asks for the reason (bulk cancel always failed).
+  - Why: audit #9–#12, #20, where the list, card and print showed different numbers.
+- fix(kassa) — The summary's "this month" uses the Tashkent date. Why: a test that hardcoded October dates
+  failed from 1 November.
+- chore — Local dev database moved from SQLite to PostgreSQL 16 (`DATABASE_URL` in `backend/.env`). Tests restart
+  PostgreSQL sequences before each test (`conftest._numbering_from_one`), so codes start at 00001 as on SQLite.
+  Why: SQLite hides row-lock bugs that production (PostgreSQL) hits.
+
 ## 2026-10-31
 - feat(auth) — Login page is a Rombo brand page: a dark panel with the red mark glowing over a window-frame
   lattice, ROMBO wordmark and tagline, no feature text; a minimal form with icons, eye toggle and Caps Lock

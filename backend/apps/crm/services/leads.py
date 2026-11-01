@@ -111,7 +111,7 @@ def default_pipeline() -> Pipeline:
     if p:
         return p
     with transaction.atomic():  # two first requests at once must not make two pipelines
-        p = Pipeline.objects.select_for_update().filter(is_active=True).first()
+        p = Pipeline.objects.select_for_update(of=("self",)).filter(is_active=True).first()
         return p or pipeline_create(actor=None, name="Sotuv", is_default=True)
 
 
@@ -334,7 +334,7 @@ def set_stage(lead: Lead, stage: Stage, *, actor, comment: str = "", lost_reason
 
 @transaction.atomic
 def lead_move(lead: Lead, *, actor, stage: Stage, lost_reason: str = "") -> Lead:
-    lead = Lead.objects.select_for_update().get(pk=lead.pk)
+    lead = Lead.objects.select_for_update(of=("self",)).get(pk=lead.pk)
     if stage.pipeline_id != lead.pipeline_id:
         raise ValidationFailed("Bosqich boshqa voronkada", field="stage_id")
     if stage.pk == lead.stage_id:
@@ -357,7 +357,7 @@ def lead_delete(lead: Lead, *, actor) -> None:
 @transaction.atomic
 def lead_convert(lead: Lead, *, actor, client=None, project_name: str = "") -> Lead:
     """Lead → Mijoz (existing or new) + Loyiha, the lead moves to the won stage."""
-    lead = Lead.objects.select_for_update().select_related("client", "source", "manager").get(pk=lead.pk)
+    lead = Lead.objects.select_for_update(of=("self",)).select_related("client", "source", "manager").get(pk=lead.pk)
     if lead.project_id:
         raise Conflict("Bu liddan loyiha allaqachon ochilgan")
     client = client or lead.client or selectors.client_by_phone(lead.phone)

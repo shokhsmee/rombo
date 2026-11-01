@@ -17,6 +17,20 @@ def _encryption_key(settings):
     crypto._fernet.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _numbering_from_one(request):
+    """Human codes come from PKs (BX-00001). PostgreSQL keeps sequences after a test's rollback, so without this
+    a test's first entry could be BX-00005 depending on what ran before; SQLite effectively restarted them."""
+    if "db" not in request.fixturenames:
+        return
+    request.getfixturevalue("db")
+    from django.db import connection
+
+    if connection.vendor == "postgresql":
+        with connection.cursor() as c:
+            c.execute("SELECT setval(c.oid, 1, false) FROM pg_class c WHERE c.relkind = 'S'")
+
+
 @pytest.fixture
 def api(db) -> APIClient:
     call_command("seed", verbosity=0)

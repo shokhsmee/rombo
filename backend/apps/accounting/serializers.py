@@ -81,6 +81,7 @@ class EntryListSerializer(serializers.ModelSerializer):
         model = JournalEntry
         fields = ["id", "code", "date", "memo", "source_model", "source_id", "source_label", "source_kind", "status",
                   "reversed_by_code", "total_debit", "posted_by", "posted_at"]
+        read_only_fields = ["status", "source_model", "source_id"]  # set by the workflow actions only
 
 
 class EntrySerializer(EntryListSerializer):
@@ -141,6 +142,7 @@ class InvoiceListSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = ["id", "code", "kind", "status", "partner", "project", "date", "external_number", "external_date",
                   "currency", "rate", "net", "vat", "gross", "entry_code", "created_at"]
+        read_only_fields = ["status"]  # set by the workflow actions only
 
 
 class InvoiceSerializer(InvoiceListSerializer):

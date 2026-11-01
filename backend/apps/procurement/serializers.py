@@ -90,6 +90,7 @@ class RequestListSerializer(serializers.ModelSerializer):
     class Meta:
         model = PurchaseRequest
         fields = ["id", "code", "status", "project", "requester", "needed_by", "lines_count", "created_at"]
+        read_only_fields = ["status"]  # set by the workflow actions only
 
 
 class ApprovalSerializer(serializers.ModelSerializer):
@@ -115,6 +116,7 @@ class RequestSerializer(RequestListSerializer):
         fields = [*RequestListSerializer.Meta.fields, "project_id", "project_status", "notes", "lines",
                   "submitted_at", "approved_at", "approved_by", "approval_step", "approvals", "steps",
                   "can_approve", "allowed_statuses", "updated_at"]
+        read_only_fields = ["status", "submitted_at", "approved_at"]  # set by the workflow actions only
 
     def get_approval_step(self, obj) -> dict | None:
         s = obj.approval_step
@@ -219,6 +221,7 @@ class OrderListSerializer(serializers.ModelSerializer):
         model = PurchaseOrder
         fields = ["id", "code", "status", "supplier", "project", "date", "expected_date", "currency", "rate",
                   "sent_at", "sent_via", "totals", "created_at"]
+        read_only_fields = ["status", "sent_at", "sent_via"]  # set by the workflow actions only
 
     def get_totals(self, obj) -> dict:
         return TotalsSerializer(obj.totals()).data
@@ -333,6 +336,7 @@ class ReceiptListSerializer(serializers.ModelSerializer):
         fields = ["id", "code", "status", "order", "supplier", "date", "storekeeper", "invoice_number",
                   "currency",
                   "totals", "created_at"]
+        read_only_fields = ["status"]  # set by the workflow actions only
 
     def get_totals(self, obj) -> dict:
         return TotalsSerializer(obj.totals()).data
@@ -358,6 +362,7 @@ class ReceiptSerializer(ReceiptListSerializer):
                   "invoice_total", "warehouse", "warehouse_id", "stock_moves",
                   "notes", "lines", "posted_at", "posted_by", "entry_id", "entry_code", "allowed_statuses",
                   "updated_at"]
+        read_only_fields = ["status", "posted_at"]  # set by the workflow actions only
 
 
     def get_stock_moves(self, obj) -> int:

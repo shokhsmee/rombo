@@ -233,7 +233,7 @@ def _derive_request_status(req: PurchaseRequest, *, actor) -> None:
 
 @transaction.atomic
 def request_submit(req: PurchaseRequest, *, actor) -> PurchaseRequest:
-    req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
+    req = PurchaseRequest.objects.select_for_update(of=("self",)).get(pk=req.pk)
     if not req.lines.exists():
         raise ValidationFailed("So'rovda qator yo'q", field="lines")
     _move(req, REQUEST_TRANSITIONS, RequestStatus.SUBMITTED, actor=actor, labels=RequestStatus)
@@ -262,7 +262,7 @@ def _finish_approval(req: PurchaseRequest, *, actor, comment: str = "") -> None:
 
 @transaction.atomic
 def request_approve(req: PurchaseRequest, *, actor, comment: str = "") -> PurchaseRequest:
-    req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
+    req = PurchaseRequest.objects.select_for_update(of=("self",)).get(pk=req.pk)
     comment = (comment or "").strip()
     step = req.approval_step
     if step is None:  # single level (no active steps when it was submitted)
@@ -292,7 +292,7 @@ def request_reject(req: PurchaseRequest, *, actor, comment: str = "") -> Purchas
     comment = (comment or "").strip()
     if not comment:
         raise ValidationFailed("Rad etish sababini yozing", field="comment")
-    req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
+    req = PurchaseRequest.objects.select_for_update(of=("self",)).get(pk=req.pk)
     step = req.approval_step
     if step is None:
         _move(req, REQUEST_TRANSITIONS, RequestStatus.REJECTED, actor=actor, comment=f"Rad etildi: {comment}",
@@ -314,7 +314,7 @@ def request_reject(req: PurchaseRequest, *, actor, comment: str = "") -> Purchas
 @transaction.atomic
 def request_reopen(req: PurchaseRequest, *, actor) -> PurchaseRequest:
     """submitted / rejected → draft, to fix the lines and submit again (from step one)."""
-    req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
+    req = PurchaseRequest.objects.select_for_update(of=("self",)).get(pk=req.pk)
     _move(req, REQUEST_TRANSITIONS, RequestStatus.DRAFT, actor=actor, labels=RequestStatus)
     if req.approval_step_id is not None:
         req.approval_step = None
@@ -325,7 +325,7 @@ def request_reopen(req: PurchaseRequest, *, actor) -> PurchaseRequest:
 
 @transaction.atomic
 def request_cancel(req: PurchaseRequest, *, actor, comment: str = "") -> PurchaseRequest:
-    req = PurchaseRequest.objects.select_for_update().get(pk=req.pk)
+    req = PurchaseRequest.objects.select_for_update(of=("self",)).get(pk=req.pk)
     if req.lines.filter(ordered_qty__gt=0).exists():
         raise Conflict("So'rov bo'yicha buyurtma bor — avval buyurtmani bekor qiling")
     _move(req, REQUEST_TRANSITIONS, RequestStatus.CANCELLED, actor=actor, comment=comment,
@@ -484,7 +484,7 @@ def order_create_from_requests(*, actor, lines: list[dict], expected_date=None,
 
 @transaction.atomic
 def order_update(order: PurchaseOrder, *, actor, lines: list[dict] | None = None, **fields) -> PurchaseOrder:
-    order = PurchaseOrder.objects.select_for_update().get(pk=order.pk)
+    order = PurchaseOrder.objects.select_for_update(of=("self",)).get(pk=order.pk)
     if order.status != OrderStatus.DRAFT:
         locked = set(fields) - {"notes", "expected_date"}
         if locked or lines is not None:
@@ -531,7 +531,7 @@ def _send_order_email(order: PurchaseOrder, to: str) -> None:
 @transaction.atomic
 def order_send(order: PurchaseOrder, *, actor, via: str, to: str = "", note: str = "") -> PurchaseOrder:
     """The step the business asked for: who, when, how. draft → sent; a sent order may be sent again."""
-    order = PurchaseOrder.objects.select_related("supplier").select_for_update().get(pk=order.pk)
+    order = PurchaseOrder.objects.select_related("supplier").select_for_update(of=("self",)).get(pk=order.pk)
     if order.status not in (OrderStatus.DRAFT, OrderStatus.SENT):
         raise Conflict(f"«{OrderStatus(order.status).label}» buyurtma yuborilmaydi")
     if not order.lines.exists():
@@ -571,7 +571,7 @@ def order_send(order: PurchaseOrder, *, actor, via: str, to: str = "", note: str
 
 @transaction.atomic
 def order_cancel(order: PurchaseOrder, *, actor, comment: str = "") -> PurchaseOrder:
-    order = PurchaseOrder.objects.select_for_update().get(pk=order.pk)
+    order = PurchaseOrder.objects.select_for_update(of=("self",)).get(pk=order.pk)
     if order.receipts.filter(status=ReceiptStatus.POSTED).exists():
         raise Conflict("Buyurtma bo'yicha kirim o'tkazilgan — bekor qilib bo'lmaydi")
     _move(order, ORDER_TRANSITIONS, OrderStatus.CANCELLED, actor=actor, comment=comment, labels=OrderStatus)
@@ -624,7 +624,7 @@ def _release_money(order: PurchaseOrder, *, actor) -> None:
 def order_request_money(order: PurchaseOrder, *, actor, amount: Decimal | None = None,
                         note: str = "") -> PurchaseOrder:
     """"Pul so'rash": a submitted kassa money request for the order (default: its gross) linked to it."""
-    order = PurchaseOrder.objects.select_related("supplier", "project").select_for_update().get(pk=order.pk)
+    order = PurchaseOrder.objects.select_related("supplier", "project").select_for_update(of=("self",)).get(pk=order.pk)
     if order.status != OrderStatus.DRAFT:
         raise Conflict("Pul faqat qoralama buyurtma uchun so'raladi")
     lines = list(order.lines.select_related("project"))
@@ -681,10 +681,14 @@ def _derive_order_status(order: PurchaseOrder, *, actor) -> None:
 def _check_receipt_lines(receipt: GoodsReceipt | None, order: PurchaseOrder, lines: list[dict]) -> list[dict]:
     """Each line receives at most what is left of its order line (other posted receipts counted)."""
     rows = []
+    seen = set()
     for ln in lines:
         ol = ln["order_line"]
         if ol.order_id != order.pk:
             raise ValidationFailed("Qator boshqa buyurtmaniki", field="lines")
+        if ol.pk in seen:  # two lines would each pass the "remaining" check and receive it twice
+            raise ValidationFailed(f"{ol.name}: bitta buyurtma qatori ikki marta kiritilgan", field="lines")
+        seen.add(ol.pk)
         ol.refresh_from_db(fields=["received_qty"])
         if ln["qty"] > ol.remaining_qty:
             raise ValidationFailed(f"{ol.name}: buyurtmada {ol.remaining_qty.normalize():f} {ol.unit} qolgan",
@@ -720,6 +724,9 @@ def receipt_update(receipt: GoodsReceipt, *, actor, lines: list[dict] | None = N
     if receipt.status != ReceiptStatus.DRAFT:
         if set(fields) - {"notes", "invoice_number", "invoice_date", "invoice_total"} or lines is not None:
             raise Conflict("O'tkazilgan kirim o'zgartirilmaydi — bekor qilib yangisini oching")
+    order = fields.pop("order", None)
+    if order is not None and order.pk != receipt.order_id:  # supplier, lines and payables all come from it
+        raise Conflict("Kirimning buyurtmasini almashtirib bo'lmaydi — yangi kirim oching")
     for k, v in fields.items():
         setattr(receipt, k, v)
     receipt.stamp(actor)
@@ -749,10 +756,10 @@ def _ledger():
 @transaction.atomic
 def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
     """Dt materials (net) + Dt vat_input (VAT)  Kt ap_suppliers (gross); then the prepayment offset."""
-    receipt = GoodsReceipt.objects.select_related("order", "supplier").select_for_update().get(pk=receipt.pk)
+    receipt = GoodsReceipt.objects.select_related("order", "supplier").select_for_update(of=("self",)).get(pk=receipt.pk)
     if receipt.status != ReceiptStatus.DRAFT:
         raise ValidationFailed("Faqat qoralama kirim o'tkaziladi", field="status")
-    order = PurchaseOrder.objects.select_for_update().get(pk=receipt.order_id)
+    order = PurchaseOrder.objects.select_for_update(of=("self",)).get(pk=receipt.order_id)
     if order.status not in (OrderStatus.SENT, OrderStatus.PARTIALLY_RECEIVED):
         raise Conflict(f"Buyurtma «{OrderStatus(order.status).label}» holatida — kirim o'tkazilmaydi")
     lines = list(receipt.lines.select_related("order_line__project"))
@@ -823,8 +830,8 @@ def receipt_post(receipt: GoodsReceipt, *, actor) -> GoodsReceipt:
 @transaction.atomic
 def receipt_cancel(receipt: GoodsReceipt, *, actor, comment: str = "") -> GoodsReceipt:
     """posted → cancelled: a reversing entry, quantities rolled back, order status derived again."""
-    receipt = GoodsReceipt.objects.select_related("order").select_for_update().get(pk=receipt.pk)
-    order = PurchaseOrder.objects.select_for_update().get(pk=receipt.order_id)
+    receipt = GoodsReceipt.objects.select_related("order").select_for_update(of=("self",)).get(pk=receipt.pk)
+    order = PurchaseOrder.objects.select_for_update(of=("self",)).get(pk=receipt.order_id)
     if order.status == OrderStatus.CANCELLED:
         raise Conflict("Buyurtma bekor qilingan — kirimni bekor qilib bo'lmaydi")
     if receipt.status != ReceiptStatus.POSTED:
