@@ -91,6 +91,7 @@ class CashOrderListSerializer(serializers.ModelSerializer):
         model = CashOrder
         fields = ["id", "code", "kind", "status", "date", "account", "to_account", "amount", "currency", "rate",
                   "amount_uzs", "purpose", "partner", "project", "employee", "basis", "entry_code", "created_at"]
+        read_only_fields = ["status"]  # set by the workflow actions only
 
 
 class CashOrderSerializer(CashOrderListSerializer):
@@ -127,7 +128,7 @@ class CashOrderSerializer(CashOrderListSerializer):
                   "partner_id", "project_id", "employee_id", "invoice_id", "invoice", "payment_request_id",
                   "payment_request_code", "received_from", "issued_to",
                   "notes", "entry_id", "posted_at", "posted_by", "created_by", "allowed_statuses", "updated_at"]
-        read_only_fields = ["status", "currency"]
+        read_only_fields = ["status", "currency", "posted_at"]
         extra_kwargs = {"amount": {"min_value": Decimal("0.01")}}
 
 
@@ -155,6 +156,7 @@ class PaymentRequestListSerializer(serializers.ModelSerializer):
         model = PaymentRequest
         fields = ["id", "code", "status", "partner", "project", "amount", "currency", "rate", "purpose", "basis",
                   "needed_by", "requested_by", "paid", "source_model", "source_id", "source_label", "created_at"]
+        read_only_fields = ["status", "source_model", "source_id", "source_label"]  # set by the workflow actions only
 
     def get_paid(self, obj) -> str:
         return str(selectors.paid_amount(obj))

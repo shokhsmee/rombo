@@ -73,7 +73,7 @@ def amo_token(conn: Connection, *, force: bool = False) -> str:
     if not force and exp and exp - timezone.now() > REFRESH_MARGIN:
         return conn.get_secrets()["access_token"]
     with transaction.atomic():
-        fresh = Connection.objects.select_for_update().get(pk=conn.pk)
+        fresh = Connection.objects.select_for_update(of=("self",)).get(pk=conn.pk)
         exp = parse_datetime((fresh.config or {}).get("expires_at") or "")
         sec = fresh.get_secrets()
         if not sec.get("refresh_token"):

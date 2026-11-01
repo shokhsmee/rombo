@@ -30,10 +30,10 @@ const columns: Column<ProjectListItem>[] = [
       return <span className={late ? "font-medium text-bad" : ""}>{fmtDate(r.deadline)}</span>;
     } },
   { key: "area", title: "m²", align: "right", render: (r) => (Number(r.total_area) ? fmtArea(r.total_area).replace(" m²", "") : <span className="text-muted">—</span>) },
-  { key: "amount", title: "Summa", sort: "amount", align: "right", render: (r) => fmtMoney(r.amount, r.currency) },
+  { key: "amount", title: "Jami summa", sort: "total_sum", align: "right", render: (r) => fmtMoney(r.total_amount, r.currency) },
   { key: "debt", title: "Qarz", align: "right",
     render: (r) => Number(r.debt_amount) > 0
-      ? <span className="font-medium text-bad">{fmtMoney(r.debt_amount)}</span>
+      ? <span className="font-medium text-bad">{fmtMoney(r.debt_amount, r.currency)}</span>
       : <span className="text-ok">0</span> },
   { key: "status", title: "Holat", sort: "status", render: (r) => <Pill tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Pill> },
 ];

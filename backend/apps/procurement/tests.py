@@ -383,8 +383,35 @@ def test_receipt_prefills_remaining_and_refuses_over_receipt(admin):
         {"order_line_id": ln["order_line_id"], "qty": "150"}]}, format="json")
     assert r.status_code == 400 and r.json()["error"]["field"] == "lines"
 
+    twice = admin.patch(f"{API}/procurement/receipts/{rec['id']}/", {"lines": [
+        {"order_line_id": ln["order_line_id"], "qty": "60"}, {"order_line_id": ln["order_line_id"], "qty": "60"}]},
+        format="json")
+    assert twice.status_code == 400 and twice.json()["error"]["field"] == "lines"
+
     assert admin.get(f"{API}/procurement/receipts/", {"q": "ESF-17"}).json()["total"] == 1
     assert admin.delete(f"{API}/procurement/receipts/{rec['id']}/").status_code == 204
+
+
+def test_workflow_fields_are_not_writable(admin):
+    """status / posted_at / sent_* move only through the actions — a PATCH must not skip approval, the kassa
+    gate or posting (audit 2026-11-01)."""
+    order, req, sup, project = _usd_order(admin)
+    r = admin.patch(f"{API}/procurement/orders/{order['id']}/", {"status": "sent", "sent_via": "email"},
+                    format="json")
+    assert r.status_code == 200 and r.json()["status"] == "draft" and r.json()["sent_via"] == ""
+
+    draft = admin.post(f"{API}/procurement/requests/", {"project_id": project["id"], "lines": LINES},
+                       format="json").json()
+    r = admin.patch(f"{API}/procurement/requests/{draft['id']}/", {"status": "approved"}, format="json")
+    assert r.status_code == 200 and r.json()["status"] == "draft" and r.json()["approved_at"] is None
+
+    _send(admin, order["id"])
+    rec = admin.post(f"{API}/procurement/receipts/", {"order_id": order["id"]}, format="json").json()
+    r = admin.patch(f"{API}/procurement/receipts/{rec['id']}/", {"status": "posted"}, format="json")
+    assert r.status_code == 200 and r.json()["status"] == "draft" and r.json()["entry_id"] is None
+    other, *_ = _usd_order(admin)
+    r = admin.patch(f"{API}/procurement/receipts/{rec['id']}/", {"order_id": other["id"]}, format="json")
+    assert r.status_code == 409
 
 
 # ------------------------------------------------------------------ posting (ADR 0007)

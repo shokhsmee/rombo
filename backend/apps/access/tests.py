@@ -52,6 +52,29 @@ def test_blocked_user_token_is_revoked(api, admin):
     assert temp.get(f"{API}/auth/me/").status_code == 401
 
 
+def test_users_editor_cannot_become_or_touch_a_superuser(api, admin):
+    """Users → edit is delegated to HR; it must not be a way to full control (audit 2026-11-01)."""
+    role = admin.post(f"{API}/access/roles/", {
+        "name": "Kadrlar", "permissions": [{"page_key": "users", "can_create": True, "can_update": True}],
+    }, format="json").json()
+    hr_user = admin.post(f"{API}/users/", {"username": "hr1", "first_name": "HR", "password": "password123",
+                                           "role_ids": [role["id"]]}, format="json").json()
+    hr = login(api, "hr1", "password123")
+
+    assert hr.patch(f"{API}/users/{hr_user['id']}/", {"is_superuser": True}, format="json").status_code == 409
+    assert hr.post(f"{API}/users/", {"username": "hr2", "first_name": "X", "password": "password123",
+                                     "is_superuser": True}, format="json").status_code == 409
+    boss = admin.get(f"{API}/users/", {"q": "admin"}).json()["items"][0]
+    assert hr.patch(f"{API}/users/{boss['id']}/", {"is_active": False}, format="json").status_code == 409
+    assert hr.post(f"{API}/users/{boss['id']}/reset-password/", {"password": "hacked1234"},
+                   format="json").status_code == 409
+    # ordinary staff accounts stay HR's job
+    clerk = hr.post(f"{API}/users/", {"username": "clerk1", "first_name": "C", "password": "password123"},
+                    format="json")
+    assert clerk.status_code == 201, clerk.content
+    assert hr.patch(f"{API}/users/{clerk.json()['id']}/", {"is_active": False}, format="json").status_code == 200
+
+
 def test_validation_error_shape(admin):
     r = admin.post(f"{API}/clients/", {"name": "X", "tin": "12"}, format="json")
     assert r.status_code == 400

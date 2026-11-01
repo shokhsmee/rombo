@@ -1,5 +1,5 @@
 import django_filters
-from django.db.models import Count, DecimalField, IntegerField, OuterRef, Subquery, Sum, Value
+from django.db.models import Count, DecimalField, F, IntegerField, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -64,7 +64,7 @@ class ProjectViewSet(TabularMixin, ServiceModelViewSet):
     filterset_class = ProjectFilter
     # client name/phone searchable: sales usually look up an order by customer
     search_fields = ["code", "name", "contract_number", "object_address", "client__name", "client__phone"]
-    ordering_fields = ["code", "name", "deadline", "amount", "status", "created_at"]
+    ordering_fields = ["code", "name", "deadline", "amount", "total_sum", "status", "created_at"]
     ordering = ["-created_at"]
     permission_action_map = {
         "change_status": Action.UPDATE, "summary": Action.VIEW,
@@ -82,7 +82,8 @@ class ProjectViewSet(TabularMixin, ServiceModelViewSet):
         Col("Mijoz", "client.name", width=26), Col("Telefon", "phone", width=16), Col("Hudud", "region"),
         Col("Obyekt manzili", "object_address", width=30), Col("Mahsulot", "product_name", width=22),
         Col("Sotuv sanasi", "sale_date", kind="date", width=12), Col("Muddat", "deadline", kind="date", width=12),
-        Col("Summa", "amount", kind="money"), Col("Xizmat", "service_amount", kind="money"),
+        Col("Buyurtma summasi", "amount", kind="money"), Col("Xizmat", "service_amount", kind="money"),
+        Col("Jami summa", "total_amount", kind="money"),
         Col("Avans", "advance_amount", kind="money"), Col("Qarz", "debt_amount", kind="money"),
         Col("Valyuta", "currency", width=8), Col("Menejer", "manager.name", width=22),
         Col("Shartnoma №", "contract_number", width=14),
@@ -102,7 +103,13 @@ class ProjectViewSet(TabularMixin, ServiceModelViewSet):
     bulk_actions = [
         Bulk("status", "Holatini o'zgartirish",
              lambda p, *, actor, status: services.project_change_status(p, actor=actor, status=status),
-             params=[{"name": "status", "label": "Yangi holat", "options": opts(ProjectStatus)}]),
+             params=[{"name": "status", "label": "Yangi holat",
+                      "options": [o for o in opts(ProjectStatus) if o["value"] != ProjectStatus.CANCELLED]}]),
+        # cancelling needs a reason, so it is its own action with the reason field
+        Bulk("cancel", "Bekor qilish",
+             lambda p, *, actor, comment: services.project_change_status(
+                 p, actor=actor, status=ProjectStatus.CANCELLED, comment=comment),
+             danger=True, comment=True),
         Bulk("delete", "O'chirish (qoralama)", services.project_delete, action=Action.DELETE, danger=True),
     ]
 
@@ -114,6 +121,7 @@ class ProjectViewSet(TabularMixin, ServiceModelViewSet):
                                 Value(0), output_field=DecimalField(max_digits=12, decimal_places=2)),
             total_quantity=Coalesce(Subquery(lines.annotate(s=Sum("quantity")).values("s")),
                                     Value(0), output_field=IntegerField()),
+            total_sum=F("amount") + F("service_amount"),  # "Jami summa": the list must match the card
         )
         if self.action != "list":
             qs = qs.select_related("client__segment", "partner", "sales_channel", "brand").prefetch_related(

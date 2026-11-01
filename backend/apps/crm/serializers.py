@@ -132,6 +132,7 @@ class LeadListSerializer(serializers.ModelSerializer):
                   "values", "next_task_kind", "next_task_text", "next_task_due", "open_tasks", "calls_count",
                   "missed_calls", "last_activity", "last_activity_at", "overdue", "days_in_stage", "dup",
                   "created_at", "updated_at"]
+        read_only_fields = ["status"]  # set by the workflow actions only
 
     def get_overdue(self, obj) -> bool:
         due = getattr(obj, "next_task_due", None)
@@ -301,6 +302,7 @@ class CallSerializer(serializers.ModelSerializer):
         fields = ["id", "source", "connection", "direction", "status", "live", "from_number", "to_number",
                   "client_phone", "extension", "user", "client", "lead", "started_at", "answered_at", "ended_at",
                   "duration", "wait", "recording_url", "recording_saved", "recording_error", "note", "created_lead"]
+        read_only_fields = ["status"]  # set by the workflow actions only
 
     def get_lead(self, obj) -> dict | None:
         ld = obj.lead

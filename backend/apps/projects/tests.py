@@ -150,3 +150,27 @@ def test_usd_rate_typo_is_refused(admin):
     assert p.status_code == 201, p.content
     r = admin.patch(f"{API}/projects/{p.json()['id']}/", {"usd_rate": "120"}, format="json")
     assert r.status_code == 400 and "12 000" in r.json()["error"]["message"]
+
+
+def test_list_total_matches_the_card_and_typed_advance_is_capped(admin):
+    """Audit 2026-11-01: the list showed products only while the card showed products + service, and a typed
+    avans above the total became a negative debt."""
+    p = _project(admin)
+    r = admin.patch(f"{API}/projects/{p['id']}/", {"service_amount": "500000", "advance_amount": "2500000"},
+                    format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "advance_amount"
+    admin.patch(f"{API}/projects/{p['id']}/", {"service_amount": "500000", "advance_amount": "2000000"},
+                format="json")
+    row = admin.get(f"{API}/projects/", {"q": p["code"]}).json()["items"][0]
+    card = admin.get(f"{API}/projects/{p['id']}/").json()
+    assert row["total_amount"] == card["total_amount"] == "2000000.00" and row["debt_amount"] == "0.00"
+
+
+def test_bulk_cancel_asks_for_the_reason(admin):
+    a, b = _project(admin, "A"), _project(admin, "B")
+    r = admin.post(f"{API}/projects/bulk/", {"action": "cancel", "ids": [a["id"], b["id"]]}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "comment"
+    r = admin.post(f"{API}/projects/bulk/", {"action": "cancel", "ids": [a["id"], b["id"]],
+                                             "params": {"comment": "Mijoz voz kechdi"}}, format="json")
+    assert r.json()["done"] == 2
+    assert admin.get(f"{API}/projects/{a['id']}/").json()["status"] == "cancelled"

@@ -221,7 +221,7 @@ def cash_order_delete(order: CashOrder, *, actor) -> None:
 
 
 def _next_code(prefix: str) -> str:
-    seq, _ = CodeSequence.objects.select_for_update().get_or_create(prefix=prefix)
+    seq, _ = CodeSequence.objects.select_for_update(of=("self",)).get_or_create(prefix=prefix)
     seq.last += 1
     seq.save(update_fields=["last"])
     return f"{prefix}-{seq.last:05d}"
@@ -234,7 +234,7 @@ def _not_enough(acc: CashAccount, balance: Decimal) -> Conflict:
 
 def _lock_accounts(order: CashOrder) -> tuple[CashAccount, CashAccount | None]:
     ids = [order.account_id] + ([order.to_account_id] if order.to_account_id else [])
-    locked = {a.pk: a for a in CashAccount.objects.select_for_update().select_related("account").filter(pk__in=ids)}
+    locked = {a.pk: a for a in CashAccount.objects.select_for_update(of=("self",)).select_related("account").filter(pk__in=ids)}
     return locked[order.account_id], locked.get(order.to_account_id)
 
 
@@ -340,7 +340,7 @@ def _sync_project_advance(order: CashOrder, *, actor) -> None:
 
 @transaction.atomic
 def cash_order_post(order: CashOrder, *, actor) -> CashOrder:
-    order = (CashOrder.objects.select_for_update()
+    order = (CashOrder.objects.select_for_update(of=("self",))
              .select_related("account", "to_account", "purpose", "partner", "project", "employee", "invoice")
              .get(pk=order.pk))
     if order.status != OrderStatus.DRAFT:
@@ -381,7 +381,7 @@ def cash_order_post(order: CashOrder, *, actor) -> CashOrder:
 
 @transaction.atomic
 def cash_order_cancel(order: CashOrder, *, actor, comment: str = "", date: dt.date | None = None) -> CashOrder:
-    order = (CashOrder.objects.select_for_update()
+    order = (CashOrder.objects.select_for_update(of=("self",))
              .select_related("account", "to_account", "entry", "project").get(pk=order.pk))
     if order.status == OrderStatus.CANCELLED:
         raise Conflict("Order allaqachon bekor qilingan")
@@ -483,7 +483,7 @@ def payment_request_delete(req: PaymentRequest, *, actor) -> None:
 
 
 def _lock(req: PaymentRequest) -> PaymentRequest:
-    return PaymentRequest.objects.select_for_update().get(pk=req.pk)
+    return PaymentRequest.objects.select_for_update(of=("self",)).get(pk=req.pk)
 
 
 @transaction.atomic

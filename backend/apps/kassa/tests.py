@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 from django.core.management import call_command
+from django.utils import timezone
 
 from apps.accounting import selectors as ledger
 from apps.accounting.models import Account
@@ -135,8 +136,9 @@ def test_seed_accounts_and_balance_is_the_ledger(kas):
         ("Asosiy kassa", "cash", "UZS", "5010"), ("Valyuta kassasi", "cash", "USD", "5020"),
         ("Hisob raqami", "bank", "UZS", "5110")]
     assert all(D(a["balance"]) == 0 for a in accounts)
-    _fund(kas, "5000000")
-    _paid(kas, kind="out", purpose="Xarajat", amount="1200000", basis="Kanselyariya")
+    today = timezone.localdate()  # "month_out" is this month: fixed dates made the test pass only in October
+    _fund(kas, "5000000", date=today.replace(day=1).isoformat())
+    _paid(kas, kind="out", purpose="Xarajat", amount="1200000", basis="Kanselyariya", date=today.isoformat())
     assert _balance(kas) == D("3800000") == ledger.account_balance("cash_uzs")
     s = kas.get(f"{K}/summary/").json()
     assert D(s["total_uzs"]) == D("3800000") and D(s["cash_uzs"]) == D("3800000") and D(s["bank_uzs"]) == 0

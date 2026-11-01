@@ -60,7 +60,7 @@ export function InvoicePrint() {
             <td className="text-center">{n0(c.total)} {c.currency === "USD" ? "$" : "сўм"}</td>
           </tr>
           {[
-            ["Сумма сделки:", p.amount ? `${n0(p.amount)} ${cur}` : ""],
+            ["Сумма сделки:", Number(p.total_amount) ? `${n0(p.total_amount)} ${cur}` : ""], // + service, so Остаток adds up
             ["Сумма аванса:", Number(p.advance_amount) ? `${n0(p.advance_amount)} ${cur}` : ""],
             ["Остаток:", p.debt_amount ? `${n0(p.debt_amount)} ${cur}` : ""],
             ["Дата получения аванса", d(p.advance_date)],

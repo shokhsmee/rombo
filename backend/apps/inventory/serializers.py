@@ -153,6 +153,7 @@ class StockMoveListSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
         ]
+        read_only_fields = ["status", "source_model", "source_id", "source_label"]  # set by the workflow actions only
 
 
 class StockMoveSerializer(StockMoveListSerializer):
@@ -194,6 +195,7 @@ class StockMoveSerializer(StockMoveListSerializer):
             "allowed_statuses",
             "updated_at",
         ]
+        read_only_fields = [*StockMoveListSerializer.Meta.read_only_fields, "posted_at"]  # set by the workflow actions only
 
     def get_on_hand(self, obj) -> dict | None:
         """What the warehouse holds now and the product's average — the form shows it next to the qty."""

@@ -85,13 +85,14 @@ class CalcUpdateSerializer(serializers.Serializer):
 class ProjectListSerializer(serializers.ModelSerializer):
     client = RefSerializer(read_only=True)
     manager = RefSerializer(read_only=True)
+    total_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)  # order + service
     debt_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     total_area = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = Project
         fields = ["id", "code", "name", "status", "client", "manager", "region", "sale_date", "deadline", "amount",
-                  "debt_amount", "total_area", "currency", "created_at"]
+                  "total_amount", "debt_amount", "total_area", "currency", "created_at"]
         read_only_fields = ["status"]
 
 
