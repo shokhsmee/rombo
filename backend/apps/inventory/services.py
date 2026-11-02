@@ -147,20 +147,22 @@ def guess_category(name: str) -> str:
 
 def _units(fields: dict, p: Product | None = None) -> dict:
     """Stock and purchase units are registry units stored by canonical name (шт → dona); a purchase unit needs
-    its factor ("1 dona = 6.5 m") unless the registry already converts it (sm → m)."""
+    its factor ("1 dona = 6.5 m") unless the registry already converts it (sm → m). A unit made inactive stays
+    valid on the products that already have it."""
     from apps.references import services as refs
 
     if "unit" in fields:
-        fields["unit"] = refs.uom_require(fields["unit"] or "dona").name
+        fields["unit"] = refs.uom_require(fields["unit"] or "dona", keep=p.unit if p else "").name
     if fields.get("purchase_unit"):
-        fields["purchase_unit"] = refs.uom_require(fields["purchase_unit"], field="purchase_unit").name
+        fields["purchase_unit"] = refs.uom_require(fields["purchase_unit"], field="purchase_unit",
+                                                   keep=p.purchase_unit if p else "").name
     unit = fields.get("unit", p.unit if p else "dona")
     purchase = fields.get("purchase_unit", p.purchase_unit if p else "")
     factor = fields.get("purchase_factor", p.purchase_factor if p else None)
     if not purchase or purchase == unit:
         fields["purchase_unit"], fields["purchase_factor"] = "", None
     elif factor is None or factor <= 0:
-        ratio = refs.uom_ratio(refs.uom_require(purchase), refs.uom_require(unit))
+        ratio = refs.uom_ratio(refs.uom_require(purchase, keep=purchase), refs.uom_require(unit, keep=unit))
         if ratio is None:
             raise ValidationFailed(f"1 {purchase} necha {unit}? Xarid birligidagi miqdorni kiriting",
                                    field="purchase_factor")

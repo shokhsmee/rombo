@@ -780,6 +780,29 @@ def test_receipt_converts_bars_to_metres_and_refuses_what_does_not_convert(admin
     assert r.status_code == 400 and "«kg»" in r.json()["error"]["message"]
 
 
+def test_inactive_unit_stays_valid_where_used(admin):
+    """An inactive unit is hidden from new choices; products kept in it still save and still receive."""
+    uoms = {u["name"]: u for u in admin.get(f"{API}/references/uoms/").json()}
+    profil = admin.post(f"{API}/inventory/products/", {"name": "Profil T", "unit": "m", "category": "profil",
+                                                       "purchase_unit": "dona", "purchase_factor": "6"},
+                        format="json").json()
+    for name in ("m", "dona"):
+        r = admin.patch(f"{API}/references/uoms/{uoms[name]['id']}/", {"is_active": False}, format="json")
+        assert r.status_code == 200, r.content
+
+    # the product form sends every field back
+    form = {"name": "Profil T-60", "unit": "m", "purchase_unit": "dona", "purchase_factor": "6"}
+    r = admin.patch(f"{API}/inventory/products/{profil['id']}/", form, format="json")
+    assert r.status_code == 200, r.content
+    rec = _bar_order(admin, profil, "шт", qty="2")
+    assert admin.post(f"{API}/procurement/receipts/{rec['id']}/post/").status_code == 200
+    p = admin.get(f"{API}/inventory/products/{profil['id']}/").json()
+    assert Decimal(p["qty_on_hand"]) == Decimal("12")
+
+    r = admin.post(f"{API}/inventory/products/", {"name": "Yangi", "unit": "m"}, format="json")
+    assert r.status_code == 400 and r.json()["error"]["field"] == "unit"
+
+
 def test_units_resolve_through_the_registry(admin):
     uoms = {u["name"]: u for u in admin.get(f"{API}/references/uoms/").json()}
     assert {"dona", "m", "m2", "kg", "komplekt"} <= set(uoms)

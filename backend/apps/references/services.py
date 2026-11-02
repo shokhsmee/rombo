@@ -41,22 +41,28 @@ def refitem_delete(item: RefItem, *, actor) -> None:
 
 
 def uom_resolve(text: str) -> Uom | None:
-    """The unit a piece of text means: by name or alias, ignoring case, dots and spaces ("Шт." → dona)."""
+    """The unit a piece of text means: by name or alias, ignoring case, dots and spaces ("Шт." → dona).
+    Inactive units resolve too: stock already counted in them still converts."""
     key = norm_unit(text)
     if not key:
         return None
-    for u in Uom.objects.filter(is_active=True):
+    for u in Uom.objects.all():
         if key in u.spellings():
             return u
     return None
 
 
-def uom_require(text: str, *, field: str = "unit") -> Uom:
+def uom_require(text: str, *, field: str = "unit", keep: str = "") -> Uom:
+    """`text` as a unit to choose. An inactive unit is refused for a new choice but stays valid where it is
+    already used (`keep`: the value the record has now)."""
     u = uom_resolve(text)
     if u is None:
         known = ", ".join(Uom.objects.filter(is_active=True).values_list("name", flat=True))
         raise ValidationFailed(f"«{text}» o'lchov birligi noma'lum. Bor birliklar: {known}. Yangisini "
                                f"Sozlamalar → O'lchov birliklari'da qo'shing", field=field)
+    if not u.is_active and u.name != keep:
+        raise ValidationFailed(f"«{u.name}» nofaol — boshqa birlikni tanlang yoki uni Sozlamalar → O'lchov "
+                               f"birliklari'da faollashtiring", field=field)
     return u
 
 

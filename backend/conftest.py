@@ -1,3 +1,5 @@
+import functools
+
 import pytest
 from django.core.management import call_command
 from rest_framework.test import APIClient
@@ -17,10 +19,22 @@ def _encryption_key(settings):
     crypto._fernet.cache_clear()
 
 
+@functools.cache
+def _sequence_reset_sql() -> str:
+    from django.apps import apps
+    from django.core.management.color import no_style
+    from django.db import connection
+
+    models = apps.get_models(include_auto_created=True)
+    return ";\n".join(connection.ops.sequence_reset_sql(no_style(), models))
+
+
 @pytest.fixture(autouse=True)
 def _numbering_from_one(request):
     """Human codes come from PKs (BX-00001). PostgreSQL keeps sequences after a test's rollback, so without this
-    a test's first entry could be BX-00005 depending on what ran before; SQLite effectively restarted them."""
+    a test's first entry could be BX-00005 depending on what ran before; SQLite effectively restarted them.
+    Each sequence restarts after the table's last row, not at 1: rows a migration seeded (units, references)
+    would otherwise collide with the next insert."""
     if "db" not in request.fixturenames:
         return
     request.getfixturevalue("db")
@@ -28,7 +42,7 @@ def _numbering_from_one(request):
 
     if connection.vendor == "postgresql":
         with connection.cursor() as c:
-            c.execute("SELECT setval(c.oid, 1, false) FROM pg_class c WHERE c.relkind = 'S'")
+            c.execute(_sequence_reset_sql())
 
 
 @pytest.fixture

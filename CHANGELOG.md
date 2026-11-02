@@ -3,6 +3,11 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-11-02
+- fix(references) — A unit made inactive stays valid on products that already use it: they still save and
+  their receipts still convert; only new choices are refused. Why: deactivating "m" blocked every product kept
+  in metres.
+- fix(tests) — On PostgreSQL each test restarts sequences after the table's last row, not at 1. Why: rows a
+  migration seeds (units, references) collided with the next insert, so the unit and reference tests failed.
 - `add-units-of-measure`:
   - Units-of-measure registry (Ma'lumotnomalar → O'lchov birliklari) with categories, ratios and aliases
     (шт → dona, м → m).
