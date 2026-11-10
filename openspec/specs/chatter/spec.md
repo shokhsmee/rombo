@@ -30,6 +30,10 @@ each with author name, user and time, newest first.
 ### Requirement: Notes
 `POST /chatter/ {model, res_id, body}` SHALL add a `note` by the current user. Empty body → 400.
 
+#### Scenario: Empty note
+- WHEN `POST /chatter/` has an empty `body`
+- THEN 400 on field `body` and nothing is written
+
 ### Requirement: Access
 Reading and writing SHALL require `view` permission on the page the model belongs to. Unknown model
 or missing record → 404. Models with a history: Loyiha, Mijoz, Xodim, Foydalanuvchi, Rol, **Lid**

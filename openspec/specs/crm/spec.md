@@ -44,6 +44,10 @@ Loyiha cannot be deleted. Tracked fields are written to chatter (`crm.lead`).
 (client/contact, phone, budget, manager, next open task and whether it is overdue). Won and lost leads not
 changed for 30 days are left off the board.
 
+#### Scenario: Old closed lead
+- WHEN a lead was won or lost more than 30 days ago and not changed since
+- THEN it is not on `GET /crm/leads/board/`
+
 ### Requirement: Move between stages
 `POST /crm/leads/{id}/move/ {stage_id, lost_reason}` SHALL move a lead to a stage of its own pipeline, set the
 status from the stage and write one history line with the old and new stage. Moving to a lost stage requires a
@@ -99,6 +103,10 @@ A lead SHALL have tags (trimmed, unique, at most 15). Each pipeline SHALL have i
 seeded). Task types SHALL be an editable list (first = default). The kanban card's fields SHALL be chosen by an admin
 for everyone (standard keys and `f:<field>`).
 
+#### Scenario: Duplicate tags
+- WHEN a lead is saved with tags `" vip"` and `"vip"`
+- THEN it keeps one tag `vip`
+
 ### Requirement: Duplicates and merging
 When the duplicates add-on is on, a lead SHALL list other open leads with the same number (its own or its client's)
 or the same client; the board marks them "Dubl"; quick add warns while typing a known number. Merging lead A into an
@@ -126,17 +134,29 @@ queue order). The assigned manager is notified.
 `POST /crm/leads/bulk/ {ids ≤ 500, action}` SHALL move (only leads of that stage's pipeline), assign, tag, untag,
 reject (reason required) or delete (crm.delete; leads with a Loyiha stay).
 
+#### Scenario: Too many leads
+- WHEN `POST /crm/leads/bulk/` has more than 500 ids
+- THEN 400 and no lead changes
+
 ### Requirement: Board filters
 The board SHALL offer quick views (mine, today's tasks, overdue, no task, new today, quiet 3 days, missed call,
 duplicates, won, lost), a filter panel (status, stage, manager, task, created period, budget, source, tags, every custom
 field) and presets saved in the browser. `closed=all` loads won / lost cards older than 30 days; `created_from` /
 `created_to` narrow by arrival.
 
+#### Scenario: Older closed cards on request
+- WHEN the board is loaded with `closed=all`
+- THEN won and lost cards older than 30 days are included
+
 ### Requirement: CRM analytics
 `GET /crm/analytics/?date_from&date_to&pipeline&manager` SHALL return totals (new, won, lost, open, stale, win rate,
 won budget, average deal, median days to win, open / overdue tasks), a daily series, the funnel (reached per work
 stage, % of first and of previous, median time in stage, won row), sources, lost reasons and a per-manager table
 (response time, calls, talk time).
+
+#### Scenario: Period filter
+- WHEN `GET /crm/analytics/` is called with `date_from` and `date_to`
+- THEN totals, the daily series and the funnel count only leads of that period
 
 ### Requirement: Lead sources
 Connections of kind `webhook` (website / ad forms) and `yuboraman` SHALL receive requests at
@@ -164,3 +184,7 @@ and on the webhook (the deal is always re-read from the API).
 ### Requirement: Notifications
 Assigning a lead to someone else and an open task falling due SHALL push a notification to that person (a toast that
 opens the lead); a task reminder goes out once.
+
+#### Scenario: Lead reassigned
+- WHEN a manager assigns a lead to another user
+- THEN that user gets a notification that opens the lead

@@ -26,6 +26,10 @@ Each user has `token_version`, embedded in tokens as claim `tv`. A token with an
 ### Requirement: Page registry
 Every page SHALL be declared once in `apps/access/registry.py` with a permanent key, label, group and supported actions. Modules not yet built MAY be declared `planned`.
 
+#### Scenario: Unknown page key
+- WHEN a viewset declares a `page_key` that is not in `PAGES`
+- THEN the permission check fails loudly instead of granting or denying silently
+
 ### Requirement: Role permission matrix
 A role SHALL hold one row per page with `can_view, can_create, can_update, can_delete`. Any write flag SHALL imply view. Actions a page doesn't support SHALL be stored false. Saving a role replaces its whole matrix.
 
@@ -46,6 +50,10 @@ User permissions SHALL be the union of their roles; superusers get everything. `
 
 ### Requirement: Users are never deleted
 Users are referenced by audit columns. Delete SHALL return 409; block (`is_active=false`) instead. A user SHALL NOT block themselves or drop their own superuser flag.
+
+#### Scenario: Delete a user
+- WHEN `DELETE /users/{id}/` is called
+- THEN 409; the user stays and can be blocked with `is_active=false`
 
 ### Requirement: CRM pages
 The registry SHALL have page `client_map` "Mijozlar xaritasi" in group "CRM", view only. Roles that

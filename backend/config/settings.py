@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     "apps.telegram",
     "apps.procurement",
     "apps.maintenance",
+    "apps.specs",
+    "apps.mcp",  # last: reaches every other app only through its URLs (ADR 0014)
 ]
 
 MIDDLEWARE = [
@@ -174,6 +176,9 @@ if CBU_RATES_AUTO:
 # Where outside services reach this install (webhook URLs, OAuth redirects): https://erp.rombo.uz.
 # Empty → taken from the request (fine for dev; set it behind a proxy).
 PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", default="").rstrip("/")
+
+# OpenSpec folder copied into the DB by `manage.py specs_sync` (Claude / Spetsifikatsiyalar read the copy)
+OPENSPEC_DIR = env("OPENSPEC_DIR", default="") or str(BASE_DIR.parent / "openspec")
 # Google OAuth app for call recordings in Drive (console.cloud.google.com → OAuth client, Web application;
 # redirect URI = PUBLIC_BASE_URL + /api/v1/telephony/recordings/google/callback/). Empty = "ulanmagan".
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")

@@ -15,6 +15,7 @@ x-backend: &backend
     DATABASE_URL: postgres://rombo:${POSTGRES_PASSWORD:-rombo}@db:5432/rombo
     REDIS_URL: redis://redis:6379/0
     MEDIA_ROOT: /data/media
+    OPENSPEC_DIR: /openspec
   volumes:
     - media:/data/media
   depends_on:
@@ -51,8 +52,8 @@ services:
   migrate:
     <<: *backend
     restart: "no"
-    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
-    volumes: [media:/data/media, static:/app/staticfiles]
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py specs_sync"]
+    volumes: [media:/data/media, static:/app/staticfiles, ./openspec:/openspec:ro]  # specs for Claude (ADR 0014)
 
   backend:  # API + live-updates WebSocket
     <<: *backend

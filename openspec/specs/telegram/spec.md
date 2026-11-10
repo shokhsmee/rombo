@@ -30,7 +30,15 @@ A first incoming message in a private chat SHALL link the chat to the client wit
 the account says so; when the account has "lead" on, the number's open lead is linked or a new lead
 ("Telegram orqali yozdi") is made. The chat page can link a client by hand or open a lead.
 
+#### Scenario: First message with lead on
+- WHEN a new private chat writes to an account with "lead" on and the number has no open lead
+- THEN the chat is linked to the client and a lead "Telegram orqali yozdi" is created
+
 ### Requirement: Listener
 `manage.py telegram_listen` SHALL keep one live connection per connected account, deliver new / edited / deleted /
 read messages and reactions live, and — with REDIS_URL — serve the web app's Telegram calls so a session never has two
 live connections; without it the web app opens a short-lived connection.
+
+#### Scenario: One connection per account
+- WHEN `telegram_listen` runs with `REDIS_URL` and the web app sends a message
+- THEN the listener's connection sends it; no second connection is opened

@@ -93,6 +93,20 @@ Testing inside Telegram from a dev machine: run a tunnel to Vite (`cloudflared t
 and set `SERVICE_WEBAPP_URL=https://<x>.trycloudflare.com/app`. To look at the Mini App in a plain browser set
 `SERVICE_MINIAPP_DEV=True` (DEBUG only) and open `http://localhost:5173/app/client/?dev=<telegram id of a bot user>`.
 
+## Claude (MCP) and specs
+
+Staff can connect Claude to the ERP. Claude works **as that user, with that user's permissions**: it reads data,
+does things only after the user confirms, reads the OpenSpec specs and files fix ideas (Tizim → Takliflar).
+
+1. The user needs page **Claude (MCP) ulanish** (role "MCP tahlilchi" or Administrator) and opens
+   Tizim → Claude ulanish → **Yangi token** (`Faqat o'qish` or `O'qish va yozish`). The token is shown once.
+2. Connect:
+   - claude.ai / Claude Desktop: Settings → Connectors → Add custom connector → paste the **connector URL**
+     (`<PUBLIC_BASE_URL>/api/v1/mcp/t/<token>/` — it is a secret; revoke it in the same page);
+   - Claude Code: `claude mcp add --transport http rombo <PUBLIC_BASE_URL>/api/v1/mcp/ --header "Authorization: Bearer <token>"`.
+3. Specs are read from the database: run `uv run python manage.py specs_sync` after every deploy (Docker does it in
+   `migrate`). `--check` also prints OpenSpec problems; `apps/specs/tests.py` fails on them. See ADR 0014.
+
 ## Layout
 
 ```

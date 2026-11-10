@@ -32,6 +32,7 @@ CHATTER_PAGES = {
     "mrp.bom": Pages.BOM,
     "maintenance.servicerequest": Pages.SERVICE_REQUESTS,
     "maintenance.master": Pages.SERVICE_MASTERS,
+    "specs.fixidea": Pages.FIX_IDEAS,
 }
 
 

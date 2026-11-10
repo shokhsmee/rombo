@@ -70,6 +70,10 @@ const ServiceRequestsListPage = lazy(() => import("@/modules/maintenance/Request
 const ServiceRequestFormPage = lazy(() => import("@/modules/maintenance/RequestFormPage").then((m) => ({ default: m.RequestFormPage })));
 const ServiceMastersListPage = lazy(() => import("@/modules/maintenance/MastersListPage").then((m) => ({ default: m.MastersListPage })));
 const ServiceMasterFormPage = lazy(() => import("@/modules/maintenance/MasterFormPage").then((m) => ({ default: m.MasterFormPage })));
+const McpPage = lazy(() => import("@/modules/mcp/McpPage").then((m) => ({ default: m.McpPage })));
+const SpecsPage = lazy(() => import("@/modules/specs/SpecsPage").then((m) => ({ default: m.SpecsPage })));
+const IdeasListPage = lazy(() => import("@/modules/specs/IdeasListPage").then((m) => ({ default: m.IdeasListPage })));
+const IdeaFormPage = lazy(() => import("@/modules/specs/IdeaFormPage").then((m) => ({ default: m.IdeaFormPage })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
 export function App() {
@@ -152,6 +156,10 @@ export function App() {
         <Route path="settings/pricing/:id" element={<RequirePage page="pricing"><PriceListFormPage /></RequirePage>} />
         <Route path="settings/company" element={<RequirePage page="company"><CompanyPage /></RequirePage>} />
         <Route path="settings/approval-steps" element={<RequirePage page="approval_steps"><Later><ApprovalStepsPage /></Later></RequirePage>} />
+        <Route path="system/claude" element={<RequirePage page="mcp"><Later><McpPage /></Later></RequirePage>} />
+        <Route path="system/specs" element={<RequirePage page="specs"><Later><SpecsPage /></Later></RequirePage>} />
+        <Route path="system/ideas" element={<RequirePage page="fix_ideas"><Later><IdeasListPage /></Later></RequirePage>} />
+        <Route path="system/ideas/:id" element={<RequirePage page="fix_ideas"><Later><IdeaFormPage /></Later></RequirePage>} />
 
         <Route path="*" element={<NotFound />} />
       </Route>

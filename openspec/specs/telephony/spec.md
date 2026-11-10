@@ -25,6 +25,10 @@ Each user MAY have one extension: internal number, SIP login, SIP password, "bro
 The SIP password SHALL be write-only in the API; `GET /telephony/me/` returns it only to its owner and only
 when the browser phone is on and a WSS address is set.
 
+#### Scenario: Someone else's SIP password
+- WHEN a user reads another user's extension
+- THEN the SIP password is not in the response
+
 ### Requirement: PBX webhook
 `POST /telephony/hook/{token}/` (no login) SHALL accept a JSON object, a JSON list (≤ 50) or a form post from
 any PBX and upsert calls by the PBX call id. Field names are read from the common spellings
@@ -60,6 +64,10 @@ call add a call-back task unless one is open; an answered call closes the open c
 answered, missed, talk seconds, missed not called back). `PATCH /telephony/calls/{id}/ {note, lead_id}` saves a
 result note or links a lead; `POST /telephony/calls/{id}/lead/` creates a lead from the call.
 
+#### Scenario: Missed calls only
+- WHEN `GET /telephony/calls/?status=missed` is called
+- THEN only missed calls are listed, newest first
+
 ### Requirement: Live calls and softphone
 `GET /telephony/calls/live/` SHALL return the current user's ringing/talking calls and calls ended in the last
 two minutes; calls left ringing/talking for 30 minutes are closed. The browser phone (JsSIP) reports its calls to
@@ -86,6 +94,10 @@ leads, never create leads or tasks. Moi Zvonki SHALL subscribe its webhook when 
 the admin key) or the extension through an IP-PBX originate path; otherwise it answers that click-to-call is not set up
 (the browser phone or the device dialer is used).
 
+#### Scenario: Not set up
+- WHEN `POST /telephony/dial/` is called and neither Moi Zvonki nor an originate path is configured
+- THEN the answer says click-to-call is not set up and no call is placed
+
 ### Requirement: Recordings in Google Drive
 With a Google account connected (OAuth, `drive.file`; app from env GOOGLE_CLIENT_ID / SECRET) and recordings switched
 on, every ended call with a recording started after the switch SHALL be copied by the worker into one Drive folder.
@@ -101,9 +113,21 @@ Rombo link that streams the Drive file (Range passes through).
 returned / still open, median call-back time), a daily series, a weekday × hour heatmap of all and missed calls, per
 employee and per connection tables, and how fast new leads got their first call.
 
+#### Scenario: Missed and returned
+- WHEN a missed call is followed by an outgoing call to the same number
+- THEN analytics counts it as missed-returned and uses the gap for the median call-back time
+
 ### Requirement: Live popup over the socket
 Calls SHALL be pushed to their operator over `/ws/live/`; `/telephony/calls/live/` is polled only while the socket is
 down.
 
+#### Scenario: Socket up
+- WHEN an operator's `/ws/live/` socket is connected
+- THEN incoming calls arrive over the socket and `/telephony/calls/live/` is not polled
+
 ### Requirement: No AI call analysis
 uzbridge's AI transcription and review of calls SHALL NOT be part of Rombo (product owner's decision).
+
+#### Scenario: Call recorded
+- WHEN a call recording is stored
+- THEN no transcription or AI review is made

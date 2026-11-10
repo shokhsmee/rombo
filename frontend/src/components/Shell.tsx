@@ -42,6 +42,9 @@ import {
   UsersRound,
   Wallet,
   Wrench,
+  Bot,
+  BookMarked,
+  Lightbulb,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -138,6 +141,14 @@ const NAV: NavGroup[] = [
       { page: "pricing", label: "Narxlar", to: "/settings/pricing", icon: Tags },
       { page: "company", label: "Kompaniya", to: "/settings/company", icon: Building },
       { page: "approval_steps", label: "Tasdiqlash bosqichlari", to: "/settings/approval-steps", icon: ListOrdered },
+    ],
+  },
+  {
+    title: "Tizim",
+    items: [
+      { page: "mcp", label: "Claude ulanish", to: "/system/claude", icon: Bot },
+      { page: "specs", label: "Spetsifikatsiyalar", to: "/system/specs", icon: BookMarked },
+      { page: "fix_ideas", label: "Takliflar", to: "/system/ideas", icon: Lightbulb },
     ],
   },
 ];

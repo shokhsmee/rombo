@@ -36,6 +36,19 @@ class ChatterMiddleware:
             _request.reset(token)
 
 
+class serving:
+    """`with serving(request):` — an in-process request (the MCP bridge) is the one whose user is the actor."""
+
+    def __init__(self, request):
+        self.request = request
+
+    def __enter__(self):
+        self.t = _request.set(self.request)
+
+    def __exit__(self, *exc):
+        _request.reset(self.t)
+
+
 class muted:
     """`with muted():` — saves that should not fill the history (imports, or a service posting its own line)."""
 

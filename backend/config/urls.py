@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.mcp.urls import endpoint_urls as mcp_endpoint
+
 api_v1 = [
     path("auth/", include("apps.users.urls_auth")),
     path("access/", include("apps.access.urls")),
@@ -25,11 +27,14 @@ api_v1 = [
     path("references/", include("apps.references.urls")),
     path("pricing/", include("apps.pricing.urls")),
     path("company/", include("apps.company.urls")),
+    path("specs/", include("apps.specs.urls")),
+    path("mcp/", include("apps.mcp.urls")),
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
 ]
 
 urlpatterns = [
+    *mcp_endpoint,
     path("admin/", admin.site.urls),
     path("api/v1/", include(api_v1)),
 ]

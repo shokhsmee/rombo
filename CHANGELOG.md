@@ -2,6 +2,17 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-11-10
+- `add-claude-mcp`:
+  - Claude (MCP) endpoint `/api/v1/mcp/`: personal tokens (read / write, expiry, revoke), connect from claude.ai,
+    Claude Desktop or Claude Code; Claude acts as the user through the real API, with the user's permissions.
+  - Specs in the app: `manage.py specs_sync` copies `openspec/` into the DB; Tizim → Spetsifikatsiyalar; MCP spec tools.
+  - Takliflar (fix ideas, TK-0001): filed from Claude or by hand, new → accepted → done / rejected, proposal.md draft.
+  - Pages `mcp`, `specs`, `fix_ideas`; role "MCP tahlilchi"; Administrator gets all three. ADR 0014.
+  - Why: staff want Claude to work in the ERP for them, and admins want it to check the system against the specs.
+- OpenSpec sync: a scenario for every requirement, `add-service-maintenance` archived and merged into
+  `specs/maintenance`, a test that fails on unmerged deltas. Why: `openspec validate` rejected the specs.
+
 ## 2026-11-07
 - `add-service-maintenance`:
   - Servis module: masters (Ustalar) and service requests (Servis arizalari) with a status flow new → assigned →

@@ -131,3 +131,7 @@ A product's stock unit SHALL be a registered unit, stored by its canonical name;
 
 ### Requirement: Purchase multiple
 "Xarid karrasi" is replaced by the purchase unit and factor; existing multiples become "1 dona = <multiple>".
+
+#### Scenario: Existing multiple
+- WHEN a product had purchase multiple 6 before units of measure
+- THEN its purchase unit reads "1 dona = 6"

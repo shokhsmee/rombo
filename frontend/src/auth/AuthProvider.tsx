@@ -10,7 +10,8 @@ export type PageKey =
   | "purchase_approve" | "purchase_orders" | "goods_receipts" | "suppliers"
   | "accounting" | "accounts" | "invoices" | "accounting_reports"
   | "kassa" | "cash_orders" | "cash_book" | "payment_requests" | "payment_approve" | "approval_steps"
-  | "inventory" | "stock" | "products" | "warehouses" | "bom";
+  | "inventory" | "stock" | "products" | "warehouses" | "bom"
+  | "mcp" | "specs" | "fix_ideas";
 export type PermAction = "view" | "create" | "update" | "delete";
 
 export type Me = {

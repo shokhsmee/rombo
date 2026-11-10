@@ -70,6 +70,9 @@ class Pages:
     WAREHOUSES = "warehouses"
     SERVICE_REQUESTS = "service_requests"
     SERVICE_MASTERS = "service_masters"
+    MCP = "mcp"  # Claude (MCP) tokens
+    SPECS = "specs"  # OpenSpec browser
+    FIX_IDEAS = "fix_ideas"
 
 
 PAGES: tuple[PageDef, ...] = (
@@ -109,6 +112,9 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.PRICING, "Narxlar", "Sozlamalar"),
     PageDef(Pages.COMPANY, "Kompaniya rekvizitlari", "Sozlamalar", (Action.VIEW, Action.UPDATE)),
     PageDef(Pages.APPROVAL_STEPS, "Tasdiqlash bosqichlari", "Sozlamalar"),
+    PageDef(Pages.MCP, "Claude (MCP) ulanish", "Tizim", (Action.VIEW, Action.CREATE, Action.DELETE)),
+    PageDef(Pages.SPECS, "Spetsifikatsiyalar", "Tizim", VIEW_ONLY),
+    PageDef(Pages.FIX_IDEAS, "Takliflar", "Tizim"),
 )
 
 PAGE_BY_KEY = {p.key: p for p in PAGES}

@@ -9,6 +9,7 @@ from apps.users.models import User
 FULL = dict(can_view=True, can_create=True, can_update=True, can_delete=True)
 EDIT = dict(can_view=True, can_create=True, can_update=True)
 VIEW = dict(can_view=True)
+MCP = dict(can_view=True, can_create=True, can_delete=True)
 
 DEFAULT_ROLES = {
     "Administrator": ("Barcha sahifalarga to'liq ruxsat", {
@@ -24,6 +25,7 @@ DEFAULT_ROLES = {
         Pages.APPROVAL_STEPS: FULL,
         Pages.INVENTORY: FULL, Pages.STOCK: VIEW, Pages.PRODUCTS: FULL, Pages.WAREHOUSES: FULL,
         Pages.BOM: FULL, Pages.SERVICE_REQUESTS: FULL, Pages.SERVICE_MASTERS: FULL,
+        Pages.MCP: MCP, Pages.SPECS: VIEW, Pages.FIX_IDEAS: FULL,
     }),
     "Buxgalter": ("Jurnal, hisob-fakturalar, hisoblar rejasi, hisobotlar va kassa", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: VIEW, Pages.COMPANY: dict(can_view=True, can_update=True),
@@ -55,6 +57,10 @@ DEFAULT_ROLES = {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.GOODS_RECEIPTS: EDIT, Pages.INVENTORY: FULL,
         Pages.STOCK: VIEW, Pages.PRODUCTS: EDIT, Pages.WAREHOUSES: dict(can_view=True, can_update=True),
         Pages.MRP: VIEW, Pages.BOM: VIEW,
+    }),
+    # also created by specs/migrations/0002 for databases seeded before it existed
+    "MCP tahlilchi": ("Claude orqali tizim va spetsifikatsiyalarni ko'radi, takliflar yozadi", {
+        Pages.DASHBOARD: VIEW, Pages.MCP: MCP, Pages.SPECS: VIEW, Pages.FIX_IDEAS: EDIT,
     }),
 }
 
