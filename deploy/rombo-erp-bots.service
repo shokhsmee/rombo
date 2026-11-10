@@ -1,0 +1,14 @@
+[Unit]
+Description=Rombo ERP Servis bots (mijoz + usta) by long polling
+After=network.target postgresql.service redis-server.service
+
+[Service]
+User=rombo-erp
+Group=rombo-erp
+WorkingDirectory=/opt/rombo-erp/backend
+ExecStart=/opt/rombo-erp/backend/.venv/bin/python manage.py service_bots
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

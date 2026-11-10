@@ -72,6 +72,27 @@ External accounts (amoCRM, PBX keys, Telegram, Google Drive) are filled in the a
 Dev login comes from `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` in `backend/.env`.
 Change it before any shared deployment.
 
+## Servis bots and Mini Apps
+
+After-sales service (Servis → Arizalar, Ustalar) has two Telegram bots, each with a Mini App:
+
+| | Bot | Mini App |
+|---|---|---|
+| Mijoz (client) | share phone → linked to the client (or a new one); gets status messages, rates the job | `/app/client/` — new request with photos and location, my requests, rate / reopen / cancel |
+| Usta (master) | share phone → linked only if an active master has it; new jobs with accept / decline | `/app/master/` — active jobs, history, accept / start / finish with report and photos |
+
+1. Create two bots in @BotFather and put the tokens in `backend/.env`: `SERVICE_CLIENT_BOT_TOKEN`,
+   `SERVICE_MASTER_BOT_TOKEN`, plus `SERVICE_WEBHOOK_SECRET` (any random string).
+2. Mini Apps need **https**: `PUBLIC_BASE_URL=https://erp.example.uz` → `…/app/client/`, `…/app/master/`.
+3. Production: `uv run python manage.py service_bots --set-webhook` once. Without https (dev):
+   `uv run python manage.py service_bots` polls (Docker: `docker compose --profile bots up -d`;
+   systemd: `deploy/rombo-erp-bots.service`).
+4. Add masters in Servis → Ustalar with the phone they use in Telegram; they press /start and share the number.
+
+Testing inside Telegram from a dev machine: run a tunnel to Vite (`cloudflared tunnel --url http://localhost:5173`)
+and set `SERVICE_WEBAPP_URL=https://<x>.trycloudflare.com/app`. To look at the Mini App in a plain browser set
+`SERVICE_MINIAPP_DEV=True` (DEBUG only) and open `http://localhost:5173/app/client/?dev=<telegram id of a bot user>`.
+
 ## Layout
 
 ```
@@ -84,8 +105,10 @@ backend/
   apps/clients/      customers
   apps/projects/     Loyihalar — status workflow
   apps/chatter/      record history + notes (TRACK on models)
+  apps/maintenance/  Servis: masters, service requests, the two bots, Mini App API
 frontend/src/
   components/        ui kit, DataTable, Record (record page), Chatter, EntitySelect…
   modules/<name>/    api.ts + list page + form page per module
+  miniapp/           Telegram Mini Apps (client + master), entry miniapp.html → /app/
 openspec/            what the system does and why it changed
 ```

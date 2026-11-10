@@ -1,0 +1,51 @@
+/* scan only the Mini App: the ERP's classes don't belong in what loads inside Telegram */
+@import "tailwindcss" source(none);
+@source "./";
+
+/* Mini App tokens. Inside Telegram they follow the user's Telegram theme (--tg-theme-*, set by the SDK);
+   in a plain browser they fall back to the ERP's light palette. Components use only these names. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --color-ground: var(--tg-theme-secondary-bg-color, #f2f4f7);
+  --color-card: var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #ffffff));
+  --color-ink: var(--tg-theme-text-color, #0f1722);
+  --color-hint: var(--tg-theme-hint-color, #7d8798);
+  --color-head: var(--tg-theme-section-header-text-color, #6d7885);
+  --color-link: var(--tg-theme-link-color, #1d5fb0);
+  --color-accent: var(--tg-theme-button-color, #1d5fb0);
+  --color-on-accent: var(--tg-theme-button-text-color, #ffffff);
+  --color-danger: var(--tg-theme-destructive-text-color, #d93838);
+  --color-line: color-mix(in srgb, var(--tg-theme-hint-color, #7d8798) 22%, transparent);
+  --color-soft: color-mix(in srgb, var(--tg-theme-hint-color, #7d8798) 12%, transparent);
+  --color-accent-soft: color-mix(in srgb, var(--tg-theme-button-color, #1d5fb0) 14%, transparent);
+
+  --color-ok: #1f9d55;
+  --color-warn: #d48806;
+  --color-info: #2f7ae5;
+  --color-done: #7c4dd6;
+  --color-star: #f5b301;
+
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+}
+
+html,
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  margin: 0;
+  min-height: var(--tg-viewport-stable-height, 100vh);
+}
+
+input,
+textarea,
+select {
+  font-size: 16px; /* no zoom-on-focus on iOS */
+}

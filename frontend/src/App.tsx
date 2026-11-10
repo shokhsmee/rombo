@@ -18,6 +18,7 @@ import { CalcPage } from "@/modules/projects/CalcPage";
 import { ContractPrint } from "@/modules/projects/print/ContractPrint";
 import { OrderPrint } from "@/modules/procurement/print/OrderPrint";
 import { InvoicePrint } from "@/modules/projects/print/InvoicePrint";
+import { PAGE_MASTERS, PAGE_REQUESTS } from "@/modules/maintenance/labels";
 import { CompanyPage } from "@/modules/company/CompanyPage";
 import { PriceListFormPage } from "@/modules/pricing/PriceListFormPage";
 import { PriceListsPage } from "@/modules/pricing/PriceListsPage";
@@ -65,6 +66,10 @@ const WarehousesPage = lazy(() => import("@/modules/inventory/WarehousesPage").t
 const BomsListPage = lazy(() => import("@/modules/mrp/BomsListPage").then((m) => ({ default: m.BomsListPage })));
 const BomFormPage = lazy(() => import("@/modules/mrp/BomFormPage").then((m) => ({ default: m.BomFormPage })));
 const MrpPage = lazy(() => import("@/modules/mrp/MrpPage").then((m) => ({ default: m.MrpPage })));
+const ServiceRequestsListPage = lazy(() => import("@/modules/maintenance/RequestsListPage").then((m) => ({ default: m.RequestsListPage })));
+const ServiceRequestFormPage = lazy(() => import("@/modules/maintenance/RequestFormPage").then((m) => ({ default: m.RequestFormPage })));
+const ServiceMastersListPage = lazy(() => import("@/modules/maintenance/MastersListPage").then((m) => ({ default: m.MastersListPage })));
+const ServiceMasterFormPage = lazy(() => import("@/modules/maintenance/MasterFormPage").then((m) => ({ default: m.MasterFormPage })));
 const Later = ({ children }: { children: ReactNode }) => <Suspense fallback={null}>{children}</Suspense>;
 
 export function App() {
@@ -128,6 +133,11 @@ export function App() {
         <Route path="kassa/book" element={<RequirePage page="cash_book"><Later><CashBookPage /></Later></RequirePage>} />
         <Route path="kassa/payment-requests" element={<RequirePage page="payment_requests"><Later><PaymentRequestsListPage /></Later></RequirePage>} />
         <Route path="kassa/payment-requests/:id" element={<RequirePage page="payment_requests"><Later><PaymentRequestFormPage /></Later></RequirePage>} />
+
+        <Route path="service" element={<RequirePage page={PAGE_REQUESTS}><Later><ServiceRequestsListPage /></Later></RequirePage>} />
+        <Route path="service/masters" element={<RequirePage page={PAGE_MASTERS}><Later><ServiceMastersListPage /></Later></RequirePage>} />
+        <Route path="service/masters/:id" element={<RequirePage page={PAGE_MASTERS}><Later><ServiceMasterFormPage /></Later></RequirePage>} />
+        <Route path="service/:id" element={<RequirePage page={PAGE_REQUESTS}><Later><ServiceRequestFormPage /></Later></RequirePage>} />
 
         <Route path="employees" element={<RequirePage page="employees"><EmployeesListPage /></RequirePage>} />
         <Route path="employees/:id" element={<RequirePage page="employees"><EmployeeFormPage /></RequirePage>} />

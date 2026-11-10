@@ -77,6 +77,14 @@ services:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
+  bots:  # Servis bots (mijoz + usta) by long polling; with HTTPS use `service_bots --set-webhook` instead
+    <<: *backend
+    command: ["python", "manage.py", "service_bots"]
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    profiles: ["bots"]  # needs SERVICE_*_BOT_TOKEN in backend/.env: docker compose --profile bots up -d
+
   frontend:  # SPA + proxy to backend
     build: ./frontend
     image: rombo-erp-frontend

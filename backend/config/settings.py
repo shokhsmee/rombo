@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.crm",
     "apps.telegram",
     "apps.procurement",
+    "apps.maintenance",
 ]
 
 MIDDLEWARE = [
@@ -189,3 +190,13 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER or "erp@r
 # Telegram app (my.telegram.org → API development tools). Each account may also enter its own.
 TELEGRAM_API_ID = env.int("TELEGRAM_API_ID", default=0)
 TELEGRAM_API_HASH = env("TELEGRAM_API_HASH", default="")
+
+# Servis bots (apps.maintenance): BotFather tokens; webhook secret for X-Telegram-Bot-Api-Secret-Token.
+# Mini Apps open at PUBLIC_BASE_URL/app/<client|master>/ (Telegram needs https); SERVICE_WEBAPP_URL overrides
+# that base for a dev tunnel, e.g. https://abc.trycloudflare.com/app
+SERVICE_CLIENT_BOT_TOKEN = env("SERVICE_CLIENT_BOT_TOKEN", default="")
+SERVICE_MASTER_BOT_TOKEN = env("SERVICE_MASTER_BOT_TOKEN", default="")
+SERVICE_WEBHOOK_SECRET = env("SERVICE_WEBHOOK_SECRET", default="")
+SERVICE_WEBAPP_URL = env("SERVICE_WEBAPP_URL", default="")
+# DEBUG only: the Mini App accepts "Authorization: dev <telegram id>" so it can be opened in a plain browser
+SERVICE_MINIAPP_DEV = env.bool("SERVICE_MINIAPP_DEV", default=False)

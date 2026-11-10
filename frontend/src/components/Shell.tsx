@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
   Factory,
   FileText,
+  HardHat,
   LayoutDashboard,
   Layers,
   LogOut,
@@ -40,6 +41,7 @@ import {
   Users,
   UsersRound,
   Wallet,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -49,6 +51,7 @@ import { useAuth, type PageKey } from "@/auth/AuthProvider";
 import { useLiveSocket } from "@/lib/live";
 import { resetTrail, useTrail, visit } from "@/lib/trail";
 import { useTheme, type Theme } from "@/lib/theme";
+import { PAGE_MASTERS, PAGE_REQUESTS } from "@/modules/maintenance/labels";
 import { TelephonyLive } from "@/modules/telephony/TelephonyLive";
 
 import { BrandLogo } from "./Brand";
@@ -73,6 +76,13 @@ const NAV: NavGroup[] = [
       { page: "client_map", label: "Mijozlar xaritasi", to: "/crm/map", icon: MapPinned },
       { page: "telephony", label: "Qo'ng'iroqlar", to: "/telephony", icon: PhoneCall },
       { page: "telegram", label: "Telegram", to: "/telegram", icon: Send },
+    ],
+  },
+  {
+    title: "Servis",
+    items: [
+      { page: PAGE_REQUESTS, label: "Arizalar", to: "/service", icon: Wrench },
+      { page: PAGE_MASTERS, label: "Ustalar", to: "/service/masters", icon: HardHat },
     ],
   },
   {

@@ -30,6 +30,8 @@ CHATTER_PAGES = {
     "inventory.product": Pages.PRODUCTS,
     "inventory.warehouse": Pages.WAREHOUSES,
     "mrp.bom": Pages.BOM,
+    "maintenance.servicerequest": Pages.SERVICE_REQUESTS,
+    "maintenance.master": Pages.SERVICE_MASTERS,
 }
 
 

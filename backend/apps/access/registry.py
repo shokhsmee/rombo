@@ -68,6 +68,8 @@ class Pages:
     STOCK = "stock"
     PRODUCTS = "products"
     WAREHOUSES = "warehouses"
+    SERVICE_REQUESTS = "service_requests"
+    SERVICE_MASTERS = "service_masters"
 
 
 PAGES: tuple[PageDef, ...] = (
@@ -87,6 +89,8 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.STOCK, "Qoldiqlar", "Ombor", VIEW_ONLY),
     PageDef(Pages.PRODUCTS, "Mahsulotlar", "Ombor"),
     PageDef(Pages.WAREHOUSES, "Omborlar", "Ombor", (Action.VIEW, Action.CREATE, Action.UPDATE, Action.DELETE)),
+    PageDef(Pages.SERVICE_REQUESTS, "Servis arizalari", "Servis"),
+    PageDef(Pages.SERVICE_MASTERS, "Ustalar", "Servis"),
     PageDef(Pages.BOM, "Tarkiblar (BOM)", "Ishlab chiqarish"),
     PageDef(Pages.MRP, "MRP — material rejalash", "Ishlab chiqarish", VIEW_ONLY),
     PageDef(Pages.ACCOUNTING, "Jurnal (o'tkazmalar)", "Buxgalteriya", (Action.VIEW, Action.CREATE, Action.UPDATE)),

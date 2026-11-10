@@ -2,6 +2,15 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-11-07
+- `add-service-maintenance`:
+  - Servis module: masters (Ustalar) and service requests (Servis arizalari) with a status flow new → assigned →
+    accepted → in progress → done → closed, warranty from the client's Loyiha, photos, report, rating.
+  - Mijoz bot + Mini App: clients share their phone, leave a request with photos and location, follow it, rate it.
+  - Usta bot + Mini App: masters get jobs with accept / decline, then start and finish them with a report.
+  - Webhook or `manage.py service_bots` (polling); Mini Apps signed in by Telegram initData.
+  - Why: after-sales calls were handled by phone and word of mouth, with no record of who fixed what.
+
 ## 2026-11-02
 - fix(references) — A unit made inactive stays valid on products that already use it: they still save and
   their receipts still convert; only new choices are refused. Why: deactivating "m" blocked every product kept

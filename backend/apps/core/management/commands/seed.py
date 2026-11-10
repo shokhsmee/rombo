@@ -23,7 +23,7 @@ DEFAULT_ROLES = {
         Pages.PAYMENT_REQUESTS: FULL, Pages.PAYMENT_APPROVE: dict(can_view=True, can_update=True),
         Pages.APPROVAL_STEPS: FULL,
         Pages.INVENTORY: FULL, Pages.STOCK: VIEW, Pages.PRODUCTS: FULL, Pages.WAREHOUSES: FULL,
-        Pages.BOM: FULL,
+        Pages.BOM: FULL, Pages.SERVICE_REQUESTS: FULL, Pages.SERVICE_MASTERS: FULL,
     }),
     "Buxgalter": ("Jurnal, hisob-fakturalar, hisoblar rejasi, hisobotlar va kassa", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: VIEW, Pages.COMPANY: dict(can_view=True, can_update=True),
@@ -46,6 +46,10 @@ DEFAULT_ROLES = {
         Pages.GOODS_RECEIPTS: EDIT, Pages.SUPPLIERS: EDIT,
         Pages.PAYMENT_REQUESTS: dict(can_view=True, can_create=True),
         Pages.INVENTORY: VIEW, Pages.STOCK: VIEW, Pages.PRODUCTS: EDIT, Pages.MRP: VIEW, Pages.BOM: VIEW,
+    }),
+    "Servis operatori": ("Servis arizalari va ustalar", {
+        Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: EDIT, Pages.EMPLOYEES: VIEW,
+        Pages.SERVICE_REQUESTS: FULL, Pages.SERVICE_MASTERS: EDIT,
     }),
     "Omborchi": ("Ombor: kirim, chiqim, yetkazish, qoldiqlar", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.GOODS_RECEIPTS: EDIT, Pages.INVENTORY: FULL,
