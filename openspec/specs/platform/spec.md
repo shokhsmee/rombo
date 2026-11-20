@@ -124,3 +124,40 @@ permission as the single-record action, each in its own savepoint, and return `d
 #### Scenario: Partial success
 - WHEN three draft moves are posted in one batch and one lacks stock
 - THEN two are posted and one is reported as failed with "Omborda yetarli emas"
+
+### Requirement: Compact sidebar
+The sidebar SHALL show each menu group as one folding line, with at most one group open at a time. The group
+holding the current page SHALL be open when the page loads. A group with a single page the user may see SHALL
+be shown as that page. Settings and system pages SHALL be reached through one "Sozlamalar" item that opens a
+page listing them as cards; the item SHALL be highlighted on any settings or system page. Pages the user may
+not see SHALL appear neither in the sidebar nor on the settings page.
+
+#### Scenario: Current group opens
+- WHEN the user opens `/kassa/book`
+- THEN the "Moliya" group is open with "Kassa kitobi" highlighted, and the other groups are folded
+
+#### Scenario: One group at a time
+- WHEN the "Ombor" group is open and the user clicks "Ta'minot"
+- THEN "Ta'minot" opens and "Ombor" folds
+
+#### Scenario: Settings through one item
+- WHEN a user with view on "users" and "pricing" only clicks "Sozlamalar"
+- THEN the settings page shows two cards, "Foydalanuvchilar" and "Narxlar", and no "Tizim" section
+
+### Requirement: User guide
+The app SHALL have a Qo'llanma page at `/guide`, reachable from the sidebar, with chapters that explain each
+module's workflow in Uzbek: text, numbered steps, tips, FAQ and screenshots whose red numbered marks are
+explained under the picture in the same order. A chapter tied to pages SHALL be listed only when the user may
+view at least one of them. The chapter in the URL hash SHALL open directly (`/guide#konstruktor`).
+
+#### Scenario: Chapters follow permissions
+- WHEN a user whose role sees only "kassa" and "cash_orders" opens `/guide`
+- THEN the list shows the Boshlash chapters and the Kassa chapters, and no Loyiha or Ta'minot chapter
+
+#### Scenario: Link to a chapter
+- WHEN `/guide#konstruktor` is opened
+- THEN the "Chizmalar — Konstruktor" chapter is shown and highlighted in the list
+
+#### Scenario: Picture full size
+- WHEN the user clicks a screenshot
+- THEN it opens over the page at full size and Esc closes it

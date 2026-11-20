@@ -8,6 +8,7 @@ import {
   Moon,
   Plus,
   Settings,
+  LifeBuoy,
   Sun,
   UserRound,
   type LucideIcon,
@@ -208,6 +209,7 @@ export function Shell() {
               onToggle={() => setOpen((o) => (o === g.title ? null : g.title))} />
           ))}
           {hasSettings && <Row to="/settings" icon={Settings} label="Sozlamalar" active={isSettingsPath(pathname)} />}
+          <Row to="/guide" icon={LifeBuoy} label="Qo'llanma" />
         </nav>
         <div className="hidden md:mt-auto md:flex md:px-2">
           <ThemeSwitch />

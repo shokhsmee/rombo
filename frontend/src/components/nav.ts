@@ -163,6 +163,7 @@ const ALL_ITEMS = [...NAV, ...SETTINGS_NAV].flatMap((g) => g.items);
 export function pageLabel(pathname: string): string {
   if (pathname === "/") return "Bosh sahifa";
   if (pathname === "/settings") return "Sozlamalar";
+  if (pathname === "/guide") return "Qo'llanma";
   let best = { len: 0, label: "Sahifa" };
   for (const i of ALL_ITEMS) {
     if ((pathname === i.to || pathname.startsWith(`${i.to}/`)) && i.to.length > best.len) best = { len: i.to.length, label: i.label };

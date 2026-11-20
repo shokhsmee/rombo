@@ -7,4 +7,4 @@
 - [x] 1.6 Check in the browser (light / dark, desktop / phone), `npm run build`
 
 ## 2. Archive
-- [ ] 2.1 CHANGELOG line, merge delta into `specs/platform`, move to archive
+- [x] 2.1 CHANGELOG line, merge delta into `specs/platform`, move to archive

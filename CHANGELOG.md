@@ -3,6 +3,11 @@
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
 ## 2026-11-20
+- `add-user-guide`: Qo'llanma (/guide) — 37 chapters with 136 annotated screenshots: the Loyiha from draft to
+  closing, Chizmalar (Konstruktor), CRM, Servis, Ta'minot, Ishlab chiqarish, Ombor, Kassa, Buxgalteriya, Xodimlar,
+  Sozlamalar; each user sees the chapters of pages they may open. Pictures from local demo data via
+  `scripts/guide_shots.py`. Telegram, telephony, company requisites and Claude tokens are left out (real data).
+  Why: staff learned the system only by asking colleagues.
 - `simplify-sidebar`: sidebar groups fold (one open at a time, the current page's group opens by itself);
   Sozlamalar and Tizim moved behind one "Sozlamalar" item that opens a page of cards. ~12 lines instead of ~40.
   Why: the menu was too long to scan.

@@ -72,6 +72,7 @@ const ServiceMastersListPage = lazy(() => import("@/modules/maintenance/MastersL
 const ServiceMasterFormPage = lazy(() => import("@/modules/maintenance/MasterFormPage").then((m) => ({ default: m.MasterFormPage })));
 const ConstructionEditorPage = lazy(() => import("@/modules/konstruktor/ConstructionEditorPage").then((m) => ({ default: m.ConstructionEditorPage })));
 const CutPlanPage = lazy(() => import("@/modules/konstruktor/CutPlanPage").then((m) => ({ default: m.CutPlanPage })));
+const GuidePage = lazy(() => import("@/modules/guide/GuidePage").then((m) => ({ default: m.GuidePage })));
 const SettingsHomePage = lazy(() => import("@/modules/settings/SettingsHomePage").then((m) => ({ default: m.SettingsHomePage })));
 const ProfileSystemsListPage = lazy(() => import("@/modules/konstruktor/ProfileSystemsListPage").then((m) => ({ default: m.ProfileSystemsListPage })));
 const ProfileSystemFormPage = lazy(() => import("@/modules/konstruktor/ProfileSystemFormPage").then((m) => ({ default: m.ProfileSystemFormPage })));
@@ -162,6 +163,7 @@ export function App() {
         <Route path="settings/pricing" element={<RequirePage page="pricing"><PriceListsPage /></RequirePage>} />
         <Route path="settings/pricing/:id" element={<RequirePage page="pricing"><PriceListFormPage /></RequirePage>} />
         <Route path="settings" element={<Later><SettingsHomePage /></Later>} />
+        <Route path="guide" element={<Later><GuidePage /></Later>} />
         <Route path="settings/profile-systems" element={<RequirePage page="profile_systems"><Later><ProfileSystemsListPage /></Later></RequirePage>} />
         <Route path="settings/profile-systems/:id" element={<RequirePage page="profile_systems"><Later><ProfileSystemFormPage /></Later></RequirePage>} />
         <Route path="settings/company" element={<RequirePage page="company"><CompanyPage /></RequirePage>} />
