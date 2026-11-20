@@ -2,6 +2,11 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-11-20
+- `simplify-sidebar`: sidebar groups fold (one open at a time, the current page's group opens by itself);
+  Sozlamalar and Tizim moved behind one "Sozlamalar" item that opens a page of cards. ~12 lines instead of ~40.
+  Why: the menu was too long to scan.
+
 ## 2026-11-11
 - `add-window-constructor`:
   - Konstruktor: a Loyiha's windows, doors and balcony blocks are drawn in the browser (templates, outer size,

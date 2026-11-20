@@ -1,169 +1,29 @@
 // App frame in uzbridge's layout: a 236px sidebar (sticky), a translucent top bar, the page.
 import {
-  ArrowDownUp,
-  ArrowLeftRight,
-  Boxes,
-  Package,
-  Warehouse,
-  Building,
-  ChevronRight,
-  Building2,
-  BookOpen,
-  NotebookText,
   ChevronDown,
-  FileSpreadsheet,
-  Factory,
-  FileText,
-  HardHat,
+  ChevronRight,
   LayoutDashboard,
-  Layers,
   LogOut,
-  MapPinned,
   Monitor,
-  PackageCheck,
-  ClipboardList,
-  HandCoins,
-  ListOrdered,
-  Truck,
   Moon,
   Plus,
-  ListChecks,
-  ListTree,
-  Receipt,
-  Tags,
-  PhoneCall,
-  Send,
-  SquareKanban,
-  ShieldCheck,
-  ShoppingCart,
+  Settings,
   Sun,
   UserRound,
-  Users,
-  UsersRound,
-  Wallet,
-  Wrench,
-  Bot,
-  BookMarked,
-  Lightbulb,
-  Frame,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 
-import { useAuth, type PageKey } from "@/auth/AuthProvider";
+import { useAuth } from "@/auth/AuthProvider";
 import { useLiveSocket } from "@/lib/live";
 import { resetTrail, useTrail, visit } from "@/lib/trail";
 import { useTheme, type Theme } from "@/lib/theme";
-import { PAGE_MASTERS, PAGE_REQUESTS } from "@/modules/maintenance/labels";
 import { TelephonyLive } from "@/modules/telephony/TelephonyLive";
 
 import { BrandLogo } from "./Brand";
+import { activeItem, hasChildItem, isSettingsPath, NAV, pageLabel, SETTINGS_NAV, type NavGroup } from "./nav";
 import { Menu } from "./ui";
-
-type NavItem = { page: PageKey; label: string; to: string; icon: LucideIcon; planned?: boolean };
-type NavGroup = { title: string; items: NavItem[] };
-
-// Same page keys as backend apps/access/registry.py
-const NAV: NavGroup[] = [
-  {
-    title: "Savdo",
-    items: [
-      { page: "projects", label: "Loyihalar", to: "/projects", icon: FileText },
-      { page: "clients", label: "Mijozlar", to: "/clients", icon: Building2 },
-    ],
-  },
-  {
-    title: "CRM",
-    items: [
-      { page: "crm", label: "Voronka", to: "/crm", icon: SquareKanban },
-      { page: "client_map", label: "Mijozlar xaritasi", to: "/crm/map", icon: MapPinned },
-      { page: "telephony", label: "Qo'ng'iroqlar", to: "/telephony", icon: PhoneCall },
-      { page: "telegram", label: "Telegram", to: "/telegram", icon: Send },
-    ],
-  },
-  {
-    title: "Servis",
-    items: [
-      { page: PAGE_REQUESTS, label: "Arizalar", to: "/service", icon: Wrench },
-      { page: PAGE_MASTERS, label: "Ustalar", to: "/service/masters", icon: HardHat },
-    ],
-  },
-  {
-    title: "Ta'minot",
-    items: [
-      { page: "procurement", label: "Xarid so'rovlari", to: "/procurement/requests", icon: ClipboardList },
-      { page: "purchase_orders", label: "Buyurtmalar", to: "/procurement/orders", icon: ShoppingCart },
-      { page: "goods_receipts", label: "Kirim", to: "/procurement/receipts", icon: PackageCheck },
-      { page: "suppliers", label: "Yetkazib beruvchilar", to: "/procurement/suppliers", icon: Truck },
-    ],
-  },
-  {
-    title: "Ishlab chiqarish",
-    items: [
-      { page: "bom", label: "Tarkiblar (BOM)", to: "/mrp/boms", icon: Layers },
-      { page: "mrp", label: "MRP", to: "/mrp", icon: Factory },
-    ],
-  },
-  {
-    title: "Ombor",
-    items: [
-      { page: "inventory", label: "Ombor", to: "/inventory/moves", icon: ArrowDownUp },
-      { page: "stock", label: "Qoldiqlar", to: "/inventory/stock", icon: Boxes },
-      { page: "products", label: "Mahsulotlar", to: "/inventory/products", icon: Package },
-      { page: "warehouses", label: "Omborlar", to: "/inventory/warehouses", icon: Warehouse },
-    ],
-  },
-  {
-    title: "Moliya",
-    items: [
-      { page: "kassa", label: "Kassa va bank", to: "/kassa", icon: Wallet },
-      { page: "cash_orders", label: "Kirim / chiqim", to: "/kassa/orders", icon: ArrowLeftRight },
-      { page: "cash_book", label: "Kassa kitobi", to: "/kassa/book", icon: NotebookText },
-      { page: "payment_requests", label: "Pul so'rovlari", to: "/kassa/payment-requests", icon: HandCoins },
-    ],
-  },
-  {
-    title: "Buxgalteriya",
-    items: [
-      { page: "accounting", label: "Jurnal", to: "/accounting", icon: BookOpen },
-      { page: "invoices", label: "Hisob-fakturalar", to: "/accounting/invoices", icon: Receipt },
-      { page: "accounting_reports", label: "Hisobotlar", to: "/accounting/reports", icon: FileSpreadsheet },
-      { page: "accounts", label: "Hisoblar rejasi", to: "/accounting/accounts", icon: ListTree },
-    ],
-  },
-  { title: "Xodimlar", items: [{ page: "employees", label: "Xodimlar", to: "/employees", icon: UsersRound }] },
-  {
-    title: "Sozlamalar",
-    items: [
-      { page: "users", label: "Foydalanuvchilar", to: "/settings/users", icon: Users },
-      { page: "roles", label: "Rollar va ruxsatlar", to: "/settings/roles", icon: ShieldCheck },
-      { page: "references", label: "Ma'lumotnomalar", to: "/settings/references", icon: ListChecks },
-      { page: "pricing", label: "Narxlar", to: "/settings/pricing", icon: Tags },
-      { page: "profile_systems", label: "Profil tizimlari", to: "/settings/profile-systems", icon: Frame },
-      { page: "company", label: "Kompaniya", to: "/settings/company", icon: Building },
-      { page: "approval_steps", label: "Tasdiqlash bosqichlari", to: "/settings/approval-steps", icon: ListOrdered },
-    ],
-  },
-  {
-    title: "Tizim",
-    items: [
-      { page: "mcp", label: "Claude ulanish", to: "/system/claude", icon: Bot },
-      { page: "specs", label: "Spetsifikatsiyalar", to: "/system/specs", icon: BookMarked },
-      { page: "fix_ideas", label: "Takliflar", to: "/system/ideas", icon: Lightbulb },
-    ],
-  },
-];
-
-/** The crumb label of a page before it names itself: the sidebar item with the longest matching path. */
-function pageLabel(pathname: string): string {
-  if (pathname === "/") return "Bosh sahifa";
-  let best = { len: 0, label: "Sahifa" };
-  for (const g of NAV) for (const i of g.items) {
-    if ((pathname === i.to || pathname.startsWith(`${i.to}/`)) && i.to.length > best.len) best = { len: i.to.length, label: i.label };
-  }
-  return best.label;
-}
 
 /** Breadcrumbs across apps (lib/trail): shown once there is somewhere to go back to. */
 function TrailBar() {
@@ -185,10 +45,7 @@ function TrailBar() {
   );
 }
 
-/** /crm must not light up on /crm/map: an item whose path prefixes another item's matches exactly. */
-const hasChildItem = (to: string) => NAV.some((g) => g.items.some((i) => i.to !== to && i.to.startsWith(`${to}/`)));
-
-function Row({ to, icon: Icon, label, end }: { to: string; icon: LucideIcon; label: string; end?: boolean }) {
+function Row({ to, icon: Icon, label, end, active }: { to: string; icon: LucideIcon; label: string; end?: boolean; active?: boolean }) {
   return (
     <NavLink
       to={to}
@@ -196,18 +53,66 @@ function Row({ to, icon: Icon, label, end }: { to: string; icon: LucideIcon; lab
       onClick={resetTrail}
       className={({ isActive }) =>
         `group/item flex items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-[7px] text-[14px] transition-colors ${
-          isActive ? "bg-accent-soft font-semibold text-accent-ink" : "text-ink hover:bg-sunk"
+          isActive || active ? "bg-accent-soft font-semibold text-accent-ink" : "text-ink hover:bg-sunk"
         }`
       }
     >
       {({ isActive }) => (
         <>
-          <Icon className={`size-[18px] shrink-0 ${isActive ? "text-accent-ink" : "text-muted group-hover/item:text-ink"}`} strokeWidth={1.75} aria-hidden />
+          <Icon className={`size-[18px] shrink-0 ${isActive || active ? "text-accent-ink" : "text-muted group-hover/item:text-ink"}`} strokeWidth={1.75} aria-hidden />
           {label}
         </>
       )}
     </NavLink>
   );
+}
+
+/**
+ * One sidebar group: a folding line on desktop, its pages flat in the phone strip.
+ * A group with one page shows that page directly.
+ */
+function Group({ group, open, current, onToggle }: { group: NavGroup; open: boolean; current: boolean; onToggle: () => void }) {
+  if (group.items.length === 1) {
+    const n = group.items[0];
+    return <Row to={n.to} icon={n.icon} label={n.label} end={hasChildItem(n.to)} />;
+  }
+  const Icon = group.icon;
+  const id = `nav-${group.title}`;
+  return (
+    <div className="flex gap-0.5 md:flex-col">
+      <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={id}
+        className={`group/item hidden items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-[7px] text-left text-[14px] transition-colors hover:bg-sunk md:flex ${
+          current && !open ? "font-semibold text-accent-ink" : "text-ink"
+        }`}>
+        <Icon className={`size-[18px] shrink-0 ${current ? "text-accent-ink" : "text-muted group-hover/item:text-ink"}`} strokeWidth={1.75} aria-hidden />
+        <span className="flex-1">{group.title}</span>
+        <ChevronDown className={`size-4 shrink-0 text-faint transition-transform duration-200 motion-reduce:transition-none ${open ? "" : "-rotate-90"}`} strokeWidth={1.75} aria-hidden />
+      </button>
+      {/* desktop: folds by animating the grid row; phone: always shown in the strip */}
+      <div id={id} className={`md:grid md:transition-[grid-template-rows,visibility] md:duration-200 motion-reduce:transition-none ${
+        open ? "md:grid-rows-[1fr]" : "md:invisible md:grid-rows-[0fr]"}`}>
+        <div className="flex gap-0.5 md:ml-[19px] md:min-h-0 md:flex-col md:overflow-hidden md:border-l md:border-line md:pl-2">
+          {group.items.map((n) =>
+            n.planned ? (
+              <span key={n.to} title="Keyingi bosqichda" className="flex cursor-default items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-[7px] text-[14px] text-faint">
+                <n.icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
+                {n.label}
+                <span className="ml-auto rounded-full bg-sunk px-1.5 py-px text-2xs font-medium text-muted">tez orada</span>
+              </span>
+            ) : (
+              <Row key={n.to} to={n.to} icon={n.icon} label={n.label} end={hasChildItem(n.to)} />
+            ),
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The group holding the current page (sidebar groups only; settings pages have their own item). */
+function groupOf(pathname: string): string | null {
+  const item = activeItem(pathname);
+  return item ? NAV.find((g) => g.items.includes(item))?.title ?? null : null;
 }
 
 export function Logo({ tagline = false }: { tagline?: boolean }) {
@@ -281,6 +186,13 @@ export function Shell() {
     visit(pathname, search, pageLabel(pathname), navType === "REPLACE");
   }, [pathname, search, navType]);
   const groups = NAV.map((g) => ({ ...g, items: g.items.filter((i) => can(i.page)) })).filter((g) => g.items.length);
+  const hasSettings = SETTINGS_NAV.some((g) => g.items.some((i) => can(i.page)));
+  // one group open at a time; moving to another page opens that page's group
+  const current = groupOf(pathname);
+  const [open, setOpen] = useState<string | null>(current);
+  useEffect(() => {
+    if (current) setOpen(current);
+  }, [current]);
 
   return (
     <div className="min-h-full md:grid md:grid-cols-[236px_1fr]">
@@ -289,28 +201,13 @@ export function Shell() {
           <Logo />
           <p className="mt-1 hidden text-xs text-muted md:block">ERP · Akfa profil</p>
         </div>
-        <nav className="flex gap-1 text-sm md:flex-col md:gap-5">
-          {can("dashboard") && (
-            <div className="flex md:flex-col"><Row to="/" end icon={LayoutDashboard} label="Bosh sahifa" /></div>
-          )}
+        <nav className="flex gap-0.5 text-sm md:flex-col">
+          {can("dashboard") && <Row to="/" end icon={LayoutDashboard} label="Bosh sahifa" />}
           {groups.map((g) => (
-            <div key={g.title} className="flex gap-1 md:flex-col">
-              <p className="t-label hidden px-2.5 pb-1 md:block">{g.title}</p>
-              <div className="flex gap-0.5 md:flex-col">
-                {g.items.map((n) =>
-                  n.planned ? (
-                    <span key={n.to} title="Keyingi bosqichda" className="flex cursor-default items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-[7px] text-[14px] text-faint">
-                      <n.icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
-                      {n.label}
-                      <span className="ml-auto rounded-full bg-sunk px-1.5 py-px text-2xs font-medium text-muted">tez orada</span>
-                    </span>
-                  ) : (
-                    <Row key={n.to} to={n.to} icon={n.icon} label={n.label} end={hasChildItem(n.to)} />
-                  ),
-                )}
-              </div>
-            </div>
+            <Group key={g.title} group={g} open={open === g.title} current={current === g.title}
+              onToggle={() => setOpen((o) => (o === g.title ? null : g.title))} />
           ))}
+          {hasSettings && <Row to="/settings" icon={Settings} label="Sozlamalar" active={isSettingsPath(pathname)} />}
         </nav>
         <div className="hidden md:mt-auto md:flex md:px-2">
           <ThemeSwitch />
