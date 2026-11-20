@@ -19,6 +19,20 @@ _ADVANCE_SOURCE: list[Callable[[object], dict | None]] = []
 STATUS_LISTENERS: list[Callable[..., None]] = []
 
 
+# fn(project) -> bool: True when the Loyiha's items are derived from another app's records (konstruktor) and
+# must not be typed; projects then refuses a changed `items` list
+ITEMS_SOURCES: list[Callable[[object], bool]] = []
+
+
+def register_items_source(fn: Callable[[object], bool]) -> None:
+    if fn not in ITEMS_SOURCES:
+        ITEMS_SOURCES.append(fn)
+
+
+def items_derived(project) -> bool:
+    return any(fn(project) for fn in ITEMS_SOURCES)
+
+
 def register_status_listener(fn: Callable[..., None]) -> None:
     if fn not in STATUS_LISTENERS:
         STATUS_LISTENERS.append(fn)

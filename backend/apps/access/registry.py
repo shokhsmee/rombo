@@ -37,6 +37,8 @@ class Pages:
     DASHBOARD = "dashboard"
     PROJECTS = "projects"
     CLIENTS = "clients"
+    CONSTRUCTIONS = "constructions"  # window constructor: drawings of a Loyiha
+    PROFILE_SYSTEMS = "profile_systems"
     CRM = "crm"
     TELEPHONY = "telephony"
     TELEGRAM = "telegram"
@@ -79,6 +81,7 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.DASHBOARD, "Bosh sahifa", "Umumiy", VIEW_ONLY),
     PageDef(Pages.PROJECTS, "Loyihalar", "Savdo"),
     PageDef(Pages.CLIENTS, "Mijozlar", "Savdo"),
+    PageDef(Pages.CONSTRUCTIONS, "Konstruksiyalar (chizma)", "Savdo"),
     PageDef(Pages.CRM, "Lidlar / voronka", "CRM"),
     PageDef(Pages.TELEPHONY, "Telefoniya", "CRM"),
     PageDef(Pages.TELEGRAM, "Telegram", "CRM"),
@@ -110,6 +113,7 @@ PAGES: tuple[PageDef, ...] = (
     PageDef(Pages.ROLES, "Rollar va ruxsatlar", "Sozlamalar"),
     PageDef(Pages.REFERENCES, "Ma'lumotnomalar", "Sozlamalar"),
     PageDef(Pages.PRICING, "Narxlar", "Sozlamalar"),
+    PageDef(Pages.PROFILE_SYSTEMS, "Profil tizimlari", "Sozlamalar"),
     PageDef(Pages.COMPANY, "Kompaniya rekvizitlari", "Sozlamalar", (Action.VIEW, Action.UPDATE)),
     PageDef(Pages.APPROVAL_STEPS, "Tasdiqlash bosqichlari", "Sozlamalar"),
     PageDef(Pages.MCP, "Claude (MCP) ulanish", "Tizim", (Action.VIEW, Action.CREATE, Action.DELETE)),

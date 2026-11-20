@@ -77,10 +77,12 @@ export type Project = ProjectListItem & {
   procurement?: { requests: number; orders: number; received_pct: number };
   /** inventory block (add-inventory): posted moves, issued / output / delivered amounts, work in progress */
   stock?: { moves: number; issued: string; output: string; delivered: string; wip: string | null };
+  /** konstruktor block (add-window-constructor): with constructions the items are derived from them */
+  constructions?: { count: number };
 };
 
 export type CalcSummary = { id: number; title: string; currency: Currency; calc_date: string; total: string };
-export type CalcLine = { id: number; item_id: number | null; name: string; unit: string; price: string; qty: string; line_sum: string };
+export type CalcLine = { id: number; item_id: number | null; name: string; unit: string; price: string; qty: string; line_sum: string; source?: "manual" | "chizma" };
 export type Calc = CalcSummary & { price_list_id: number | null; bar_length_m: string | null; notes: string; lines: CalcLine[]; updated_at: string };
 
 export type ProjectInput = Partial<{

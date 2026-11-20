@@ -14,6 +14,7 @@ import { useInvoiceFromProject, useInvoicesOf } from "@/modules/accounting/api";
 import { clientsApi, type Client } from "@/modules/clients/api";
 import { QuickCreateClient } from "@/modules/clients/QuickCreateClient";
 import { useOrdersOf } from "@/modules/kassa/api";
+import { ConstructionsPanel } from "@/modules/konstruktor/ConstructionsPanel";
 import { MaterialsPanel } from "@/modules/mrp/MaterialsPanel";
 import { ProductionDialog, type Step } from "@/modules/mrp/ProductionDialogs";
 import { pricingApi } from "@/modules/pricing/api";
@@ -88,6 +89,7 @@ export function ProjectFormPage() {
   const canBom = useCan("bom");
   const canMrp = useCan("mrp");
   const canMaterials = canBom.view || canMrp.view;
+  const canConstructions = useCan("constructions");
   const [step, setStep] = useState<Step | null>(null);
   const canClients = useCan("clients");
   const detail = projectsApi.useDetail(isNew ? undefined : id);
@@ -284,14 +286,21 @@ export function ProjectFormPage() {
               </Row>
             </FieldGrid>
 
+            {p && canConstructions.view && (
+              <FieldGrid title="Chizmalar — konstruktor">
+                <div className="lg:col-span-2"><ConstructionsPanel projectId={p.id} locked={prodLocked} canEditCalc={can.update} /></div>
+              </FieldGrid>
+            )}
+
             <FieldGrid title="Mahsulot">
               <Row label="Brend">
                 <RefSelect kind="brand" value={v.brand_id} disabled={prodLocked} onChange={(x) => form.set("brand_id", x)} />
               </Row>
               <Row label="Mahsulot nomi"><Input {...form.text("product_name")} disabled={prodLocked} /></Row>
               <Row label="Buyurtma turi" wide>
-                <ItemsEditor rows={v.items} disabled={!canEdit || prodLocked} error={form.errors.items}
+                <ItemsEditor rows={v.items} disabled={!canEdit || prodLocked || !!p?.constructions?.count} error={form.errors.items}
                   onChange={(rows) => form.set("items", rows)} />
+                {!!p?.constructions?.count && <span className="text-xs text-muted">Konstruksiyalardan olinadi — o'lcham va sonini chizmada o'zgartiring.</span>}
               </Row>
               <Row label="Profil rangi"><Input placeholder="306 G + Aluksantracit" disabled={prodLocked} {...form.text("profile_color")} /></Row>
               <Row label="Oyna turi va rangi"><Input placeholder="Pepelniy steklopaket" disabled={prodLocked} {...form.text("glass")} /></Row>

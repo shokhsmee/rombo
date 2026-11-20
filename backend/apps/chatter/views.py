@@ -18,6 +18,8 @@ CHATTER_PAGES = {
     "users.user": Pages.USERS,
     "access.role": Pages.ROLES,
     "pricing.pricelist": Pages.PRICING,
+    "konstruktor.profilesystem": Pages.PROFILE_SYSTEMS,
+    "konstruktor.construction": Pages.CONSTRUCTIONS,
     "procurement.purchaserequest": Pages.PROCUREMENT,
     "procurement.purchaseorder": Pages.PURCHASE_ORDERS,
     "procurement.goodsreceipt": Pages.GOODS_RECEIPTS,

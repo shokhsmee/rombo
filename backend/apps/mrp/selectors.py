@@ -104,7 +104,32 @@ def item_rows(project) -> list[dict]:
     return rows
 
 
+def construction_need(project) -> dict[int, Decimal] | None:
+    """A Loyiha drawn in the constructor needs exactly what its constructions need (add-window-constructor):
+    per price-list item, the product linked to it, in its stock unit (2 bars of 6.5 m kept in m = 13 m).
+    None when the Loyiha has no constructions (then BOM explosion applies)."""
+    from apps.core.exceptions import DomainError
+    from apps.konstruktor import services as konstruktor
+
+    if not project.constructions.filter(deleted_at__isnull=True).exists():
+        return None
+    try:
+        lines = konstruktor.project_summary(project)["lines"]
+    except DomainError:
+        return {}
+    products = {p.price_item_id: p for p in Product.objects.filter(price_item_id__in=[ln["item_id"] for ln in lines])}
+    out: dict[int, Decimal] = defaultdict(lambda: ZERO)
+    for ln in lines:
+        p = products.get(ln["item_id"])
+        if p is not None:
+            out[p.pk] += in_stock_units(p, Decimal(ln["qty"]), ln["unit"])
+    return {pid: q3(q) for pid, q in out.items() if q > 0}
+
+
 def live_need(project) -> dict[int, Decimal]:
+    drawn = construction_need(project)
+    if drawn is not None:
+        return drawn
     out: dict[int, Decimal] = defaultdict(lambda: ZERO)
     for r in item_rows(project):
         if r["product"] is not None:

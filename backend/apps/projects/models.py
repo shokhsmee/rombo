@@ -211,6 +211,10 @@ class ProjectCalcLine(models.Model):
     price = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0"))])
     qty = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"),
                               validators=[MinValueValidator(Decimal("0"))])
+    # "chizma": the quantity came from the Loyiha's constructions (add-window-constructor) and is refilled;
+    # "manual": typed by sales, never overwritten by a refill
+    source = models.CharField(max_length=10, choices=[("manual", "Qo'lda"), ("chizma", "Chizmadan")],
+                              default="manual")
 
     class Meta:
         ordering = ["sort_order", "id"]

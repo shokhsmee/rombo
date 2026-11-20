@@ -46,6 +46,12 @@ def _set_items(project: Project, items: list[dict], *, actor) -> None:
          changes=[{"field": "items", "label": "Buyumlar", "old": _lines_text(before), "new": _lines_text(after)}])
 
 
+def items_replace(project: Project, *, actor, items: list[dict]) -> None:
+    """Items derived by another app (konstruktor): replaced as a whole, written to chatter when they change.
+    The caller checks the lock (its own records lock with the production fields)."""
+    _set_items(project, items, actor=actor)
+
+
 # ------------------------------------------------------------------ project
 
 
@@ -101,6 +107,11 @@ def project_update(project: Project, *, actor, items: list[dict] | None = None, 
     if extensions.derived_advance(project) is not None:
         fields.pop("advance_amount", None)  # derived from posted kassa payments; see recompute_advance
         fields.pop("advance_date", None)
+    if items is not None and extensions.items_derived(project):
+        if _lines_key(project.items.all()) != _lines_key(items):
+            raise Conflict("Buyumlar konstruksiyalardan olinadi — o'lcham va sonini chizmada o'zgartiring",
+                           field="items")
+        items = None
     if project.status not in EDITABLE_STATUSES:
         locked = _locked_changes(project, fields, items)
         if locked:
@@ -270,8 +281,10 @@ def calc_update(calc, *, actor, lines: list[dict] | None = None, **fields):
                 raise ValidationFailed("Hisob-kitobda bunday qator yo'q", field="lines")
             new_qty, new_price = row.get("qty", ln.qty), row.get("price", ln.price)
             if (new_qty, new_price) != (ln.qty, ln.price):
+                if new_qty != ln.qty:
+                    ln.source = "manual"  # typed over a drawing quantity: a refill keeps it
                 ln.qty, ln.price = new_qty, new_price
-                ln.save(update_fields=["qty", "price"])
+                ln.save(update_fields=["qty", "price", "source"])
     calc = type(calc).objects.prefetch_related("lines").get(pk=calc.pk)
     _calc_total_change(project, calc, before, actor=actor)
     recompute_amount(project)
@@ -292,6 +305,44 @@ def calc_refresh_prices(calc, *, actor):
             changed += 1
     calc = type(calc).objects.prefetch_related("lines").get(pk=calc.pk)
     event(project, f"Hisob-kitob narxlari yangilandi ({calc.title}): {changed} qator", actor=actor)
+    _calc_total_change(project, calc, before, actor=actor)
+    recompute_amount(project)
+    return calc
+
+
+@transaction.atomic
+def calc_fill(calc, *, actor, quantities: dict, label: str = "chizmadan"):
+    """Set quantities by price-list item (add-window-constructor): lines of those items get the quantity and
+    source "chizma"; earlier "chizma" lines no longer needed go to 0; "manual" lines are kept; an item the calc
+    has no line for gets a new line from the price list. `quantities` = {PriceListItem: Decimal}."""
+    from apps.projects.models import ProjectCalcLine
+
+    project = calc.project
+    _check_calc_editable(project)
+    before = calc.total
+    by_item = {ln.item_id: ln for ln in calc.lines.all() if ln.item_id}
+    wanted = {it.pk: (it, Decimal(q).quantize(Decimal("0.01"))) for it, q in quantities.items()}
+    changed = added = 0
+    for item_id, (item, qty) in wanted.items():
+        ln = by_item.get(item_id)
+        if ln is None:
+            ProjectCalcLine.objects.create(calc=calc, item=item, sort_order=item.sort_order, name=item.name,
+                                           unit=item.unit, price=item.price, qty=qty, source="chizma")
+            added += 1
+        elif ln.source == "manual" and ln.qty and ln.qty != qty:
+            continue  # sales typed this one on purpose
+        elif (ln.qty, ln.source) != (qty, "chizma"):
+            ln.qty, ln.source = qty, "chizma"
+            ln.save(update_fields=["qty", "source"])
+            changed += 1
+    for item_id, ln in by_item.items():
+        if item_id not in wanted and ln.source == "chizma" and ln.qty:
+            ln.qty = Decimal("0")
+            ln.save(update_fields=["qty"])
+            changed += 1
+    calc = type(calc).objects.prefetch_related("lines").get(pk=calc.pk)
+    event(project, f"Hisob-kitob {label} to'ldirildi ({calc.title}): {changed} qator o'zgardi"
+          + (f", {added} ta qo'shildi" if added else ""), actor=actor)
     _calc_total_change(project, calc, before, actor=actor)
     recompute_amount(project)
     return calc

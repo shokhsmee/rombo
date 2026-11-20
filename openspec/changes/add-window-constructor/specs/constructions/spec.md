@@ -3,8 +3,10 @@
 ### Requirement: Profile system
 A profile system SHALL have a unique name, a price list, bar length (mm), kerf (mm, default 5), end trim (mm),
 frame / sash / mullion widths, weld, mullion and sash allowances, glass and bead deductions, waste % for
-metre items (default 3), active flag, and items mapping a role to a price-list item of its price list with a
-quantity rule (`bars | m | m2 | pcs | per_m2 | per_sash`). A role appears once per system. Page `profile_systems`.
+metre items (default 3), default glass, "not yet confirmed by the workshop" flag, active flag, and items mapping
+a role to a price-list item of its price list with a factor and "round up". Profile roles (frame, sash, door
+sash, mullion, bead) map to one item each and count bars after cutting; other roles count m / m² / pcs × factor.
+One item may serve several roles and one role several items (door → lock and 3 hinges). Page `profile_systems`.
 
 #### Scenario: Item from another price list
 - WHEN a system on "Rombo Termo 306J 65 seriya" maps role `frame` to an item of another price list
@@ -17,13 +19,13 @@ quantity rule (`bars | m | m2 | pcs | per_m2 | per_sash`). A role appears once p
 ### Requirement: Construction
 A Loyiha SHALL have constructions with code `KS-NNNNN`, name, profile system, product type, count ≥ 1 and a
 design: outer width and height (mm, 300–6000) and a tree of cells, where a cell is a leaf (fill `glass | panel |
-lambri`, optional sash `fixed | turn | tilt | tilt_turn | door` with hinge side) or a split (`v | h`) with
-mullion positions strictly inside it, leaving every cell ≥ 150 mm. Constructions lock with the Loyiha's
+lambri`, optional glass price-list item, optional sash `turn | tilt | tilt_turn | door` with hinge side) or a
+split (`v | h`) whose part sizes add up to the cell's span, leaving every cell ≥ 150 mm. Constructions lock with the Loyiha's
 production fields. Changes are written to chatter.
 
-#### Scenario: Mullion outside the frame
-- WHEN a 1200 mm wide construction has a vertical mullion at 1250
-- THEN 400 "Impost rom tashqarisida"
+#### Scenario: Impost outside the frame
+- WHEN a 1200 mm wide construction is split into parts 1250 and −50
+- THEN 400 on `design.root.cells.1` "Katak juda kichik"
 
 #### Scenario: Locked Loyiha
 - WHEN a construction of a Loyiha in `production` is edited by a user without the unlock right

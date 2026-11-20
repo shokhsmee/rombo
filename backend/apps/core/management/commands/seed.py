@@ -14,6 +14,7 @@ MCP = dict(can_view=True, can_create=True, can_delete=True)
 DEFAULT_ROLES = {
     "Administrator": ("Barcha sahifalarga to'liq ruxsat", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: FULL, Pages.CLIENTS: FULL, Pages.CLIENT_MAP: VIEW,
+        Pages.CONSTRUCTIONS: FULL, Pages.PROFILE_SYSTEMS: FULL,
         Pages.EMPLOYEES: FULL, Pages.USERS: FULL, Pages.ROLES: FULL, Pages.REFERENCES: FULL, Pages.PRICING: FULL,
         Pages.COMPANY: dict(can_view=True, can_update=True), Pages.PROCUREMENT: FULL, Pages.MRP: FULL,
         Pages.PURCHASE_APPROVE: dict(can_view=True, can_update=True), Pages.PURCHASE_ORDERS: FULL,
@@ -41,6 +42,7 @@ DEFAULT_ROLES = {
     }),
     "Savdo menejeri": ("Loyiha va mijozlar bilan ishlaydi", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: EDIT, Pages.CLIENTS: EDIT, Pages.CLIENT_MAP: VIEW,
+        Pages.CONSTRUCTIONS: FULL, Pages.PROFILE_SYSTEMS: VIEW,
         Pages.EMPLOYEES: VIEW, Pages.PRICING: VIEW, Pages.CRM: EDIT, Pages.TELEPHONY: VIEW, Pages.TELEGRAM: VIEW,
     }),
     "Ta'minotchi": ("Xaridlar bo'limi", {
@@ -48,6 +50,7 @@ DEFAULT_ROLES = {
         Pages.GOODS_RECEIPTS: EDIT, Pages.SUPPLIERS: EDIT,
         Pages.PAYMENT_REQUESTS: dict(can_view=True, can_create=True),
         Pages.INVENTORY: VIEW, Pages.STOCK: VIEW, Pages.PRODUCTS: EDIT, Pages.MRP: VIEW, Pages.BOM: VIEW,
+        Pages.CONSTRUCTIONS: VIEW,
     }),
     "Servis operatori": ("Servis arizalari va ustalar", {
         Pages.DASHBOARD: VIEW, Pages.PROJECTS: VIEW, Pages.CLIENTS: EDIT, Pages.EMPLOYEES: VIEW,

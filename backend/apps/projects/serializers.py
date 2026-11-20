@@ -45,7 +45,8 @@ class CalcLineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProjectCalcLine
-        fields = ["id", "item_id", "name", "unit", "price", "qty", "line_sum"]
+        fields = ["id", "item_id", "name", "unit", "price", "qty", "line_sum", "source"]
+        read_only_fields = ["source"]
 
 
 class CalcSummarySerializer(serializers.ModelSerializer):

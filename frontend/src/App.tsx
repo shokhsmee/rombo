@@ -70,6 +70,10 @@ const ServiceRequestsListPage = lazy(() => import("@/modules/maintenance/Request
 const ServiceRequestFormPage = lazy(() => import("@/modules/maintenance/RequestFormPage").then((m) => ({ default: m.RequestFormPage })));
 const ServiceMastersListPage = lazy(() => import("@/modules/maintenance/MastersListPage").then((m) => ({ default: m.MastersListPage })));
 const ServiceMasterFormPage = lazy(() => import("@/modules/maintenance/MasterFormPage").then((m) => ({ default: m.MasterFormPage })));
+const ConstructionEditorPage = lazy(() => import("@/modules/konstruktor/ConstructionEditorPage").then((m) => ({ default: m.ConstructionEditorPage })));
+const CutPlanPage = lazy(() => import("@/modules/konstruktor/CutPlanPage").then((m) => ({ default: m.CutPlanPage })));
+const ProfileSystemsListPage = lazy(() => import("@/modules/konstruktor/ProfileSystemsListPage").then((m) => ({ default: m.ProfileSystemsListPage })));
+const ProfileSystemFormPage = lazy(() => import("@/modules/konstruktor/ProfileSystemFormPage").then((m) => ({ default: m.ProfileSystemFormPage })));
 const McpPage = lazy(() => import("@/modules/mcp/McpPage").then((m) => ({ default: m.McpPage })));
 const SpecsPage = lazy(() => import("@/modules/specs/SpecsPage").then((m) => ({ default: m.SpecsPage })));
 const IdeasListPage = lazy(() => import("@/modules/specs/IdeasListPage").then((m) => ({ default: m.IdeasListPage })));
@@ -92,6 +96,8 @@ export function App() {
         <Route path="projects" element={<RequirePage page="projects"><ProjectsListPage /></RequirePage>} />
         <Route path="projects/:id" element={<RequirePage page="projects"><ProjectFormPage /></RequirePage>} />
         <Route path="projects/:id/calcs/:calcId" element={<RequirePage page="projects"><CalcPage /></RequirePage>} />
+        <Route path="projects/:id/constructions/:cid" element={<RequirePage page="constructions"><Later><ConstructionEditorPage /></Later></RequirePage>} />
+        <Route path="projects/:id/cut-plan" element={<RequirePage page="constructions"><Later><CutPlanPage /></Later></RequirePage>} />
 
         <Route path="clients" element={<RequirePage page="clients"><ClientsListPage /></RequirePage>} />
         <Route path="clients/:id" element={<RequirePage page="clients"><ClientFormPage /></RequirePage>} />
@@ -154,6 +160,8 @@ export function App() {
         <Route path="settings/references" element={<RequirePage page="references"><ReferencesPage /></RequirePage>} />
         <Route path="settings/pricing" element={<RequirePage page="pricing"><PriceListsPage /></RequirePage>} />
         <Route path="settings/pricing/:id" element={<RequirePage page="pricing"><PriceListFormPage /></RequirePage>} />
+        <Route path="settings/profile-systems" element={<RequirePage page="profile_systems"><Later><ProfileSystemsListPage /></Later></RequirePage>} />
+        <Route path="settings/profile-systems/:id" element={<RequirePage page="profile_systems"><Later><ProfileSystemFormPage /></Later></RequirePage>} />
         <Route path="settings/company" element={<RequirePage page="company"><CompanyPage /></RequirePage>} />
         <Route path="settings/approval-steps" element={<RequirePage page="approval_steps"><Later><ApprovalStepsPage /></Later></RequirePage>} />
         <Route path="system/claude" element={<RequirePage page="mcp"><Later><McpPage /></Later></RequirePage>} />

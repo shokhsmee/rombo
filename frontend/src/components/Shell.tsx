@@ -45,6 +45,7 @@ import {
   Bot,
   BookMarked,
   Lightbulb,
+  Frame,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -139,6 +140,7 @@ const NAV: NavGroup[] = [
       { page: "roles", label: "Rollar va ruxsatlar", to: "/settings/roles", icon: ShieldCheck },
       { page: "references", label: "Ma'lumotnomalar", to: "/settings/references", icon: ListChecks },
       { page: "pricing", label: "Narxlar", to: "/settings/pricing", icon: Tags },
+      { page: "profile_systems", label: "Profil tizimlari", to: "/settings/profile-systems", icon: Frame },
       { page: "company", label: "Kompaniya", to: "/settings/company", icon: Building },
       { page: "approval_steps", label: "Tasdiqlash bosqichlari", to: "/settings/approval-steps", icon: ListOrdered },
     ],

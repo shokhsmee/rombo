@@ -20,13 +20,14 @@ A construction is a JSON document (`schema: 1`), validated on save:
 
 ```
 { "w": 1200, "h": 1400,
-  "root": { "split": "v", "at": [600],          // mullion positions from the left, mm
-            "cells": [ { "fill": "glass", "glass": "pakt_pepel" },
+  "root": { "split": "v", "sizes": [600, 600],  // part widths to the impost centre, sum = parent span
+            "cells": [ { "fill": "glass", "glass": 17 },   // price-list item of the glass (else the default)
                        { "sash": { "type": "tilt_turn", "hinge": "left" }, "fill": "glass" } ] } }
 ```
 
-A cell is either a leaf (fill + optional sash) or a split (`v` / `h`, positions, child cells); a sash cell
-may be split again (sash with its own mullion). This always produces a valid frame; Romchi's free point/area
+A cell is either a leaf (fill + optional sash) or a split (`v` / `h`, part sizes, child cells). Sizes, not
+positions: sales thinks "650 + 650", and resizing one part moves only its neighbour. A sash is always a leaf
+(a sash with its own impost is a later change). This always produces a valid frame; Romchi's free point/area
 model needs snapping and repair logic we don't need for rectangular work.
 
 Rejected: *Romchi's points + areas model* — more freedom (diagonal shapes) than Rombo sells, much more

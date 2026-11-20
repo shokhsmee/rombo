@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.employees",
     "apps.clients",
     "apps.projects",
+    "apps.konstruktor",
     "apps.accounting",
     "apps.kassa",
     "apps.inventory",

@@ -2,6 +2,19 @@
 
 Newest first. Each entry: date · change-id (if any) · what · why (one line).
 
+## 2026-11-11
+- `add-window-constructor`:
+  - Konstruktor: a Loyiha's windows, doors and balcony blocks are drawn in the browser (templates, outer size,
+    imposts, glass / panel / lambri, turn, tilt-turn, fortochka, door) with sizes and opening marks on the drawing.
+  - Engine (Python, backend): cut lengths of frame, sash, impost and bead, glass sizes, rubber metres, hardware
+    counts; live price while drawing. Formulas reused from the Romchi 2.0 logic handed over by the Romchi team.
+  - Raskroy: all profiles of the Loyiha cut together onto 6.5 m bars (best fit, 5 mm saw) — bar count, plan per bar.
+  - "Hisob-kitobga o'tkazish" fills the calculation (lines marked "chizmadan"; typed lines are kept); Loyiha items
+    follow the constructions; MRP needs the exact materials of drawn Loyihas.
+  - Profil tizimlari (Sozlamalar): workshop rules as numbers plus the map to price-list lines; "Rombo Termo 65"
+    seeded and marked "sex tasdiqlamagan" until the workshop confirms it. ADR 0015 (proposed).
+  - Why: sales typed 15–40 quantities per Loyiha by hand from a drawing; mistakes went into price, purchasing and the workshop.
+
 ## 2026-11-10
 - `add-claude-mcp`:
   - Claude (MCP) endpoint `/api/v1/mcp/`: personal tokens (read / write, expiry, revoke), connect from claude.ai,

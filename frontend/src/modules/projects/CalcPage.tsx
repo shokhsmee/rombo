@@ -115,7 +115,10 @@ export function CalcPage() {
                 return (
                   <tr key={l.id} className={`border-b border-line last:border-0 ${sum ? "" : "text-muted"}`}>
                     <td className="px-3 text-xs tabular">{c.lines.indexOf(l) + 1}</td>
-                    <td className={`px-3 py-1.5 ${sum ? "font-medium text-ink" : ""}`}>{l.name}</td>
+                    <td className={`px-3 py-1.5 ${sum ? "font-medium text-ink" : ""}`}>
+                      {l.name}
+                      {l.source === "chizma" && Number(l.qty) > 0 && <span className="ml-2 rounded-full bg-info-soft px-2 py-0.5 text-2xs font-semibold text-info" title="Miqdor konstruksiyalardan olingan">chizmadan</span>}
+                    </td>
                     <td className="px-3 text-xs">{l.unit}</td>
                     <td className="px-2 py-1">
                       <Input inputMode="decimal" className="h-8 text-right tabular" disabled={!editable} value={d.qty}

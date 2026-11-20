@@ -11,7 +11,7 @@ export type PageKey =
   | "accounting" | "accounts" | "invoices" | "accounting_reports"
   | "kassa" | "cash_orders" | "cash_book" | "payment_requests" | "payment_approve" | "approval_steps"
   | "inventory" | "stock" | "products" | "warehouses" | "bom"
-  | "mcp" | "specs" | "fix_ideas";
+  | "mcp" | "specs" | "fix_ideas" | "constructions" | "profile_systems";
 export type PermAction = "view" | "create" | "update" | "delete";
 
 export type Me = {
